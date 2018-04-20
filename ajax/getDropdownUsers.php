@@ -94,14 +94,18 @@ if ($one_item < 0) {
    $result = $DB->query($query);
 }
 $users = [];
+$logins = [];
+$locations = [];
 
 // Count real items returned
 $count = 0;
 if ($DB->numrows($result)) {
+   $dbutils = new DbUtils();
    while ($data = $DB->fetch_assoc($result)) {
       $users[$data["id"]] = formatUserName($data["id"], $data["name"], $data["realname"],
                                            $data["firstname"]);
       $logins[$data["id"]] = $data["name"];
+      $locations[$data["id"]] = ($data["locations_id"] ? $dbutils->getTreeValueCompleteName("glpi_locations", $data["locations_id"]) : "(Sans lieu)");
    }
 }
 
@@ -133,7 +137,7 @@ if ($_POST['page'] == 1 && empty($_POST['searchText'])) {
 
 if (count($users)) {
    foreach ($users as $ID => $output) {
-      $title = sprintf(__('%1$s - %2$s'), $output, $logins[$ID]);
+      $title = sprintf(__('%1$s - %2$s - %3$s'), $output, $logins[$ID], $locations[$ID]);
 
       array_push($datas, ['id'    => $ID,
                                'text'  => $output,
