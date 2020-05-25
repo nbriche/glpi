@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -43,34 +39,34 @@ if (!defined('GLPI_ROOT')) {
 **/
 class DevicePci extends CommonDevice {
 
-   static protected $forward_entity_to = array('Item_DevicePci', 'Infocom');
+   static protected $forward_entity_to = ['Item_DevicePci', 'Infocom'];
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Other component', 'Other components', $nb);
    }
 
 
    /**
     * @see CommonDevice::getAdditionalFields()
-    * @since version 0.85
+    * @since 0.85
     */
    function getAdditionalFields() {
 
       return array_merge(parent::getAdditionalFields(),
-                         array(array('name'  => 'none',
+                         [['name'  => 'none',
                                      'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
                                         RegisteredID::showAddChildButtonForItemForm($this,
                                                                                     '_registeredID',
-                                                                                    NULL, false),
-                                     'type'  => 'registeredIDChooser'),
-                         array('name'  => 'devicenetworkcardmodels_id',
+                                                                                    null, false),
+                                     'type'  => 'registeredIDChooser'],
+                         ['name'  => 'devicepcimodels_id',
                                      'label' => __('Model'),
-                                     'type'  => 'dropdownValue')));
+                                     'type'  => 'dropdownValue']]);
    }
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
 
-      $tab                 = parent::getSearchOptionsNew();
+      $tab                 = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '17',
@@ -83,4 +79,26 @@ class DevicePci extends CommonDevice {
       return $tab;
    }
 
+   public static function rawSearchOptionsToAdd($itemtype, $main_joinparams) {
+      $tab = [];
+
+      $tab[] = [
+         'id'                 => '95',
+         'table'              => 'glpi_devicepcis',
+         'field'              => 'designation',
+         'name'               => __('Other component'),
+         'forcegroupby'       => true,
+         'usehaving'          => true,
+         'massiveaction'      => false,
+         'datatype'           => 'string',
+         'joinparams'         => [
+            'beforejoin'         => [
+               'table'              => 'glpi_items_devicepcis',
+               'joinparams'         => $main_joinparams
+            ]
+         ]
+      ];
+
+      return $tab;
+   }
 }

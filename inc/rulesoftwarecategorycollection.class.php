@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -66,6 +63,9 @@ class RuleSoftwareCategoryCollection extends RuleCollection {
       $params["name"] = $software["name"];
       if (isset($software["comment"])) {
          $params["comment"] = $software["comment"];
+      }
+      if (isset($software["_system_category"])) {
+         $params["_system_category"] = $software["_system_category"];
       }
 
       if (isset($software["manufacturers_id"])) {

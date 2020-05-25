@@ -2,7 +2,7 @@
 # /**
 #  * ---------------------------------------------------------------------
 #  * GLPI - Gestionnaire Libre de Parc Informatique
-#  * Copyright (C) 2015-2017 Teclib' and contributors.
+#  * Copyright (C) 2015-2018 Teclib' and contributors.
 #  *
 #  * http://glpi-project.org
 #  *
@@ -35,7 +35,8 @@ cd $(dirname $0)
 if which apigen &>/dev/null
 then
    version=$(php -r '
-      require __DIR__ . "/../inc/define.php";
+      define("GLPI_ROOT", __DIR__ . "/..");
+      require GLPI_ROOT . "/inc/define.php";
       echo GLPI_VERSION;
    ')
    apigen generate \

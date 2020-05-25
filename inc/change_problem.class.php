@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,16 +30,12 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 /**
- * @since version 0.84
+ * @since 0.84
  *
  * Change_Problem Class
  *
@@ -64,7 +60,7 @@ class Change_Problem extends CommonDBRelation{
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Link Problem/Change', 'Links Problem/Change', $nb);
    }
 
@@ -72,7 +68,7 @@ class Change_Problem extends CommonDBRelation{
    /**
     * @see CommonGLPI::getTabNameForItem()
    **/
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (static::canView()) {
          $nb = 0;
@@ -96,7 +92,7 @@ class Change_Problem extends CommonDBRelation{
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($item->getType()) {
          case 'Change' :
@@ -117,34 +113,45 @@ class Change_Problem extends CommonDBRelation{
     * @param $problem Problem object
    **/
    static function showForProblem(Problem $problem) {
-      global $DB, $CFG_GLPI;
+      global $DB;
 
       $ID = $problem->getField('id');
       if (!$problem->can($ID, READ)) {
          return false;
       }
 
-      $canedit       = $problem->canEdit($ID);
-      $rand          = mt_rand();
-      $showentities  = Session::isMultiEntitiesMode();
+      $canedit = $problem->canEdit($ID);
+      $rand    = mt_rand();
 
-      $query = "SELECT DISTINCT `glpi_changes_problems`.`id` AS linkID,
-                                `glpi_changes`.*
-                FROM `glpi_changes_problems`
-                LEFT JOIN `glpi_changes`
-                     ON (`glpi_changes_problems`.`changes_id` = `glpi_changes`.`id`)
-                WHERE `glpi_changes_problems`.`problems_id` = '$ID'
-                ORDER BY `glpi_changes`.`name`";
-      $result = $DB->query($query);
+      $iterator = $DB->request([
+         'SELECT' => [
+            'glpi_changes_problems.id AS linkid',
+            'glpi_changes.*'
+         ],
+         'DISTINCT'        => true,
+         'FROM'            => 'glpi_changes_problems',
+         'LEFT JOIN'       => [
+            'glpi_changes' => [
+               'ON' => [
+                  'glpi_changes_problems' => 'changes_id',
+                  'glpi_changes'          => 'id'
+               ]
+            ]
+         ],
+         'WHERE'           => [
+            'glpi_changes_problems.problems_id' => $ID
+         ],
+         'ORDERBY'         => 'glpi_changes.name'
+      ]);
 
-      $changes = array();
-      $used    = array();
-      if ($numrows = $DB->numrows($result)) {
-         while ($data = $DB->fetch_assoc($result)) {
-            $changes[$data['id']] = $data;
-            $used[$data['id']]    = $data['id'];
-         }
+      $changes = [];
+      $used    = [];
+      $numrows = count($iterator);
+      while ($data = $iterator->next()) {
+         $changes[$data['id']] = $data;
+         $used[$data['id']]    = $data['id'];
       }
+
       if ($canedit) {
          echo "<div class='firstbloc'>";
 
@@ -156,9 +163,9 @@ class Change_Problem extends CommonDBRelation{
 
          echo "<tr class='tab_bg_2'><td>";
          echo "<input type='hidden' name='problems_id' value='$ID'>";
-         Change::dropdown(array('used'        => $used,
+         Change::dropdown(['used'        => $used,
                                 'entity'      => $problem->getEntityID(),
-                                'entity_sons' => $problem->isRecursive()));
+                                'entity_sons' => $problem->isRecursive()]);
          echo "</td><td class='center'>";
          echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
          echo "</td><td>";
@@ -175,8 +182,8 @@ class Change_Problem extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $numrows,
-                                      'container'     => 'mass'.__CLASS__.$rand);
+         $massiveactionparams = ['num_displayed' => min($_SESSION['glpilist_limit'], $numrows),
+                                      'container'     => 'mass'.__CLASS__.$rand];
          Html::showMassiveActions($massiveactionparams);
       }
 
@@ -194,9 +201,9 @@ class Change_Problem extends CommonDBRelation{
          $i = 0;
          foreach ($changes as $data) {
             Session::addToNavigateListItems('Change', $data["id"]);
-            Change::showShort($data['id'], array('row_num'                => $i,
+            Change::showShort($data['id'], ['row_num'                => $i,
                                                  'type_for_massiveaction' => __CLASS__,
-                                                 'id_for_massiveaction'   => $data['linkID']));
+                                                 'id_for_massiveaction'   => $data['linkid']]);
             $i++;
          }
          Change::commonListHeader(Search::HTML_OUTPUT, 'mass'.__CLASS__.$rand);
@@ -219,33 +226,43 @@ class Change_Problem extends CommonDBRelation{
     * @param $change Change object
    **/
    static function showForChange(Change $change) {
-      global $DB, $CFG_GLPI;
+      global $DB;
 
       $ID = $change->getField('id');
       if (!$change->can($ID, READ)) {
          return false;
       }
 
-      $canedit      = $change->canEdit($ID);
-      $rand         = mt_rand();
-      $showentities = Session::isMultiEntitiesMode();
+      $canedit = $change->canEdit($ID);
+      $rand    = mt_rand();
 
-      $query = "SELECT DISTINCT `glpi_changes_problems`.`id` AS linkID,
-                                `glpi_problems`.*
-                FROM `glpi_changes_problems`
-                LEFT JOIN `glpi_problems`
-                     ON (`glpi_changes_problems`.`problems_id` = `glpi_problems`.`id`)
-                WHERE `glpi_changes_problems`.`changes_id` = '$ID'
-                ORDER BY `glpi_problems`.`name`";
-      $result = $DB->query($query);
+      $iterator = $DB->request([
+         'SELECT' => [
+            'glpi_changes_problems.id AS linkid',
+            'glpi_problems.*'
+         ],
+         'DISTINCT'        => true,
+         'FROM'            => 'glpi_changes_problems',
+         'LEFT JOIN'       => [
+            'glpi_problems' => [
+               'ON' => [
+                  'glpi_changes_problems' => 'problems_id',
+                  'glpi_problems'         => 'id'
+               ]
+            ]
+         ],
+         'WHERE'           => [
+            'glpi_changes_problems.changes_id' => $ID
+         ],
+         'ORDERBY'         => 'glpi_problems.name'
+      ]);
 
-      $problems = array();
-      $used     = array();
-      if ($numrows = $DB->numrows($result)) {
-         while ($data = $DB->fetch_assoc($result)) {
-            $problems[$data['id']] = $data;
-            $used[$data['id']]     = $data['id'];
-         }
+      $problems = [];
+      $used     = [];
+      $numrows = count($iterator);
+      while ($data = $iterator->next()) {
+         $problems[$data['id']] = $data;
+         $used[$data['id']]     = $data['id'];
       }
 
       if ($canedit) {
@@ -259,8 +276,8 @@ class Change_Problem extends CommonDBRelation{
 
          echo "<tr class='tab_bg_2'><td>";
          echo "<input type='hidden' name='changes_id' value='$ID'>";
-         Problem::dropdown(array('used'   => $used,
-                                 'entity' => $change->getEntityID()));
+         Problem::dropdown(['used'   => $used,
+                                 'entity' => $change->getEntityID()]);
          echo "</td><td class='center'>";
          echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
          echo "</td></tr></table>";
@@ -271,8 +288,8 @@ class Change_Problem extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $numrows,
-                                      'container'     => 'mass'.__CLASS__.$rand);
+         $massiveactionparams = ['num_displayed' => min($_SESSION['glpilist_limit'], $numrows),
+                                      'container'     => 'mass'.__CLASS__.$rand];
          Html::showMassiveActions($massiveactionparams);
       }
 
@@ -290,9 +307,9 @@ class Change_Problem extends CommonDBRelation{
          $i = 0;
          foreach ($problems as $data) {
             Session::addToNavigateListItems('Problem', $data["id"]);
-            Problem::showShort($data['id'], array('row_num'               => $i,
+            Problem::showShort($data['id'], ['row_num'               => $i,
                                                  'type_for_massiveaction' => __CLASS__,
-                                                 'id_for_massiveaction'   => $data['linkID']));
+                                                 'id_for_massiveaction'   => $data['linkid']]);
             $i++;
          }
          Problem::commonListHeader(Search::HTML_OUTPUT, 'mass'.__CLASS__.$rand);

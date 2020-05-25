@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -45,7 +41,7 @@ class Link_Itemtype extends CommonDBChild {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
    **/
    function getForbiddenStandardMassiveAction() {
 
@@ -75,18 +71,17 @@ class Link_Itemtype extends CommonDBChild {
          return false;
       }
 
-      $query = "SELECT *
-                FROM `glpi_links_itemtypes`
-                WHERE `links_id` = '$links_id'
-                ORDER BY `itemtype`";
-      $result = $DB->query($query);
-      $types  = array();
-      $used   = array();
-      if ($numrows = $DB->numrows($result)) {
-         while ($data = $DB->fetch_assoc($result)) {
-            $types[$data['id']]      = $data;
-            $used[$data['itemtype']] = $data['itemtype'];
-         }
+      $iterator = $DB->request([
+         'FROM'   => 'glpi_links_itemtypes',
+         'WHERE'  => ['links_id' => $links_id],
+         'ORDER'  => 'itemtype'
+      ]);
+      $types  = [];
+      $used   = [];
+      $numrows = count($iterator);
+      while ($data = $iterator->next()) {
+         $types[$data['id']]      = $data;
+         $used[$data['itemtype']] = $data['itemtype'];
       }
 
       if ($canedit) {
@@ -99,7 +94,7 @@ class Link_Itemtype extends CommonDBChild {
 
          echo "<tr class='tab_bg_2'><td class='right'>";
          echo "<input type='hidden' name='links_id' value='$links_id'>";
-         Dropdown::showItemTypes('itemtype', $CFG_GLPI["link_types"], array('used' => $used));
+         Dropdown::showItemTypes('itemtype', $CFG_GLPI["link_types"], ['used' => $used]);
          echo "</td><td class='center'>";
          echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
          echo "</td></tr>";
@@ -112,8 +107,8 @@ class Link_Itemtype extends CommonDBChild {
       echo "<div class='spaced'>";
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'  => $numrows,
-                                      'container'      => 'mass'.__CLASS__.$rand);
+         $massiveactionparams = ['num_displayed'  => min($_SESSION['glpilist_limit'], $numrows),
+                                      'container'      => 'mass'.__CLASS__.$rand];
          Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixe'>";
@@ -156,7 +151,7 @@ class Link_Itemtype extends CommonDBChild {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate) {
          $nb = 0;
@@ -174,7 +169,7 @@ class Link_Itemtype extends CommonDBChild {
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       if ($item->getType() == 'Link') {
          self::showForLink($item);
@@ -187,17 +182,19 @@ class Link_Itemtype extends CommonDBChild {
     *
     * Remove all associations for an itemtype
     *
-    * @since version 0.85
+    * @since 0.85
     *
     * @param $itemtype itemtype for which all link associations must be removed
     */
    static function deleteForItemtype($itemtype) {
       global $DB;
 
-      $query = "DELETE
-                FROM `".self::getTable()."`
-                WHERE `itemtype` LIKE '%Plugin$itemtype%'";
-      $DB->query($query);
+      $DB->delete(
+         self::getTable(), [
+            'itemtype'  => ['LIKE', "%Plugin$itemtype%"]
+         ]
+      );
    }
 
 }
+

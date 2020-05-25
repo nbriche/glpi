@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -56,7 +52,7 @@ if (isset($_POST["add"])) {
                   //TRANS: %1$s is the user login, %2$s is the name of the item to add
                   sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($budget->getFormURL()."?id=".$newID);
+         Html::redirect($budget->getLinkURL());
       }
    }
    Html::back();
@@ -103,13 +99,13 @@ if (isset($_POST["add"])) {
 
 } else if (isset($_GET['_in_modal'])) {
       Html::popHeader(Budget::getTypeName(1), $_SERVER['PHP_SELF']);
-      $budget->showForm($_GET["id"], array('withtemplate' => $_GET["withtemplate"]));
+      $budget->showForm($_GET["id"], ['withtemplate' => $_GET["withtemplate"]]);
       Html::popFooter();
 
 } else {
    Html::header(Budget::getTypeName(1), $_SERVER['PHP_SELF'], "management", "budget");
-   $budget->display(array('id'           => $_GET["id"],
-                          'withtemplate' => $_GET["withtemplate"]));
+   $budget->display(['id'           => $_GET["id"],
+                          'withtemplate' => $_GET["withtemplate"]]);
 
    Html::footer();
 }

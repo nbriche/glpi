@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 ini_set("memory_limit", "-1");
 ini_set("max_execution_time", "0");
 
@@ -59,7 +56,7 @@ if (isset($_GET["dictionnary"])) {
    $rulecollection = RuleCollection::getClassByType($_GET["dictionnary"]);
    if ($rulecollection) {
       if ($_GET["dictionnary"]=='RuleDictionnarySoftware' && isset($_GET["manufacturer"])) {
-         $rulecollection->replayRulesOnExistingDB(0, 0, array(), $_GET["manufacturer"]);
+         $rulecollection->replayRulesOnExistingDB(0, 0, [], $_GET["manufacturer"]);
       } else {
          $rulecollection->replayRulesOnExistingDB();
       }

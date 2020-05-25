@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* @since version 0.83
-*/
+/**
+ * @since 0.83
+ */
 
 use Glpi\Event;
 
@@ -60,7 +59,7 @@ if (isset($_POST["update"])) {
               sprintf(__('%s deletes an actor'), $_SESSION["glpiname"]));
 
    if ($item->can($link->fields["problems_id"], READ)) {
-      Html::redirect($CFG_GLPI["root_doc"]."/front/problem.form.php?id=".$link->fields['problems_id']);
+      Html::redirect($item->getFormURLWithID($link->fields['problems_id']));
    }
    Session::addMessageAfterRedirect(__('You have been redirected because you no longer have access to this item'),
                                     true, ERROR);

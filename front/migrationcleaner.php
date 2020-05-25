@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,17 +30,17 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* @since version 0.85 (change name before migration_cleaner)
-*/
+/**
+ * Filename was previously migration_cleaner.php
+ * @since 0.85
+ */
 
 include ('../inc/includes.php');
 
-Session::checkSeveralRightsOr(array("networking" => UPDATE,
-                                    "internet"   => UPDATE));
+Session::checkSeveralRightsOr(["networking" => UPDATE,
+                                    "internet"   => UPDATE]);
 
-if (!TableExists('glpi_networkportmigrations')) {
+if (!$DB->tableExists('glpi_networkportmigrations')) {
    Session::addMessageAfterRedirect(__('You don\'t need the "migration cleaner" tool anymore...'));
    Html::redirect($CFG_GLPI["root_doc"]."/front/central.php");
 }
@@ -54,7 +54,7 @@ echo "<tr><th>" . __('"Migration cleaner" tool') . "</td></tr>";
 
 if (Session::haveRight('internet', UPDATE)
     // Check access to all entities
-    && Session::isViewAllEntities()) {
+    && Session::canViewAllEntities()) {
    echo "<tr class='tab_bg_1'><td class='center'>";
    Html::showSimpleForm(IPNetwork::getFormURL(), 'reinit_network',
                         __('Reinit the network topology'));

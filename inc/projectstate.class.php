@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,12 +37,12 @@ if (!defined('GLPI_ROOT')) {
 /**
  * ProjectState Class
  *
- * @since version 0.85
+ * @since 0.85
 **/
 class ProjectState extends CommonDropdown {
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Project state', 'Project states', $nb);
    }
 
@@ -58,19 +54,19 @@ class ProjectState extends CommonDropdown {
 
    function getAdditionalFields() {
 
-      return array(array('name'     => 'color',
+      return [['name'     => 'color',
                          'label'    => __('Color'),
                          'type'     => 'color',
-                         'list'     => true),
-                   array('name'     => 'is_finished',
+                         'list'     => true],
+                   ['name'     => 'is_finished',
                          'label'    => __('Finished state'),
                          'type'     => 'bool',
-                         'list'     => true),);
+                         'list'     => true],];
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',

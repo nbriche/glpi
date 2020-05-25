@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -48,23 +44,23 @@ class DocumentType  extends CommonDropdown {
 
    function getAdditionalFields() {
 
-      return array(array('name'  => 'icon',
+      return [['name'  => 'icon',
                          'label' => __('Icon'),
-                         'type'  => 'icon'),
-                   array('name'  => 'is_uploadable',
+                         'type'  => 'icon'],
+                   ['name'  => 'is_uploadable',
                          'label' => __('Authorized upload'),
-                         'type'  => 'bool'),
-                   array('name'    => 'ext',
+                         'type'  => 'bool'],
+                   ['name'    => 'ext',
                          'label'   => __('Extension'),
                          'type'    => 'text',
-                         'comment' => __('May be a regular expression')),
-                   array('name'  => 'mime',
+                         'comment' => __('May be a regular expression')],
+                   ['name'  => 'mime',
                          'label' => __('MIME type'),
-                         'type'  => 'text'));
+                         'type'  => 'text']];
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Document type', 'Document types', $nb);
    }
 
@@ -74,8 +70,8 @@ class DocumentType  extends CommonDropdown {
     *
     * @return array of search option
    **/
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '3',
@@ -115,13 +111,13 @@ class DocumentType  extends CommonDropdown {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
    **/
-   static function getSpecificValueToDisplay($field, $values, array $options=array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
       global $CFG_GLPI;
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
 
       switch ($field) {
@@ -136,17 +132,17 @@ class DocumentType  extends CommonDropdown {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field
     * @param $name               (default '')
     * @param $values             (default '')
     * @param $options      array
    **/
-   static function getSpecificValueToSelect($field, $name='', $values='', array $options=array()) {
+   static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       $options['display'] = false;
       switch ($field) {
@@ -159,12 +155,12 @@ class DocumentType  extends CommonDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @param array $options list of options with theses possible keys:
     *                        - bool 'display', echo the generated html or return it
    **/
-   static function showAvailableTypesLink($options = array()) {
+   static function showAvailableTypesLink($options = []) {
       global $CFG_GLPI;
 
       $p['display'] = true;
@@ -174,9 +170,8 @@ class DocumentType  extends CommonDropdown {
 
       $display = "&nbsp;";
       $display .= "<a href='#' onClick=\"".Html::jsGetElementbyID('documenttypelist').
-                  ".dialog('open'); return false;\">";
-      $display .= "<img src='".$CFG_GLPI["root_doc"]."/pics/info-small.png' title=\"".__s('Help')."\"
-                        alt=\"".__s('Help')."\" class='calendrier pointer'>";
+                  ".dialog('open'); return false;\" class='fa fa-info pointer' title='" . __s('Help') . "' >";
+      $display .= "<span class='sr-only'>".__s('Help')."></span>";
       $display .= "</a>";
       $display .= Ajax::createIframeModalWindow('documenttypelist',
                                                 $CFG_GLPI["root_doc"]."/front/documenttype.list.php",

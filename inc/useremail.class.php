@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -52,7 +48,7 @@ class UserEmail  extends CommonDBChild {
    public $dohistory              = true;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Email', 'Emails', $nb);
    }
 
@@ -68,16 +64,19 @@ class UserEmail  extends CommonDBChild {
       global $DB;
 
       // Get default one
-      foreach ($DB->request("glpi_useremails",
-                            "`users_id` = '$users_id' AND `is_default` = '1'") as $data) {
-         return $data['email'];
+      $iterator = $DB->request([
+         'FROM'   => self::getTable(),
+         'WHERE'  => [
+            'users_id'     => $users_id,
+         ],
+         'ORDER'  => 'is_default DESC',
+         'LIMIT'  => 1
+      ]);
+
+      while ($row = $iterator->next()) {
+         return $row['email'];
       }
 
-      // Get first if not default set
-      foreach ($DB->request("glpi_useremails",
-                            "`users_id` = '$users_id' AND `is_default` = '0'") as $data) {
-         return $data['email'];
-      }
       return '';
    }
 
@@ -92,11 +91,17 @@ class UserEmail  extends CommonDBChild {
    static function getAllForUser($users_id) {
       global $DB;
 
-      $emails = array();
+      $emails = [];
 
-      // Get default one
-      foreach ($DB->request("glpi_useremails", "`users_id` = '$users_id'") as $data) {
-         $emails[] = $data['email'];
+      $iterator = $DB->request([
+         'FROM'   => self::getTable(),
+         'WHERE'  => [
+            'users_id'     => $users_id,
+         ]
+      ]);
+
+      while ($row = $iterator->next()) {
+         $emails[] = $row['email'];
       }
 
       return $emails;
@@ -114,16 +119,25 @@ class UserEmail  extends CommonDBChild {
    static function isEmailForUser($users_id, $email) {
       global $DB;
 
-      foreach ($DB->request("glpi_useremails",
-                            "`users_id` = '$users_id' AND `email` = '$email'") as $data) {
+      $iterator = $DB->request([
+         'FROM'   => self::getTable(),
+         'WHERE'  => [
+            'users_id'  => $users_id,
+            'email'     => $email
+         ],
+         'LIMIT'  => 1
+      ]);
+
+      if (count($iterator)) {
          return true;
       }
+
       return false;
    }
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field_name
     * @param $child_count_js_var
@@ -140,7 +154,7 @@ class UserEmail  extends CommonDBChild {
 
 
    /**
-    * @since version 0.85 (since 0.85 but param $id since 0.85)
+    * @since 0.85 (since 0.85 but param $id since 0.85)
     *
     * @param $canedit
     * @param $field_name
@@ -229,7 +243,7 @@ class UserEmail  extends CommonDBChild {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDBTM::getNameField
     *
@@ -240,17 +254,20 @@ class UserEmail  extends CommonDBChild {
    }
 
 
-   function post_updateItem($history=1) {
+   function post_updateItem($history = 1) {
       global $DB;
 
       // if default is set : unsed others for the users
       if (in_array('is_default', $this->updates)
           && ($this->input["is_default"] == 1)) {
-         $query = "UPDATE ". $this->getTable()."
-                   SET `is_default` = '0'
-                   WHERE `id` <> '".$this->input['id']."'
-                         AND `users_id` = '".$this->fields['users_id']."'";
-         $DB->query($query);
+         $DB->update(
+            $this->getTable(), [
+               'is_default' => 0
+            ], [
+               'id'        => ['<>', $this->input['id']],
+               'users_id'  => $this->fields['users_id']
+            ]
+         );
       }
 
       parent::post_updateItem($history);
@@ -262,11 +279,14 @@ class UserEmail  extends CommonDBChild {
 
       // if default is set : unset others for the users
       if (isset($this->fields['is_default']) && ($this->fields["is_default"] == 1)) {
-         $query = "UPDATE ". $this->getTable()."
-                   SET `is_default` = '0'
-                   WHERE `id` <> '".$this->fields['id']."'
-                         AND `users_id` = '".$this->fields['users_id']."'";
-         $DB->query($query);
+         $DB->update(
+            $this->getTable(), [
+               'is_default' => 0
+            ], [
+               'id'        => ['<>', $this->fields['id']],
+               'users_id'  => $this->fields['users_id']
+            ]
+         );
       }
 
       parent::post_addItem();
@@ -279,12 +299,17 @@ class UserEmail  extends CommonDBChild {
 
       // if default is set : set default to another one
       if ($this->fields["is_default"] == 1) {
-         $query = "UPDATE `". $this->getTable()."`
-                   SET `is_default` = '1'
-                   WHERE `id` <> '".$this->fields['id']."'
-                         AND `users_id` = '".$this->fields['users_id']."'
-                   LIMIT 1";
-         $DB->query($query);
+         $DB->update(
+            $this->getTable(), [
+               'is_default'   => 1
+            ], [
+               'WHERE'  => [
+                  'id'        => ['<>', $this->fields['id']],
+                  'users_id'  => $this->fields['users_id']
+               ],
+               'LIMIT'  => 1
+            ]
+         );
       }
 
       parent::post_deleteFromDB();

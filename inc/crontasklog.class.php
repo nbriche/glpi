@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -62,23 +58,23 @@ class CronTaskLog extends CommonDBTM{
 
       $secs      = $days * DAY_TIMESTAMP;
 
-      $query_exp = "DELETE
-                    FROM `glpi_crontasklogs`
-                    WHERE `crontasks_id` = '$id'
-                          AND UNIX_TIMESTAMP(date) < UNIX_TIMESTAMP()-$secs";
-
-      $DB->query($query_exp);
-      return $DB->affected_rows();
+      $result = $DB->delete(
+         'glpi_crontasklogs', [
+            'crontasks_id' => 'id',
+            new \QueryExpression("UNIX_TIMESTAMP(date) < UNIX_TIMESTAMP()-$secs")
+         ]
+      );
+      return $result->rowCount();
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate) {
          $nb = 0;
          switch ($item->getType()) {
             case 'CronTask' :
-               $ong    = array();
+               $ong    = [];
                $ong[1] = __('Statistics');
                if ($_SESSION['glpishow_count_on_tabs']) {
                   $nb =  countElementsInTable($this->getTable(),
@@ -93,7 +89,7 @@ class CronTaskLog extends CommonDBTM{
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       if ($item->getType()=='CronTask') {
          switch ($tabnum) {

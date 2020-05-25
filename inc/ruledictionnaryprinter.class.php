@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -68,7 +65,7 @@ class RuleDictionnaryPrinter extends Rule {
    **/
    function getCriterias() {
 
-      static $criterias = array();
+      static $criterias = [];
 
       if (count($criterias)) {
          return $criterias;
@@ -95,10 +92,10 @@ class RuleDictionnaryPrinter extends Rule {
    **/
    function getActions() {
 
-      $actions                               = array();
+      $actions                               = [];
 
       $actions['name']['name']               = __('Name');
-      $actions['name']['force_actions']      = array('assign', 'regex_result');
+      $actions['name']['force_actions']      = ['assign', 'regex_result'];
 
       $actions['_ignore_import']['name']     = __('To be unaware of import');
       $actions['_ignore_import']['type']     = 'yesonly';

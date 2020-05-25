@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,9 +37,9 @@ if (!defined('GLPI_ROOT')) {
 /// Class DeviceGraphicCard
 class DeviceGraphicCard extends CommonDevice {
 
-   static protected $forward_entity_to = array('Item_DeviceGraphicCard', 'Infocom');
+   static protected $forward_entity_to = ['Item_DeviceGraphicCard', 'Infocom'];
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Graphics card', 'Graphics cards', $nb);
    }
 
@@ -51,30 +47,30 @@ class DeviceGraphicCard extends CommonDevice {
    function getAdditionalFields() {
 
       return array_merge(parent::getAdditionalFields(),
-                         array(array('name'  => 'chipset',
+                         [['name'  => 'chipset',
                                      'label' => __('Chipset'),
-                                     'type'  => 'text'),
-                               array('name'  => 'memory_default',
+                                     'type'  => 'text'],
+                               ['name'  => 'memory_default',
                                      'label' => __('Memory by default'),
                                      'type'  => 'text',
-                                     'unit'  => __('Mio')),
-                               array('name'  => 'interfacetypes_id',
+                                     'unit'  => __('Mio')],
+                               ['name'  => 'interfacetypes_id',
                                      'label' => __('Interface'),
-                                     'type'  => 'dropdownValue'),
-                               array('name'  => 'none',
+                                     'type'  => 'dropdownValue'],
+                               ['name'  => 'none',
                                      'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
                                         RegisteredID::showAddChildButtonForItemForm($this,
                                                                                     '_registeredID',
-                                                                                    NULL, false),
-                                     'type'  => 'registeredIDChooser'),
-                               array('name'  => 'devicecasegraphiccardmodels_id',
+                                                                                    null, false),
+                                     'type'  => 'registeredIDChooser'],
+                               ['name'  => 'devicegraphiccardmodels_id',
                                      'label' => __('Model'),
-                                     'type'  => 'dropdownValue')));
+                                     'type'  => 'dropdownValue']]);
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '12',
@@ -105,14 +101,14 @@ class DeviceGraphicCard extends CommonDevice {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @param  $input
     *
     * @return number
    **/
    function prepareInputForAddOrUpdate($input) {
 
-      foreach (array('memory_default') as $field) {
+      foreach (['memory_default'] as $field) {
          if (isset($input[$field]) && !is_numeric($input[$field])) {
             $input[$field] = 0;
          }
@@ -122,7 +118,7 @@ class DeviceGraphicCard extends CommonDevice {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @see CommonDropdown::prepareInputForAdd()
    **/
    function prepareInputForAdd($input) {
@@ -131,7 +127,7 @@ class DeviceGraphicCard extends CommonDevice {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @see CommonDropdown::prepareInputForUpdate()
    **/
    function prepareInputForUpdate($input) {
@@ -140,13 +136,13 @@ class DeviceGraphicCard extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableHeader()
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column = parent::getHTMLTableHeader($itemtype, $base, $super, $father, $options);
 
@@ -165,12 +161,12 @@ class DeviceGraphicCard extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableCellForItem()
    **/
-   function getHTMLTableCellForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                    HTMLTableCell $father=NULL, array $options=array()) {
+   function getHTMLTableCellForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                    HTMLTableCell $father = null, array $options = []) {
 
       $column = parent::getHTMLTableCellForItem($row, $item, $father, $options);
 
@@ -180,8 +176,8 @@ class DeviceGraphicCard extends CommonDevice {
 
       switch ($item->getType()) {
          case 'Computer' :
-            Manufacturer::getHTMLTableCellsForItem($row, $this, NULL, $options);
-            InterfaceType::getHTMLTableCellsForItem($row, $this, NULL, $options);
+            Manufacturer::getHTMLTableCellsForItem($row, $this, null, $options);
+            InterfaceType::getHTMLTableCellsForItem($row, $this, null, $options);
 
             if (!empty($this->fields["chipset"])) {
                $row->addCell($row->getHeaderByName('devicegraphiccard_chipset'),
@@ -197,13 +193,34 @@ class DeviceGraphicCard extends CommonDevice {
     *
     * @see CommonDevice::getImportCriteria()
     *
-    * @since version 0.84
+    * @since 0.84
    **/
    function getImportCriteria() {
 
-      return array('designation'       => 'equal',
+      return ['designation'       => 'equal',
                    'manufacturers_id'  => 'equal',
-                   'interfacetypes_id' => 'equal');
+                   'interfacetypes_id' => 'equal'];
    }
 
+   public static function rawSearchOptionsToAdd($itemtype, $main_joinparams) {
+      $tab = [];
+
+      $tab[] = [
+         'id'                 => '13',
+         'table'              => 'glpi_devicegraphiccards',
+         'field'              => 'designation',
+         'name'               => __('Graphics card'),
+         'forcegroupby'       => true,
+         'massiveaction'      => false,
+         'datatype'           => 'string',
+         'joinparams'         => [
+            'beforejoin'         => [
+               'table'              => 'glpi_items_devicegraphiccards',
+               'joinparams'         => $main_joinparams
+            ]
+         ]
+      ];
+
+      return $tab;
+   }
 }

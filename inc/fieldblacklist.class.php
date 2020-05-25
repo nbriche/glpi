@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -48,7 +44,7 @@ class Fieldblacklist extends CommonDropdown {
    public $can_be_translated = false;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Ignored value for the unicity', 'Ignored values for the unicity', $nb);
    }
 
@@ -58,7 +54,7 @@ class Fieldblacklist extends CommonDropdown {
    }
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
    static function canPurge() {
       return static::canUpdate();
@@ -68,15 +64,15 @@ class Fieldblacklist extends CommonDropdown {
 
    function getAdditionalFields() {
 
-      return array(array('name'  => 'itemtype',
+      return [['name'  => 'itemtype',
                          'label' => __('Type'),
-                         'type'  => 'blacklist_itemtype'),
-                   array('name'  => 'field',
+                         'type'  => 'blacklist_itemtype'],
+                   ['name'  => 'field',
                          'label' => _n('Field', 'Fields', 1),
-                         'type'  => 'blacklist_field'),
-                   array('name'  => 'value',
+                         'type'  => 'blacklist_field'],
+                   ['name'  => 'value',
                          'label' => __('Value'),
-                         'type'  => 'blacklist_value'));
+                         'type'  => 'blacklist_value']];
    }
 
 
@@ -85,8 +81,8 @@ class Fieldblacklist extends CommonDropdown {
     *
     * @return array of search option
    **/
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '4',
@@ -127,10 +123,10 @@ class Fieldblacklist extends CommonDropdown {
    }
 
 
-   static function getSpecificValueToDisplay($field, $values, array $options=array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       switch ($field) {
          case 'field':
@@ -156,17 +152,17 @@ class Fieldblacklist extends CommonDropdown {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field
     * @param $name               (default '')
     * @param $values             (default '')
     * @param $options      array
    **/
-   static function getSpecificValueToSelect($field, $name='', $values='', array $options=array()) {
+   static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       $options['display'] = false;
       switch ($field) {
@@ -221,7 +217,7 @@ class Fieldblacklist extends CommonDropdown {
     * @param $ID
     * @param $field array
    **/
-   function displaySpecificTypeField($ID, $field=array()) {
+   function displaySpecificTypeField($ID, $field = []) {
 
       switch ($field['type']) {
          case 'blacklist_itemtype' :
@@ -264,11 +260,11 @@ class Fieldblacklist extends CommonDropdown {
          }
          asort($options);
          $rand = Dropdown::showFromArray('itemtype', $options,
-                                         array('value'               => $this->fields['value'],
-                                               'display_emptychoice' => true));
+                                         ['value'               => $this->fields['value'],
+                                               'display_emptychoice' => true]);
 
-         $params = array('itemtype' => '__VALUE__',
-                         'id'       => $this->fields['id']);
+         $params = ['itemtype' => '__VALUE__',
+                         'id'       => $this->fields['id']];
          Ajax::updateItemOnSelectEvent("dropdown_itemtype$rand", "span_fields",
                                        $CFG_GLPI["root_doc"]."/ajax/dropdownFieldsBlacklist.php",
                                        $params);
@@ -291,10 +287,10 @@ class Fieldblacklist extends CommonDropdown {
       }
 
       if ($rand = self::dropdownField($this->fields['itemtype'],
-                                      array('value' => $this->fields['field']))) {
-         $params = array('itemtype' => $this->fields['itemtype'],
+                                      ['value' => $this->fields['field']])) {
+         $params = ['itemtype' => $this->fields['itemtype'],
                          'id_field' => '__VALUE__',
-                         'id'       => $this->fields['id']);
+                         'id'       => $this->fields['id']];
          Ajax::updateItemOnSelectEvent("dropdown_field$rand", "span_values",
                                        $CFG_GLPI["root_doc"]."/ajax/dropdownValuesBlacklist.php",
                                        $params);
@@ -305,12 +301,12 @@ class Fieldblacklist extends CommonDropdown {
 
    /** Dropdown fields for a specific itemtype
     *
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $itemtype          itemtype
     * @param $options    array    of options
    **/
-   static function dropdownField($itemtype, $options=array()) {
+   static function dropdownField($itemtype, $options = []) {
       global $DB;
 
       $p['name']    = 'field';
@@ -324,8 +320,8 @@ class Fieldblacklist extends CommonDropdown {
       }
 
       if ($target = getItemForItemtype($itemtype)) {
-         $criteria = array();
-         foreach ($DB->list_fields($target->getTable()) as $field) {
+         $criteria = [];
+         foreach ($DB->listFields($target->getTable()) as $field) {
             $searchOption = $target->getSearchOptionByField('field', $field['Field']);
 
             // MoYo : do not know why  this part ?
@@ -350,7 +346,7 @@ class Fieldblacklist extends CommonDropdown {
    /**
     * @param $field  (default '')
    **/
-   function selectValues($field='') {
+   function selectValues($field = '') {
       global $DB, $CFG_GLPI;
 
       if ($field == '') {
@@ -360,7 +356,7 @@ class Fieldblacklist extends CommonDropdown {
       if ($this->fields['itemtype'] != '') {
          if ($item = getItemForItemtype($this->fields['itemtype'])) {
             $searchOption = $item->getSearchOptionByField('field', $field);
-            $options      = array();
+            $options      = [];
             if (isset($this->fields['entity'])) {
                $options['entity']      = $this->fields['entity'];
                $options['entity_sons'] = $this->fields['is_recursive'];
@@ -385,14 +381,16 @@ class Fieldblacklist extends CommonDropdown {
    static function isFieldBlacklisted($itemtype, $entities_id, $field, $value) {
       global $DB;
 
-      $query = "SELECT COUNT(*) AS cpt
-                FROM `glpi_fieldblacklists`
-                WHERE `itemtype` = '$itemtype'
-                      AND `field` = '$field'
-                      AND `value` = '$value'".
-                      getEntitiesRestrictRequest(" AND", "glpi_fieldblacklists", "entities_id",
-                                                 $entities_id, true);
-      return ($DB->result($DB->query($query), 0, 'cpt') ?true :false);
+      $result = $DB->request([
+         'COUNT'  => 'cpt',
+         'FROM'   => 'glpi_fieldblacklists',
+         'WHERE'  => [
+            'itemtype'  => $itemtype,
+            'field'     => $field,
+            'value'     => $value
+         ] + getEntitiesRestrictCriteria('glpi_fieldblacklists', 'entities_id', $entities_id, true)
+      ])->next();
+      return $result['cpt'] > 0;
    }
 
 }

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,45 +30,37 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 class ProblemTask extends CommonITILTask {
 
+   static $rightname = 'task';
 
-   /**
-    * @since version 0.84
-   **/
-   static function getTypeName($nb=0) {
+
+   static function getTypeName($nb = 0) {
       return _n('Problem task', 'Problem tasks', $nb);
    }
 
 
    static function canCreate() {
-      return Session::haveRight('problem', UPDATE);
+      return Session::haveRight('problem', UPDATE)
+          || Session::haveRight(self::$rightname, parent::ADDALLITEM);
    }
 
 
    static function canView() {
-      return Session::haveRightsOr('problem', array(Problem::READALL, Problem::READMY));
+      return Session::haveRightsOr('problem', [Problem::READALL, Problem::READMY]);
    }
 
 
    static function canUpdate() {
-      return Session::haveRight('problem', UPDATE);
+      return Session::haveRight('problem', UPDATE)
+          || Session::haveRight(self::$rightname, parent::UPDATEALL);
    }
 
 
-   /**
-    * @since version 0.85
-    *
-    * @return boolean
-   **/
    static function canPurge() {
       return Session::haveRight('problem', UPDATE);
    }
@@ -80,12 +72,12 @@ class ProblemTask extends CommonITILTask {
 
 
    function canEditAll() {
-      return Session::haveRightsOr('problem', array(CREATE, UPDATE, DELETE, PURGE));
+      return Session::haveRightsOr('problem', [CREATE, UPDATE, DELETE, PURGE]);
    }
 
 
    /**
-    * Is the current user have right to show the current task ?
+    * Does current user have right to show the current task?
     *
     * @return boolean
    **/
@@ -95,19 +87,19 @@ class ProblemTask extends CommonITILTask {
 
 
    /**
-    * Is the current user have right to create the current task ?
+    * Does current user have right to create the current task?
     *
     * @return boolean
    **/
    function canCreateItem() {
-
       if (!parent::canReadITILItem()) {
          return false;
       }
 
       $problem = new Problem();
       if ($problem->getFromDB($this->fields['problems_id'])) {
-         return (Session::haveRight('problem', UPDATE)
+         return (Session::haveRight(self::$rightname, parent::ADDALLITEM)
+                 || Session::haveRight('problem', UPDATE)
                  || (Session::haveRight('problem', Problem::READMY)
                      && ($problem->isUser(CommonITILActor::ASSIGN, Session::getLoginUserID())
                          || (isset($_SESSION["glpigroups"])
@@ -119,7 +111,7 @@ class ProblemTask extends CommonITILTask {
 
 
    /**
-    * Is the current user have right to update the current task ?
+    * Does current user have right to update the current task?
     *
     * @return boolean
    **/
@@ -130,7 +122,8 @@ class ProblemTask extends CommonITILTask {
       }
 
       if (($this->fields["users_id"] != Session::getLoginUserID())
-          && !Session::haveRight('problem', UPDATE)) {
+          && !Session::haveRight('problem', UPDATE)
+          && !Session::haveRight(self::$rightname, parent::UPDATEALL)) {
          return false;
       }
 
@@ -139,7 +132,7 @@ class ProblemTask extends CommonITILTask {
 
 
    /**
-    * Is the current user have right to purge the current task ?
+    * Does current user have right to purge the current task?
     *
     * @return boolean
    **/
@@ -159,7 +152,7 @@ class ProblemTask extends CommonITILTask {
     *
     * @return array of planning item
    **/
-   static function populatePlanning($options=array()) {
+   static function populatePlanning($options = []) {
       return parent::genericPopulatePlanning(__CLASS__, $options);
    }
 
@@ -167,27 +160,14 @@ class ProblemTask extends CommonITILTask {
    /**
     * Display a Planning Item
     *
-    * @param $val Array of the item to display
+    * @param array           $val       array of the item to display
+    * @param integer         $who       ID of the user (0 if all)
+    * @param string          $type      position of the item in the time block (in, through, begin or end)
+    * @param integer|boolean $complete  complete display (more details)
     *
-    * @return Already planned information
-   **/
-   static function getAlreadyPlannedInformation($val) {
-      return parent::genericGetAlreadyPlannedInformation(__CLASS__, $val);
-   }
-
-
-   /**
-    * Display a Planning Item
-    *
-    * @param $val       array of the item to display
-    * @param $who             ID of the user (0 if all)
-    * @param $type            position of the item in the time block (in, through, begin or end)
-    *                         (default '')
-    * @param $complete        complete display (more details) (default 0)
-    *
-    * @return Nothing (display function)
-   **/
-   static function displayPlanningItem(array $val, $who, $type="", $complete=0) {
+    * @return string
+    */
+   static function displayPlanningItem(array $val, $who, $type = "", $complete = 0) {
       return parent::genericDisplayPlanningItem(__CLASS__, $val, $who, $type, $complete);
    }
 

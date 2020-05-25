@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -43,42 +39,50 @@ if (!defined('GLPI_ROOT')) {
 **/
 class State extends CommonTreeDropdown {
 
-   protected $visibility_fields    = array('Computer'         => 'is_visible_computer',
-                                           'SoftwareVersion'  => 'is_visible_softwareversion',
-                                           'Monitor'          => 'is_visible_monitor',
-                                           'Printer'          => 'is_visible_printer',
-                                           'Peripheral'       => 'is_visible_peripheral',
-                                           'Phone'            => 'is_visible_phone',
-                                           'NetworkEquipment' => 'is_visible_networkequipment',
-                                           'SoftwareLicense'  => 'is_visible_softwarelicense');
+   protected $visibility_fields    = [
+      'Computer'         => 'is_visible_computer',
+      'SoftwareVersion'  => 'is_visible_softwareversion',
+      'Monitor'          => 'is_visible_monitor',
+      'Printer'          => 'is_visible_printer',
+      'Peripheral'       => 'is_visible_peripheral',
+      'Phone'            => 'is_visible_phone',
+      'NetworkEquipment' => 'is_visible_networkequipment',
+      'SoftwareLicense'  => 'is_visible_softwarelicense',
+      'Line'             => 'is_visible_line',
+      'Certificate'      => 'is_visible_certificate',
+      'Rack'             => 'is_visible_rack',
+      'Enclosure'        => 'is_visible_enclosure',
+      'Pdu'              => 'is_visible_pdu',
+      'Cluster'          => 'is_visible_cluster'
+   ];
    public $can_be_translated       = true;
 
    static $rightname               = 'state';
 
+   protected $twig_compat          = true;
 
-
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Status of items', 'Statuses of items', $nb);
    }
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonTreeDropdown::getAdditionalFields()
    **/
    function getAdditionalFields() {
 
       $fields   = parent::getAdditionalFields();
-      $fields[] = array('label' => __('Visibility'),
+      $fields[] = ['label' => __('Visibility'),
                         'name'  => 'header',
-                        'list'  => false);
+                        'list'  => false];
 
-      foreach ($this->visibility_fields as $type => $field) {
-         $fields[] = array('name'  => $field,
+      foreach ($this->getvisibilityFields() as $type => $field) {
+         $fields[] = ['name'  => $field,
                            'label' => $type::getTypeName(Session::getPluralNumber()),
                            'type'  => 'bool',
-                           'list'  => true);
+                           'list'  => true];
       }
       return $fields;
    }
@@ -91,26 +95,25 @@ class State extends CommonTreeDropdown {
     * @param $lib    string   to add for -1 value (default '')
     * @param $value           default value (default 0)
    **/
-   static function dropdownBehaviour($name, $lib="", $value=0) {
+   static function dropdownBehaviour($name, $lib = "", $value = 0) {
       global $DB;
 
-      $elements = array("0" => __('Keep status'));
+      $elements = ["0" => __('Keep status')];
 
       if ($lib) {
          $elements["-1"] = $lib;
       }
 
-      $queryStateList = "SELECT `id`, `name`
-                         FROM `glpi_states`
-                         ORDER BY `name`";
-      $result = $DB->query($queryStateList);
+      $iterator = $DB->request([
+         'SELECT' => ['id', 'name'],
+         'FROM'   => 'glpi_states',
+         'ORDER'  => 'name'
+      ]);
 
-      if ($DB->numrows($result) > 0) {
-         while ($data = $DB->fetch_assoc($result)) {
-            $elements[$data["id"]] = sprintf(__('Set status: %s'), $data["name"]);
-         }
+      while ($data = $iterator->next()) {
+         $elements[$data["id"]] = sprintf(__('Set status: %s'), $data["name"]);
       }
-      Dropdown::showFromArray($name, $elements, array('value' => $value));
+      Dropdown::showFromArray($name, $elements, ['value' => $value]);
    }
 
 
@@ -118,7 +121,7 @@ class State extends CommonTreeDropdown {
       global $DB, $CFG_GLPI;
 
       $state_type = $CFG_GLPI["state_types"];
-      $states     = array();
+      $states     = [];
 
       foreach ($state_type as $key=>$itemtype) {
          if ($item = getItemForItemtype($itemtype)) {
@@ -127,19 +130,21 @@ class State extends CommonTreeDropdown {
 
             } else {
                $table = getTableForItemType($itemtype);
-               $query = "SELECT `states_id`, COUNT(*) AS cpt
-                         FROM `$table` ".
-                         getEntitiesRestrictRequest("WHERE", $table)."
-                              AND `is_deleted` = '0'
-                              AND `is_template` = '0'
-                         GROUP BY `states_id`";
+               $iterator = $DB->request([
+                  'SELECT' => [
+                     'states_id',
+                     'COUNT'  => '* AS cpt'
+                  ],
+                  'FROM'   => $table,
+                  'WHERE'  => [
+                     'is_deleted'   => 0,
+                     'is_template'  => 0
+                  ] + getEntitiesRestrictCriteria($table),
+                  'GROUP'  => 'states_id'
+               ]);
 
-               if ($result = $DB->query($query)) {
-                  if ($DB->numrows($result) > 0) {
-                     while ($data = $DB->fetch_assoc($result)) {
-                        $states[$data["states_id"]][$itemtype] = $data["cpt"];
-                     }
-                  }
+               while ($data = $iterator->next()) {
+                  $states[$data["states_id"]][$itemtype] = $data["cpt"];
                }
             }
          }
@@ -163,11 +168,12 @@ class State extends CommonTreeDropdown {
 
          echo "<th>".__('Total')."</th>";
          echo "</tr>";
-         $query = "SELECT *
-                   FROM `glpi_states` ".
-                   getEntitiesRestrictRequest("WHERE", "glpi_states", '', '', true)."
-                   ORDER BY `completename`";
-         $result = $DB->query($query);
+
+         $iterator = $DB->request([
+            'FROM'   => 'glpi_states',
+            'WHERE'  => getEntitiesRestrictCriteria('glpi_states', '', '', true),
+            'ORDER'  => 'completename'
+         ]);
 
          // No state
          $tot = 0;
@@ -187,16 +193,16 @@ class State extends CommonTreeDropdown {
          }
          echo "<td class='numeric b'>$tot</td></tr>";
 
-         while ($data = $DB->fetch_assoc($result)) {
+         while ($data = $iterator>next()) {
             $tot = 0;
             echo "<tr class='tab_bg_2'><td class='b'>";
 
-            $opt = array('reset'    => 'reset',
+            $opt = ['reset'    => 'reset',
                         'sort'     => 1,
                         'start'    => 0,
-                        'criteria' => array('0' => array('value' => '$$$$'.$data['id'],
+                        'criteria' => ['0' => ['value' => '$$$$'.$data['id'],
                                                          'searchtype' => 'contains',
-                                                         'field' => 31)));
+                                                         'field' => 31]]];
             echo "<a href='".$CFG_GLPI['root_doc']."/front/allassets.php?".Toolbox::append_params($opt, '&amp;')."'>".$data["completename"]."</a></td>";
 
             foreach ($state_type as $itemtype) {
@@ -233,7 +239,7 @@ class State extends CommonTreeDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonDBTM::getEmpty()
    **/
@@ -241,7 +247,7 @@ class State extends CommonTreeDropdown {
 
       parent::getEmpty();
       //initialize is_visible_* fields at true to keep the same behavior as in older versions
-      foreach ($this->visibility_fields as $type => $field) {
+      foreach ($this->getvisibilityFields() as $type => $field) {
          $this->fields[$field] = 1;
       }
    }
@@ -253,18 +259,29 @@ class State extends CommonTreeDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonTreeDropdown::prepareInputForAdd()
    **/
    function prepareInputForAdd($input) {
+      if (!isset($input['states_id'])) {
+         $input['states_id'] = 0;
+      }
+      if (!$this->isUnique($input)) {
+         Session::addMessageAfterRedirect(
+            sprintf(__('%1$s must be unique!'), $this->getType(1)),
+            false,
+            ERROR
+         );
+         return false;
+      }
 
       $input = parent::prepareInputForAdd($input);
 
       $state = new self();
       // Get visibility information from parent if not set
       if (isset($input['states_id']) && $state->getFromDB($input['states_id'])) {
-         foreach ($this->visibility_fields as $type => $field) {
+         foreach ($this->getvisibilityFields() as $type => $field) {
             if (!isset($input[$field]) && isset($state->fields[$field])) {
                $input[$field] = $state->fields[$field];
             }
@@ -274,8 +291,8 @@ class State extends CommonTreeDropdown {
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '21',
@@ -344,6 +361,174 @@ class State extends CommonTreeDropdown {
          'datatype'           => 'bool'
       ];
 
+      $tab[] = [
+         'id'                 => '29',
+         'table'              => $this->getTable(),
+         'field'              => 'is_visible_certificate',
+         'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'),
+                                     Certificate::getTypeName(Session::getPluralNumber())),
+         'datatype'           => 'bool'
+      ];
+
+      $tab[] = [
+         'id'                 => '30',
+         'table'              => $this->getTable(),
+         'field'              => 'is_visible_rack',
+         'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'),
+                                     Rack::getTypeName(Session::getPluralNumber())),
+         'datatype'           => 'bool'
+      ];
+
+      $tab[] = [
+         'id'                 => '31',
+         'table'              => $this->getTable(),
+         'field'              => 'is_visible_line',
+         'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'),
+                                     Line::getTypeName(Session::getPluralNumber())),
+         'datatype'           => 'bool'
+      ];
+
+      $tab[] = [
+         'id'                 => '32',
+         'table'              => $this->getTable(),
+         'field'              => 'is_visible_enclosure',
+         'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'),
+                                     Enclosure::getTypeName(Session::getPluralNumber())),
+         'datatype'           => 'bool'
+      ];
+
+      $tab[] = [
+         'id'                 => '33',
+         'table'              => $this->getTable(),
+         'field'              => 'is_visible_pdu',
+         'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'),
+                                     PDU::getTypeName(Session::getPluralNumber())),
+         'datatype'           => 'bool'
+      ];
+
+      $tab[] = [
+         'id'                 => '34',
+         'table'              => $this->getTable(),
+         'field'              => 'is_visible_cluster',
+         'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'),
+                                     Cluster::getTypeName(Session::getPluralNumber())),
+         'datatype'           => 'bool'
+      ];
+
       return $tab;
+   }
+
+   function prepareInputForUpdate($input) {
+      if (!$this->isUnique($input)) {
+         Session::addMessageAfterRedirect(
+            sprintf(__('%1$s must be unique per level!'), $this->getType(1)),
+            false,
+            ERROR
+         );
+         return false;
+      }
+      return parent::prepareInputForUpdate($input);
+   }
+
+   /**
+    * Checks that this state is unique given the new field values.
+    *    Unique fields checked:
+    *       - states_id
+    *       - name
+    * @param array $input Array of field names and values
+    * @return boolean True if the new/updated record will be unique
+    */
+   public function isUnique($input) {
+      global $DB;
+
+      $unicity_fields = ['states_id', 'name'];
+
+      $has_changed = false;
+      $where = [];
+      foreach ($unicity_fields as $unicity_field) {
+         if (isset($input[$unicity_field]) &&
+               (!isset($this->fields[$unicity_field]) || $input[$unicity_field] != $this->fields[$unicity_field])) {
+            $has_changed = true;
+         }
+         if (isset($input[$unicity_field])) {
+            $where[$unicity_field] = $input[$unicity_field];
+         }
+      }
+      if (!$has_changed) {
+         //state has not changed; this is OK.
+         return true;
+      }
+
+      $query = [
+         'FROM'   => $this->getTable(),
+         'COUNT'  => 'cpt',
+         'WHERE'  => $where
+      ];
+      $row = $DB->request($query)->next();
+      return (int)$row['cpt'] == 0;
+   }
+
+   /**
+    * Get field to be dropped building form
+    *
+    * @since 10.0.0
+    *
+    * @param boolean $add Add or update
+    *
+    * @return array
+    */
+   protected function getFormFieldsToDrop($add = false) {
+      $fields = parent::getFormFieldsToDrop();
+      $fields[] = 'level';
+      return $fields;
+   }
+
+   /**
+    * Get visibility fields from conf
+    */
+   protected function getvisibilityFields() :array {
+      global $CFG_GLPI;
+      $fields = [];
+      foreach ($CFG_GLPI['state_types'] as $type) {
+         $fields[$type] = 'is_visible_' . strtolower($type);
+      }
+      return $fields;
+   }
+
+   /**
+    * Form fields configuration and mapping.
+    *
+    * Array order will define fields display order.
+    *
+    * Missing fields from database will be automatically displayed.
+    * If you want to avoid this;
+    * @see getFormHiddenFields and/or @see getFormFieldsToDrop
+    *
+    * @since 10.0.0
+    *
+    * @return array
+    */
+   protected function getFormFields() {
+      $fields = parent::getFormFields();
+
+      foreach ($this->getvisibilityFields() as $itemtype => $fieldname) {
+         $fields[$fieldname] = [
+            'label' => $itemtype::getTypeName()
+         ];
+      }
+      return $fields;
+   }
+
+   protected function getMainTabs() {
+      return [
+         'State'
+      ];
+   }
+
+   public function countForTab($item, $tab, $deleted = 0, $template = 0) {
+      return countElementsInTable(
+         $this->getTable(),
+         [$this->getForeignKeyField() => $item->getID()]
+      );
    }
 }

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,8 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
- * @brief
- * @since version 9.1
+/**
+ * @since 9.1
  */
 
 // here we are going to try to unlock the given object
@@ -53,7 +52,7 @@ if (isset($_GET['unlock']) && isset($_GET["id"])) {
    if ($ol->getFromDB($_GET["id"])
        && $ol->deleteFromDB(1)) {
       if (isset($_GET['force'])) {
-         Log::history($ol->fields['items_id'], $ol->fields['itemtype'], array(0, '', ''), 0,
+         Log::history($ol->fields['items_id'], $ol->fields['itemtype'], [0, '', ''], 0,
                       Log::HISTORY_UNLOCK_ITEM);
       }
       $ret = 1;

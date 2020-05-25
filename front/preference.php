@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 use Glpi\Event;
 
@@ -65,7 +61,7 @@ if (isset($_POST["update"])
    Html::back();
 
 } else {
-   if ($_SESSION["glpiactiveprofile"]["interface"] == "central") {
+   if (Session::getCurrentInterface() == "central") {
       Html::header(Preference::getTypeName(1), $_SERVER['PHP_SELF'], 'preference');
    } else {
       Html::helpHeader(Preference::getTypeName(1), $_SERVER['PHP_SELF']);
@@ -74,7 +70,7 @@ if (isset($_POST["update"])
    $pref = new Preference();
    $pref->display(['main_class' => 'tab_cadre_fixe']);
 
-   if ($_SESSION["glpiactiveprofile"]["interface"] == "central") {
+   if (Session::getCurrentInterface() == "central") {
       Html::footer();
    } else {
       Html::helpFooter();

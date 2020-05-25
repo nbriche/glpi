@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -58,7 +54,7 @@ if (isset($_POST["add"])) {
                  //TRANS: %s is the user login, %2$s is the license id
                  sprintf(__('%1$s adds the license %2$s'), $_SESSION["glpiname"], $newID));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($license->getFormURL()."?id=".$newID);
+         Html::redirect($license->getLinkURL());
       }
    }
    Html::back();

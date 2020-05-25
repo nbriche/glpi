@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 include ('../inc/includes.php');
 
@@ -61,7 +57,8 @@ if (isset($_GET["globalsearch"])) {
          //          $_SESSION["glpisearchcount"][$itemtype]  = $count+1;
          //          $_SESSION["glpisearchcount2"][$itemtype] = 0;
 
-         Search::showList($itemtype, $params);
+         $search = new \Search($itemtype, $params);
+         $search->showList($itemtype, $params);
          echo "<hr>";
       }
    }

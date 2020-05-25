@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -52,7 +48,7 @@ if (isset($_POST["add"])) {
       Event::log($newID, "groups", 4, "setup",
                  sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($group->getFormURL()."?id=".$newID);
+         Html::redirect($group->getLinkURL());
       }
    }
    Html::back();
@@ -98,6 +94,7 @@ if (isset($_POST["add"])) {
 
 } else {
    Html::header(Group::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "admin", "group");
-   $group->display(array('id' =>$_GET["id"]));
+   $group->display(['id' =>$_GET["id"]]);
    Html::footer();
 }
+

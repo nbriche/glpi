@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (strpos($_SERVER['PHP_SELF'], "dropdownConnect.php")) {
    include ('../inc/includes.php');
    header("Content-Type: text/html; charset=UTF-8");
@@ -48,7 +44,7 @@ if (!isset($_POST['fromtype']) || !($fromitem = getItemForItemtype($_POST['fromt
 
 $fromitem->checkGlobal(UPDATE);
 
-$used = array();
+$used = [];
 if (isset($_POST["used"])) {
    $used = $_POST["used"];
 }

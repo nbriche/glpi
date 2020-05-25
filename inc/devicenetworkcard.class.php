@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -43,9 +39,9 @@ if (!defined('GLPI_ROOT')) {
 **/
 class DeviceNetworkCard extends CommonDevice {
 
-   static protected $forward_entity_to = array('Item_DeviceNetworkCard', 'Infocom');
+   static protected $forward_entity_to = ['Item_DeviceNetworkCard', 'Infocom'];
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Network card', 'Network cards', $nb);
    }
 
@@ -53,39 +49,39 @@ class DeviceNetworkCard extends CommonDevice {
    /**
     * Criteria used for import function
     *
-    * @since version 0.84
+    * @since 0.84
    **/
    function getImportCriteria() {
 
-      return array('designation'      => 'equal',
+      return ['designation'      => 'equal',
                    'manufacturers_id' => 'equal',
-                   'mac'              => 'equal');
+                   'mac'              => 'equal'];
    }
 
 
    function getAdditionalFields() {
 
       return array_merge(parent::getAdditionalFields(),
-                         array(array('name'  => 'mac_default',
+                         [['name'  => 'mac_default',
                                      'label' => __('MAC address by default'),
-                                     'type'  => 'text'),
-                               array('name'  => 'bandwidth',
+                                     'type'  => 'text'],
+                               ['name'  => 'bandwidth',
                                      'label' => __('Flow'),
-                                     'type'  => 'text'),
-                               array('name'  => 'devicenetworkcardmodels_id',
+                                     'type'  => 'text'],
+                               ['name'  => 'devicenetworkcardmodels_id',
                                      'label' => __('Model'),
-                                     'type'  => 'dropdownValue'),
-                               array('name'  => 'none',
+                                     'type'  => 'dropdownValue'],
+                               ['name'  => 'none',
                                      'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
                                         RegisteredID::showAddChildButtonForItemForm($this,
                                                                                     '_registeredID',
-                                                                                    NULL, false),
-                                     'type'  => 'registeredIDChooser')));
+                                                                                    null, false),
+                                     'type'  => 'registeredIDChooser']]);
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',
@@ -120,7 +116,7 @@ class DeviceNetworkCard extends CommonDevice {
     *
     * @param $input array of datas
     *
-    * @return interger ID of existing or new Device
+    * @return integer ID of existing or new Device
    **/
    function import(array $input) {
       global $DB;
@@ -129,17 +125,20 @@ class DeviceNetworkCard extends CommonDevice {
          return 0;
       }
 
-      $query = "SELECT `id`
-                FROM `".$this->getTable()."`
-                WHERE `designation` = '" . $input['designation'] . "'";
+      $criteria = [
+         'SELECT' => 'id',
+         'FROM'   => $this->getTable(),
+         'WHERE'  => ['designation' => $input['designation']]
+      ];
 
       if (isset($input["bandwidth"])) {
-         $query .= " AND `bandwidth` = '".$input["bandwidth"]."'";
+         $criteria['WHERE']['bandwidth'] = $input['bandwidth'];
       }
 
-      $result = $DB->query($query);
-      if ($DB->numrows($result) > 0) {
-         $line = $DB->fetch_assoc($result);
+      $iterator = $DB->request($criteria);
+
+      if (count($iterator) > 0) {
+         $line = $iterator->next();
          return $line['id'];
       }
       return $this->add($input);
@@ -147,13 +146,13 @@ class DeviceNetworkCard extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableHeader()
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column_name = __CLASS__;
 
@@ -175,12 +174,12 @@ class DeviceNetworkCard extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableCellForItem()
    **/
-   static function getHTMLTableCellsForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                            HTMLTableCell $father=NULL, array $options=array()) {
+   static function getHTMLTableCellsForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                            HTMLTableCell $father = null, array $options = []) {
 
       $column_name = __CLASS__;
 
@@ -207,8 +206,8 @@ class DeviceNetworkCard extends CommonDevice {
    }
 
 
-   function getHTMLTableCellForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                    HTMLTableCell $father=NULL, array $options=array()) {
+   function getHTMLTableCellForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                    HTMLTableCell $father = null, array $options = []) {
 
       $column = parent::getHTMLTableCellForItem($row, $item, $father, $options);
 
@@ -218,7 +217,7 @@ class DeviceNetworkCard extends CommonDevice {
 
       switch ($item->getType()) {
          case 'Computer' :
-            Manufacturer::getHTMLTableCellsForItem($row, $this, NULL, $options);
+            Manufacturer::getHTMLTableCellsForItem($row, $this, null, $options);
             if ($this->fields["bandwidth"]) {
                $row->addCell($row->getHeaderByName('devicenetworkcard_bandwidth'),
                              $this->fields["bandwidth"], $father);
@@ -227,4 +226,36 @@ class DeviceNetworkCard extends CommonDevice {
       }
    }
 
+   public static function rawSearchOptionsToAdd($itemtype, $main_joinparams) {
+      $tab = [];
+
+      $tab[] = [
+         'id'                 => '112',
+         'table'              => 'glpi_devicenetworkcards',
+         'field'              => 'designation',
+         'name'               => __('Network interface'),
+         'forcegroupby'       => true,
+         'massiveaction'      => false,
+         'datatype'           => 'string',
+         'joinparams'         => [
+            'beforejoin'         => [
+               'table'              => 'glpi_items_devicenetworkcards',
+               'joinparams'         => $main_joinparams
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '113',
+         'table'              => 'glpi_items_devicenetworkcards',
+         'field'              => 'mac',
+         'name'               => __('MAC address'),
+         'forcegroupby'       => true,
+         'massiveaction'      => false,
+         'datatype'           => 'string',
+         'joinparams'         => $main_joinparams
+      ];
+
+      return $tab;
+   }
 }

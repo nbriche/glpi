@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -55,12 +51,12 @@ if (isset($_POST["update"])) {
 } else if (isset($_POST["add"])) {
    $item->check(-1, CREATE, $_POST);
 
-   if ($newID = $item->add($_POST)) {
-      Event::log($_POST["slts_id"], "slts", 4, "setup",
+   if ($item->add($_POST)) {
+      Event::log($_POST["slas_id"], "slas", 4, "setup",
                  //TRANS: %s is the user login
                  sprintf(__('%s adds a link with an item'), $_SESSION["glpiname"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($item->getFormURL()."?id=".$newID);
+         Html::redirect($item->getLinkURL());
       }
    }
    Html::back();
@@ -96,8 +92,9 @@ if (isset($_POST["update"])) {
    Html::back();
 
 } else if (isset($_GET["id"]) && ($_GET["id"] > 0)) { //print computer information
-   Html::header(SlaLevel::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "sla", "slalevel");
+   Html::header(SlaLevel::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "slm", "slalevel");
    //show computer form to add
-   $item->display(array('id' => $_GET["id"]));
+   $item->display(['id' => $_GET["id"]]);
    Html::footer();
 }
+

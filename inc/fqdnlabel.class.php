@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,9 @@
  * ---------------------------------------------------------------------
 */
 
-/** @file
-* @brief Create an abstration layer for any kind of internet label
-*/
+/**
+ * Create an abstration layer for any kind of internet label
+ */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -141,7 +141,7 @@ abstract class FQDNLabel extends CommonDBChild {
     *
     * @return array two arrays (NetworkName and NetworkAlias) of the IDs
     **/
-   static function getIDsByLabelAndFQDNID($label, $fqdns_id, $wildcard_search=false) {
+   static function getIDsByLabelAndFQDNID($label, $fqdns_id, $wildcard_search = false) {
       global $DB;
 
       $label = strtolower($label);
@@ -151,25 +151,28 @@ abstract class FQDNLabel extends CommonDBChild {
          if ($count == 0) {
             $label = '%'.$label.'%';
          }
-         $relation = "LIKE '$label'";
+         $relation = ['LIKE',  $label];
       } else {
-         $relation = "= '$label'";
+         $relation = $label;
       }
 
-      $IDs = array();
-      foreach (array('NetworkName'  => 'glpi_networknames',
-                     'NetworkAlias' => 'glpi_networkaliases') as $class => $table) {
-         $query = "SELECT `id`
-                   FROM `$table`
-                   WHERE `name` $relation ";
+      $IDs = [];
+      foreach (['NetworkName'  => 'glpi_networknames',
+                     'NetworkAlias' => 'glpi_networkaliases'] as $class => $table) {
+         $criteria = [
+            'SELECT' => 'id',
+            'FROM'   => $table,
+            'WHERE'  => ['name' => $relation]
+         ];
 
-         if ((is_array($fqdns_id)) && (count($fqdns_id) > 0)) {
-            $query .= " AND `fqdns_id` IN ('". implode('\', \'', $fqdns_id). "')";
-         } else if ((is_int($fqdns_id)) && ($fqdns_id > 0)) {
-            $query .= " AND `fqdns_id` = '$fqdns_id'";
+         if (is_array($fqdns_id) && count($fqdns_id) > 0
+            || is_int($fqdns_id) && $fqdns_id > 0
+         ) {
+            $criteria['WHERE']['fqdns_id'] = $fqdns_id;
          }
 
-         foreach ($DB->request($query) as $element) {
+         $iterator = $DB->request($criteria);
+         while ($element = $iterator->next()) {
             $IDs[$class][] = $element['id'];
          }
       }
@@ -186,13 +189,13 @@ abstract class FQDNLabel extends CommonDBChild {
     * @return (array) each value of the array (corresponding to one NetworkPort) is an array of the
     *                 items from the master item to the NetworkPort
     **/
-   static function getItemsByFQDN($fqdn, $wildcard_search=false) {
+   static function getItemsByFQDN($fqdn, $wildcard_search = false) {
 
-      $FQNDs_with_Items = array();
+      $FQNDs_with_Items = [];
 
       if (!$wildcard_search) {
          if (!FQDN::checkFQDN($fqdn)) {
-            return array();
+            return [];
          }
       }
 
@@ -210,7 +213,7 @@ abstract class FQDNLabel extends CommonDBChild {
             foreach ($IDs as $ID) {
                if ($FQDNlabel->getFromDB($ID)) {
                   $FQNDs_with_Items[] = array_merge(array_reverse($FQDNlabel->recursivelyGetItems()),
-                                                    array(clone $FQDNlabel));
+                                                    [clone $FQDNlabel]);
                }
             }
          }
@@ -251,8 +254,8 @@ abstract class FQDNLabel extends CommonDBChild {
          foreach ($labels_with_items as $items) {
             foreach ($items as $item) {
                if ($item->getEntityID() == $entity) {
-                  $result = array("id"       => $item->getID(),
-                                  "itemtype" => $item->getType());
+                  $result = ["id"       => $item->getID(),
+                                  "itemtype" => $item->getType()];
                   unset($labels_with_items);
                   return $result;
                }
@@ -260,6 +263,6 @@ abstract class FQDNLabel extends CommonDBChild {
          }
       }
 
-      return array();
+      return [];
    }
 }

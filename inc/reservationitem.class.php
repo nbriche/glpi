@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -58,16 +54,16 @@ class ReservationItem extends CommonDBChild {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
    static function canView() {
       global $CFG_GLPI;
 
-      return Session::haveRightsOr(self::$rightname, array(READ, self::RESERVEANITEM));
+      return Session::haveRightsOr(self::$rightname, [READ, self::RESERVEANITEM]);
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Reservable item', 'Reservable items', $nb);
    }
 
@@ -75,7 +71,7 @@ class ReservationItem extends CommonDBChild {
    /**
     * @see CommonGLPI::getMenuName()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
    static function getMenuName() {
       return Reservation::getTypeName(Session::getPluralNumber());
@@ -85,22 +81,22 @@ class ReservationItem extends CommonDBChild {
    /**
     * @see CommonGLPI::getForbiddenActionsForMenu()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
    static function getForbiddenActionsForMenu() {
-      return array('add');
+      return ['add'];
    }
 
 
    /**
     * @see CommonGLPI::getAdditionalMenuLinks()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
    static function getAdditionalMenuLinks() {
 
       if (static::canView()) {
-         return array('showall' => Reservation::getSearchURL(false));
+         return ['showall' => Reservation::getSearchURL(false)];
       }
       return false;
    }
@@ -117,23 +113,29 @@ class ReservationItem extends CommonDBChild {
    **/
    function getFromDBbyItem($itemtype, $ID) {
 
-      return $this->getFromDBByQuery("WHERE `".$this->getTable()."`.`itemtype` = '$itemtype'
-                                            AND `".$this->getTable()."`.`items_id` = '$ID'");
+      return $this->getFromDBByCrit([
+         $this->getTable() . '.itemtype'  => $itemtype,
+         $this->getTable() . '.items_id'  => $ID
+      ]);
    }
 
 
    function cleanDBonPurge() {
 
-      $class = new Reservation();
-      $class->cleanDBonItemDelete($this->getType(), $this->fields['id']);
+      $this->deleteChildrenAndRelationsFromDb(
+         [
+            Reservation::class,
+         ]
+      );
 
-      $class = new Alert();
-      $class->cleanDBonItemDelete($this->getType(), $this->fields['id']);
+      // Alert does not extends CommonDBConnexity
+      $alert = new Alert();
+      $alert->cleanDBonItemDelete($this->getType(), $this->fields['id']);
 
    }
 
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
       $tab = [];
 
       $tab[] = [
@@ -190,7 +192,7 @@ class ReservationItem extends CommonDBChild {
          'additionalfields'   => ['is_active']
       ];
 
-      $loc = Location::getSearchOptionsToAddNew();
+      $loc = Location::rawSearchOptionsToAdd();
       // Force massive actions to false
       foreach ($loc as &$val) {
          $val['massiveaction'] = false;
@@ -306,28 +308,28 @@ class ReservationItem extends CommonDBChild {
 
          if ($ri->fields["is_active"]) {
             Html::showSimpleForm(static::getFormURL(), 'update', __('Make unavailable'),
-                                 array('id'        => $ri->fields['id'],
-                                       'is_active' => 0));
+                                 ['id'        => $ri->fields['id'],
+                                       'is_active' => 0]);
          } else {
             Html::showSimpleForm(static::getFormURL(), 'update', __('Make available'),
-                                 array('id'        => $ri->fields['id'],
-                                       'is_active' => 1));
+                                 ['id'        => $ri->fields['id'],
+                                       'is_active' => 1]);
          }
 
          echo '</td><td>';
          Html::showSimpleForm(static::getFormURL(), 'purge', __('Prohibit reservations'),
-                              array('id' => $ri->fields['id']), '', '',
-                              array(__('Are you sure you want to return this non-reservable item?'),
-                                    __('That will remove all the reservations in progress.')));
+                              ['id' => $ri->fields['id']], '', '',
+                              [__('Are you sure you want to return this non-reservable item?'),
+                                    __('That will remove all the reservations in progress.')]);
 
          echo "</td>";
       } else {
          echo "<td class='center'>";
          Html::showSimpleForm(static::getFormURL(), 'add', __('Authorize reservations'),
-                              array('items_id'     => $item->getID(),
+                              ['items_id'     => $item->getID(),
                                     'itemtype'     => $item->getType(),
                                     'entities_id'  => $item->getEntityID(),
-                                    'is_recursive' => $item->isRecursive(),));
+                                    'is_recursive' => $item->isRecursive(),]);
          echo "</td>";
       }
       echo "</tr></table>";
@@ -335,7 +337,7 @@ class ReservationItem extends CommonDBChild {
    }
 
 
-   function showForm($ID, $options=array()) {
+   function showForm($ID, $options = []) {
 
       if (!self::canView()) {
          return false;
@@ -387,10 +389,9 @@ class ReservationItem extends CommonDBChild {
          return false;
       }
 
-      $ri         = new self();
       $ok         = false;
       $showentity = Session::isMultiEntitiesMode();
-      $values     = array();
+      $values     = [];
 
       if (isset($_SESSION['glpi_saved']['ReservationItem'])) {
          $_POST = $_SESSION['glpi_saved']['ReservationItem'];
@@ -421,8 +422,8 @@ class ReservationItem extends CommonDBChild {
       echo "<th colspan='3'>".__('Find a free item in a specific period')."</th></tr>";
 
       echo "<tr class='tab_bg_2'><td>".__('Start date')."</td><td>";
-      Html::showDateTimeField("reserve[begin]", array('value'      =>  $_POST['reserve']["begin"],
-                                                      'maybeempty' => false));
+      Html::showDateTimeField("reserve[begin]", ['value'      =>  $_POST['reserve']["begin"],
+                                                      'maybeempty' => false]);
       echo "</td><td rowspan='3'>";
       echo "<input type='submit' class='submit' name='submit' value=\""._sx('button', 'Search')."\">";
       echo "</td></tr>";
@@ -431,14 +432,14 @@ class ReservationItem extends CommonDBChild {
       $default_delay = floor((strtotime($_POST['reserve']["end"]) - strtotime($_POST['reserve']["begin"]))
                              /$CFG_GLPI['time_step']/MINUTE_TIMESTAMP)
                        *$CFG_GLPI['time_step']*MINUTE_TIMESTAMP;
-      $rand = Dropdown::showTimeStamp("reserve[_duration]", array('min'        => 0,
+      $rand = Dropdown::showTimeStamp("reserve[_duration]", ['min'        => 0,
                                                           'max'        => 48*HOUR_TIMESTAMP,
                                                           'value'      => $default_delay,
-                                                          'emptylabel' => __('Specify an end date')));
+                                                          'emptylabel' => __('Specify an end date')]);
       echo "<br><div id='date_end$rand'></div>";
-      $params = array('duration'     => '__VALUE__',
+      $params = ['duration'     => '__VALUE__',
                      'end'          => $_POST['reserve']["end"],
-                     'name'         => "reserve[end]");
+                     'name'         => "reserve[end]"];
 
       Ajax::updateItemOnSelectEvent("dropdown_reserve[_duration]$rand", "date_end$rand",
                                     $CFG_GLPI["root_doc"]."/ajax/planningend.php", $params);
@@ -446,39 +447,55 @@ class ReservationItem extends CommonDBChild {
 
       echo "<tr class='tab_bg_2'><td>".__('Item type')."</td><td>";
 
-      $sql = "SELECT DISTINCT(`itemtype`)
-              FROM `glpi_reservationitems`
-              WHERE `is_active` = 1".
-                    getEntitiesRestrictRequest(" AND", 'glpi_reservationitems', 'entities_id',
-                                               $_SESSION['glpiactiveentities']);
+      $iterator = $DB->request([
+         'SELECT'          => 'itemtype',
+         'DISTINCT'        => true,
+         'FROM'            => 'glpi_reservationitems',
+         'WHERE'           => [
+            'is_active' => 1
+         ] + getEntitiesRestrictCriteria('glpi_reservationitems', 'entities_id', $_SESSION['glpiactiveentities'])
+      ]);
 
-      $result = $DB->query($sql);
-
-      while ($data = $DB->fetch_assoc($result)) {
+      while ($data = $iterator->next()) {
          $values[$data['itemtype']] = $data['itemtype']::getTypeName();
       }
 
-      $query = "SELECT `glpi_peripheraltypes`.`name`, `glpi_peripheraltypes`.`id`
-                FROM `glpi_peripheraltypes`
-                LEFT JOIN `glpi_peripherals`
-                  ON `glpi_peripherals`.`peripheraltypes_id` = `glpi_peripheraltypes`.`id`
-                LEFT JOIN `glpi_reservationitems`
-                  ON `glpi_reservationitems`.`items_id` = `glpi_peripherals`.`id`
-                WHERE `itemtype` = 'Peripheral'
-                      AND `is_active` = 1
-                      AND `peripheraltypes_id`".
-                      getEntitiesRestrictRequest(" AND", 'glpi_reservationitems', 'entities_id',
-                            $_SESSION['glpiactiveentities'])."
-                ORDER BY `glpi_peripheraltypes`.`name`";
+      $iterator = $DB->request([
+         'SELECT'    => [
+            'glpi_peripheraltypes.name',
+            'glpi_peripheraltypes.id'
+         ],
+         'FROM'      => 'glpi_peripheraltypes',
+         'LEFT JOIN' => [
+            'glpi_peripherals'      => [
+               'ON' => [
+                  'glpi_peripheraltypes'  => 'id',
+                  'glpi_peripherals'      => 'peripheraltypes_id'
+               ]
+            ],
+            'glpi_reservationitems' => [
+               'ON' => [
+                  'glpi_reservationitems' => 'items_id',
+                  'glpi_peripherals'      => 'id'
+               ]
+            ]
+         ],
+         'WHERE'     => [
+            'itemtype'           => 'Peripheral',
+            'is_active'          => 1,
+            'peripheraltypes_id' => ['>', 0]
+         ] + getEntitiesRestrictCriteria('glpi_reservationitems', 'entities_id', $_SESSION['glpiactiveentities']),
+         'ORDERBY'   => 'glpi_peripheraltypes.name'
+      ]);
 
-      foreach ($DB->request($query) as $ptype) {
+      while ($ptype = $iterator->next()) {
          $id = $ptype['id'];
          $values["Peripheral#$id"] = $ptype['name'];
       }
 
       Dropdown::showFromArray("reservation_types", $values,
-                              array('value'               => $_POST['reservation_types'],
-                                    'display_emptychoice' => true));
+                              ['value'               => $_POST['reservation_types'],
+                                    'display_emptychoice' => true]);
 
       echo "</td></tr>";
       echo "</table>";
@@ -487,7 +504,7 @@ class ReservationItem extends CommonDBChild {
 
       // GET method passed to form creation
       echo "<div id='nosearch' class='center'>";
-      echo "<form name='form' method='GET' action='reservation.form.php'>";
+      echo "<form name='form' method='GET' action='".Reservation::getFormURL()."'>";
       echo "<table class='tab_cadre_fixehov'>";
       echo "<tr><th colspan='".($showentity?"5":"4")."'>".self::getTypeName(1)."</th></tr>\n";
 
@@ -496,90 +513,116 @@ class ReservationItem extends CommonDBChild {
             continue;
          }
          $itemtable = getTableForItemType($itemtype);
-         $otherserial = "'' AS otherserial";
+
+         $otherserial = new \QueryExpression($DB->quote('') . ' AS ' . $DB->quoteName('otherserial'));
          if ($item->isField('otherserial')) {
-            $otherserial = "`$itemtable`.`otherserial`";
+            $otherserial = "$itemtable.otherserial AS otherserial";
          }
+         $criteria = [
+            'SELECT' => [
+               'glpi_reservationitems.id',
+               'glpi_reservationitems.comment',
+               "$itemtable.name AS name",
+               "$itemtable.entities_id AS entities_id",
+               $otherserial,
+               'glpi_locations.id AS location',
+               'glpi_reservationitems.items_id AS items_id'
+            ],
+            'FROM'   => self::getTable(),
+            'INNER JOIN'   => [
+               $itemtable  => [
+                  'ON'  => [
+                     'glpi_reservationitems' => 'items_id',
+                     $itemtable              => 'id', [
+                        'AND' => [
+                           'glpi_reservationitems.itemtype' => $itemtype
+                        ]
+                     ]
+                  ]
+               ]
+            ],
+            'LEFT JOIN'    =>  [
+               'glpi_locations'  => [
+                  'ON'  => [
+                     $itemtable        => 'locations_id',
+                     'glpi_locations'  => 'id'
+                  ]
+               ]
+            ],
+            'WHERE'        => [
+               'glpi_reservationitems.is_active'   => 1,
+               'glpi_reservationitems.is_deleted'  => 0,
+               "$itemtable.is_deleted"             => 0,
+            ] + getEntitiesRestrictCriteria($itemtable, '', $_SESSION['glpiactiveentities'], $item->maybeRecursive()),
+            'ORDERBY'      => [
+               "$itemtable.entities_id",
+               "$itemtable.name"
+            ]
+         ];
+
          $begin = $_POST['reserve']["begin"];
          $end   = $_POST['reserve']["end"];
-         $left = "";
-         $where = "";
          if (isset($_POST['submit']) && isset($begin) && isset($end)) {
-            $left = "LEFT JOIN `glpi_reservations`
-                        ON (`glpi_reservationitems`.`id` = `glpi_reservations`.`reservationitems_id`
-                            AND '". $begin."' < `glpi_reservations`.`end`
-                            AND '". $end."' > `glpi_reservations`.`begin`)";
-
-            $where = " AND `glpi_reservations`.`id` IS NULL ";
+            $criteria['LEFT JOIN']['glpi_reservations'] = [
+               'ON'  => [
+                  'glpi_reservationitems' => 'id',
+                  'glpi_reservations'     => 'reservationitems_id', [
+                     'AND' => [
+                        'glpi_reservations.end'    => ['>=', $begin],
+                        'glpi_reservations.begin'  => ['<=', $end]
+                     ]
+                  ]
+               ]
+            ];
+            $criteria['WHERE'][] = ['glpi_reservations.id' => null];
          }
          if (isset($_POST["reservation_types"]) && !empty($_POST["reservation_types"])) {
             $tmp = explode('#', $_POST["reservation_types"]);
-            $where .= " AND `glpi_reservationitems`.`itemtype` = '".$tmp[0]."'";
+            $criteria['WHERE'][] = ['glpi_reservationitems.itemtype' => $tmp[0]];
             if (isset($tmp[1]) && ($tmp[0] == 'Peripheral')
                 && ($itemtype == 'Peripheral')) {
-               $left  .= " LEFT JOIN `glpi_peripheraltypes`
-                              ON (`glpi_peripherals`.`peripheraltypes_id` = `glpi_peripheraltypes`.`id`)";
-               $where .= " AND `$itemtable`.`peripheraltypes_id` = '".$tmp[1]."'";
+               $criteria['LEFT JOIN']['glpi_peripheraltypes'] = [
+                  'ON' => [
+                     'glpi_peripherals'      => 'peripheraltypes_id',
+                     'glpi_peripheraltypes'  => 'id'
+                  ]
+               ];
+               $criteria['WHERE'][] = ["$itemtable.peripheraltypes_id" => $tmp[1]];
             }
          }
 
-         $query = "SELECT `glpi_reservationitems`.`id`,
-                          `glpi_reservationitems`.`comment`,
-                          `$itemtable`.`name` AS name,
-                          `$itemtable`.`entities_id` AS entities_id,
-                          $otherserial,
-                          `glpi_locations`.`id` AS location,
-                          `glpi_reservationitems`.`items_id` AS items_id
-                   FROM `glpi_reservationitems`
-                   INNER JOIN `$itemtable`
-                        ON (`glpi_reservationitems`.`itemtype` = '$itemtype'
-                            AND `glpi_reservationitems`.`items_id` = `$itemtable`.`id`)
-                   $left
-                   LEFT JOIN `glpi_locations`
-                        ON (`$itemtable`.`locations_id` = `glpi_locations`.`id`)
-                   WHERE `glpi_reservationitems`.`is_active` = '1'
-                         AND `glpi_reservationitems`.`is_deleted` = '0'
-                         AND `$itemtable`.`is_deleted` = '0'
-                         $where ".
-                         getEntitiesRestrictRequest(" AND", $itemtable, '',
-                                                    $_SESSION['glpiactiveentities'],
-                                                    $item->maybeRecursive())."
-                   ORDER BY `$itemtable`.`entities_id`,
-                            `$itemtable`.`name`";
+         $iterator = $DB->request($criteria);
+         while ($row = $iterator->next()) {
+            echo "<tr class='tab_bg_2'><td>";
+            echo "<input type='checkbox' name='item[".$row["id"]."]' value='".$row["id"]."'>".
+                  "</td>";
+            $typename = $item->getTypeName();
+            if ($itemtype == 'Peripheral') {
+               $item->getFromDB($row['items_id']);
+               if (isset($item->fields["peripheraltypes_id"])
+                     && ($item->fields["peripheraltypes_id"] != 0)) {
 
-         if ($result = $DB->query($query)) {
-            while ($row = $DB->fetch_assoc($result)) {
-               echo "<tr class='tab_bg_2'><td>";
-               echo "<input type='checkbox' name='item[".$row["id"]."]' value='".$row["id"]."'>".
-                    "</td>";
-               $typename = $item->getTypeName();
-               if ($itemtype == 'Peripheral') {
-                  $item->getFromDB($row['items_id']);
-                  if (isset($item->fields["peripheraltypes_id"])
-                      && ($item->fields["peripheraltypes_id"] != 0)) {
-
-                     $typename = Dropdown::getDropdownName("glpi_peripheraltypes",
-                                                           $item->fields["peripheraltypes_id"]);
-                  }
+                  $typename = Dropdown::getDropdownName("glpi_peripheraltypes",
+                                                         $item->fields["peripheraltypes_id"]);
                }
-               echo "<td><a href='reservation.php?reservationitems_id=".$row['id']."'>".
-                          sprintf(__('%1$s - %2$s'), $typename, $row["name"])."</a></td>";
-               echo "<td>".Dropdown::getDropdownName("glpi_locations", $row["location"])."</td>";
-               echo "<td>".nl2br($row["comment"])."</td>";
-               if ($showentity) {
-                  echo "<td>".Dropdown::getDropdownName("glpi_entities", $row["entities_id"]).
-                       "</td>";
-               }
-               echo "</tr>\n";
-               $ok = true;
             }
+            echo "<td><a href='reservation.php?reservationitems_id=".$row['id']."'>".
+                        sprintf(__('%1$s - %2$s'), $typename, $row["name"])."</a></td>";
+            echo "<td>".Dropdown::getDropdownName("glpi_locations", $row["location"])."</td>";
+            echo "<td>".nl2br($row["comment"])."</td>";
+            if ($showentity) {
+               echo "<td>".Dropdown::getDropdownName("glpi_entities", $row["entities_id"]).
+                     "</td>";
+            }
+            echo "</tr>\n";
+            $ok = true;
          }
       }
       if ($ok) {
          echo "<tr class='tab_bg_1 center'><td colspan='".($showentity?"5":"4")."'>";
          if (isset($_POST['reserve'])) {
-            echo Html::hidden('begin', array('value' => $_POST['reserve']["begin"]));
-            echo Html::hidden('end', array('value'   => $_POST['reserve']["end"]));
+            echo Html::hidden('begin', ['value' => $_POST['reserve']["begin"]]);
+            echo Html::hidden('end', ['value'   => $_POST['reserve']["end"]]);
          }
          echo "<input type='submit' value=\""._sx('button', 'Add')."\" class='submit'></td></tr>\n";
 
@@ -594,10 +637,10 @@ class ReservationItem extends CommonDBChild {
    /**
     * @param $name
     *
-    * @return an array
+    * @return array
    **/
    static function cronInfo($name) {
-      return array('description' => __('Alerts on reservations'));
+      return ['description' => __('Alerts on reservations')];
    }
 
 
@@ -608,39 +651,58 @@ class ReservationItem extends CommonDBChild {
     *
     * @return 0 : nothing to do 1 : done with success
    **/
-   static function cronReservation($task=NULL) {
+   static function cronReservation($task = null) {
       global $DB, $CFG_GLPI;
 
-      if (!$CFG_GLPI["use_mailing"]) {
+      if (!$CFG_GLPI["use_notifications"]) {
          return 0;
       }
 
-      $message        = array();
+      $message        = [];
       $cron_status    = 0;
-      $items_infos    = array();
-      $items_messages = array();
+      $items_infos    = [];
+      $items_messages = [];
 
       foreach (Entity::getEntitiesToNotify('use_reservations_alert') as $entity => $value) {
          $secs = $value * HOUR_TIMESTAMP;
 
          // Reservation already begin and reservation ended in $value hours
-         $query_end = "SELECT `glpi_reservationitems`.*,
-                              `glpi_reservations`.`end` AS `end`,
-                              `glpi_reservations`.`id` AS `resaid`
-                       FROM `glpi_reservations`
-                       LEFT JOIN `glpi_alerts`
-                           ON (`glpi_reservations`.`id` = `glpi_alerts`.`items_id`
-                               AND `glpi_alerts`.`itemtype` = 'Reservation'
-                               AND `glpi_alerts`.`type` = '".Alert::END."')
-                       LEFT JOIN `glpi_reservationitems`
-                           ON (`glpi_reservations`.`reservationitems_id`
-                                 = `glpi_reservationitems`.`id`)
-                       WHERE `glpi_reservationitems`.`entities_id` = '$entity'
-                             AND (UNIX_TIMESTAMP(`glpi_reservations`.`end`) - $secs) < UNIX_TIMESTAMP()
-                             AND `glpi_reservations`.`begin` < NOW()
-                             AND `glpi_alerts`.`date` IS NULL";
+         $criteria = [
+            'SELECT' => [
+               'glpi_reservationitems.*',
+               'glpi_reservations.end AS end',
+               'glpi_reservations.id AS resaid'
+            ],
+            'FROM'   => 'glpi_reservations',
+            'LEFT JOIN' => [
+               'glpi_alerts'  => [
+                  'ON'  => [
+                     'glpi_reservations'  => 'id',
+                     'glpi_alerts'        => 'items_id', [
+                        'AND' => [
+                           'glpi_alerts.itemtype'  => 'Reservation',
+                           'glpi_alerts.type'      => Alert::END
+                        ]
+                     ]
+                  ]
+               ],
+               'glpi_reservationitems' => [
+                  'ON'  => [
+                     'glpi_reservations'     => 'reservationitems_id',
+                     'glpi_reservationitems' => 'id'
+                  ]
+               ]
+            ],
+            'WHERE'     => [
+               'glpi_reservationitems.entities_id' => $entity,
+               new QueryExpression('(UNIX_TIMESTAMP('.$DB->quoteName('glpi_reservations.end').') - '.$secs.') < UNIX_TIMESTAMP()'),
+               'glpi_reservations.begin'  => ['<', NOW()],
+               'glpi_alerts.date'         => null
+            ]
+         ];
+         $iterator = $DB->request($criteria);
 
-         foreach ($DB->request($query_end) as $data) {
+         while ($data = $iterator->next()) {
             if ($item_resa = getItemForItemtype($data['itemtype'])) {
                if ($item_resa->getFromDB($data["items_id"])) {
                   $data['item_name']                     = $item_resa->getName();
@@ -660,8 +722,8 @@ class ReservationItem extends CommonDBChild {
       foreach ($items_infos as $entity => $items) {
          $resitem = new self();
          if (NotificationEvent::raiseEvent("alert", new Reservation(),
-                                           array('entities_id' => $entity,
-                                                 'items'       => $items))) {
+                                           ['entities_id' => $entity,
+                                                 'items'       => $items])) {
             $message     = $items_messages[$entity];
             $cron_status = 1;
             if ($task) {
@@ -719,11 +781,11 @@ class ReservationItem extends CommonDBChild {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see commonDBTM::getRights()
    **/
-   function getRights($interface='central') {
+   function getRights($interface = 'central') {
 
       if ($interface == 'central') {
          $values = parent::getRights();
@@ -737,11 +799,11 @@ class ReservationItem extends CommonDBChild {
    /**
     * @see CommonGLPI::defineTabs()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addStandardTab(__CLASS__, $ong, $options);
       $ong['no_all_tab'] = true;
       return $ong;
@@ -751,15 +813,15 @@ class ReservationItem extends CommonDBChild {
    /**
     * @see CommonGLPI::getTabNameForItem()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if ($item->getType() == __CLASS__) {
          if (Session::haveRight("reservation", ReservationItem::RESERVEANITEM)) {
             $tabs[1] = __('Reservation');
          }
-         if (($_SESSION["glpiactiveprofile"]["interface"] == "central")
+         if ((Session::getCurrentInterface() == "central")
              && Session::haveRight("reservation", READ)) {
             $tabs[2] = __('Administration');
          }
@@ -773,7 +835,7 @@ class ReservationItem extends CommonDBChild {
     * @param $tabnum       (default1)
     * @param $withtemplate (default0)
     **/
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       if ($item->getType() == __CLASS__) {
          switch ($tabnum) {
@@ -792,7 +854,7 @@ class ReservationItem extends CommonDBChild {
    /**
     * @see CommonDBTM::isNewItem()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
    function isNewItem() {
       return false;

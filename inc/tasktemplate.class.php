@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,17 +30,13 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 /**
  * Template for task
- * @since version 9.1
+ * @since 9.1
 **/
 class TaskTemplate extends CommonDropdown {
 
@@ -52,41 +48,42 @@ class TaskTemplate extends CommonDropdown {
 
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Task template', 'Task templates', $nb);
    }
 
 
    function getAdditionalFields() {
 
-      return array(array('name'  => 'content',
+      return [['name'  => 'content',
                          'label' => __('Content'),
-                         'type'  => 'textarea'),
-                   array('name'  => 'taskcategories_id',
+                         'type'  => 'textarea',
+                         'rows' => 10],
+                   ['name'  => 'taskcategories_id',
                          'label' => __('Task category'),
                          'type'  => 'dropdownValue',
-                         'list'  => true),
-                   array('name'  => 'state',
+                         'list'  => true],
+                   ['name'  => 'state',
                          'label' => __('Status'),
-                         'type'  => 'state'),
-                   array('name'  => 'is_private',
+                         'type'  => 'state'],
+                   ['name'  => 'is_private',
                          'label' => __('Private'),
-                         'type'  => 'bool'),
-                   array('name'  => 'actiontime',
+                         'type'  => 'bool'],
+                   ['name'  => 'actiontime',
                          'label' => __('Duration'),
-                         'type'  => 'actiontime'),
-                   array('name'  => 'users_id_tech',
+                         'type'  => 'actiontime'],
+                   ['name'  => 'users_id_tech',
                          'label' => __('By'),
-                         'type'  => 'users_id_tech'),
-                   array('name'  => 'groups_id_tech',
+                         'type'  => 'users_id_tech'],
+                   ['name'  => 'groups_id_tech',
                          'label' => __('Group'),
-                         'type'  => 'groups_id_tech'),
-                  );
+                         'type'  => 'groups_id_tech'],
+                  ];
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '4',
@@ -112,38 +109,43 @@ class TaskTemplate extends CommonDropdown {
    /**
     * @see CommonDropdown::displaySpecificTypeField()
    **/
-   function displaySpecificTypeField($ID, $field=array()) {
+   function displaySpecificTypeField($ID, $field = []) {
 
       switch ($field['type']) {
          case 'state' :
             Planning::dropdownState("state", $this->fields["state"]);
             break;
          case 'users_id_tech' :
-            User::dropdown(['name'   => "users_id_tech",
-                            'right'  => "own_ticket",
-                            'value'  => $this->fields["users_id_tech"],
-                            'entity' => $this->fields["entities_id"],
+            User::dropdown([
+               'name'   => "users_id_tech",
+               'right'  => "own_ticket",
+               'value'  => $this->fields["users_id_tech"],
+               'entity' => $this->fields["entities_id"],
             ]);
             break;
          case 'groups_id_tech' :
-            Group::dropdown(['name'     => "groups_id_tech",
-                            'condition' => "is_task",
-                            'value'     => $this->fields["groups_id_tech"],
-                            'entity'    => $this->fields["entities_id"],
+            Group::dropdown([
+               'name'     => "groups_id_tech",
+               'condition' => ['is_task' => 1],
+               'value'     => $this->fields["groups_id_tech"],
+               'entity'    => $this->fields["entities_id"],
             ]);
             break;
          case 'actiontime' :
-            $toadd = array();
+            $toadd = [];
             for ($i=9; $i<=100; $i++) {
                $toadd[] = $i*HOUR_TIMESTAMP;
             }
-            Dropdown::showTimeStamp("actiontime",
-                                    array('min'             => 0,
-                                          'max'             => 8*HOUR_TIMESTAMP,
-                                          'value'           => $this->fields["actiontime"],
-                                          'addfirstminutes' => true,
-                                          'inhours'         => true,
-                                          'toadd'           => $toadd));
+            Dropdown::showTimeStamp(
+               "actiontime", [
+                  'min'             => 0,
+                  'max'             => 8*HOUR_TIMESTAMP,
+                  'value'           => $this->fields["actiontime"],
+                  'addfirstminutes' => true,
+                  'inhours'         => true,
+                  'toadd'           => $toadd
+               ]
+            );
             break;
       }
    }

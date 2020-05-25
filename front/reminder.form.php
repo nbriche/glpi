@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -51,7 +47,7 @@ if (isset($_POST["add"])) {
       Event::log($newID, "reminder", 4, "tools",
                  sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($remind->getFormURL()."?id=".$newID);
+         Html::redirect($remind->getLinkURL());
       }
    }
    Html::back();
@@ -80,7 +76,7 @@ if (isset($_POST["add"])) {
 } else if (isset($_POST["addvisibility"])) {
    if (isset($_POST["_type"]) && !empty($_POST["_type"])
        && isset($_POST["reminders_id"]) && $_POST["reminders_id"]) {
-      $item = NULL;
+      $item = null;
       switch ($_POST["_type"]) {
          case 'User' :
             if (isset($_POST['users_id']) && $_POST['users_id']) {
@@ -114,17 +110,18 @@ if (isset($_POST["add"])) {
    Html::back();
 
 } else {
-   if ($_SESSION["glpiactiveprofile"]["interface"] == "helpdesk") {
+   if (Session::getCurrentInterface() == "helpdesk") {
       Html::helpHeader(Reminder::getTypeName(Session::getPluralNumber()), '', $_SESSION["glpiname"]);
    } else {
       Html::header(Reminder::getTypeName(Session::getPluralNumber()), '', "tools", "reminder");
    }
 
-   $remind->display(array('id' =>$_GET["id"]));
+   $remind->display(['id' =>$_GET["id"]]);
 
-   if ($_SESSION["glpiactiveprofile"]["interface"] == "helpdesk") {
+   if (Session::getCurrentInterface() == "helpdesk") {
       Html::helpFooter();
    } else {
       Html::footer();
    }
 }
+

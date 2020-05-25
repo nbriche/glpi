@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,7 +37,7 @@ if (!defined('GLPI_ROOT')) {
 /**
  * Blacklist Class
  *
- * @since version 0.84
+ * @since 0.84
 **/
 class Blacklist extends CommonDropdown {
 
@@ -59,13 +55,17 @@ class Blacklist extends CommonDropdown {
    const EMAIL  = 5;
 
 
+   function maxActionsCount() {
+      return 0;
+   }
+
    static function canCreate() {
       return static::canUpdate();
    }
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
    static function canPurge() {
       return static::canUpdate();
@@ -74,18 +74,18 @@ class Blacklist extends CommonDropdown {
 
    function getAdditionalFields() {
 
-      return array(array('name'  => 'value',
+      return [['name'  => 'value',
                          'label' => __('Value'),
                          'type'  => 'text',
-                         'list'  => true),
-                   array('name'  => 'type',
+                         'list'  => true],
+                   ['name'  => 'type',
                          'label' => _n('Type', 'Types', 1),
                          'type'  => '',
-                         'list'  => true));
+                         'list'  => true]];
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Blacklist', 'Blacklists', $nb);
    }
 
@@ -95,8 +95,8 @@ class Blacklist extends CommonDropdown {
     *
     * @return array of search option
    **/
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',
@@ -135,10 +135,10 @@ class Blacklist extends CommonDropdown {
    /**
     * @see CommonDropdown::displaySpecificTypeField()
    **/
-   function displaySpecificTypeField($ID, $field=array()) {
+   function displaySpecificTypeField($ID, $field = []) {
 
       if ($field['name'] == 'type') {
-         self::dropdownType($field['name'], array('value' => $this->fields['type']));
+         self::dropdownType($field['name'], ['value' => $this->fields['type']]);
       }
    }
 
@@ -148,10 +148,10 @@ class Blacklist extends CommonDropdown {
     * @param $values
     * @param $options   array
     */
-   static function getSpecificValueToDisplay($field, $values, array $options=array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       switch ($field) {
          case 'type' :
@@ -163,17 +163,17 @@ class Blacklist extends CommonDropdown {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field
     * @param $name               (default '')
     * @param $values             (default '')
     * @param $options      array
     **/
-   static function getSpecificValueToSelect($field, $name='', $values='', array $options=array()) {
+   static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       $options['display'] = false;
       switch ($field) {
@@ -188,8 +188,8 @@ class Blacklist extends CommonDropdown {
    /**
     * Dropdown of blacklist types
     *
-    * @param $name            select name
-    * @param $options   array of possible options:
+    * @param string $name   select name
+    * @param array $options possible options:
     *    - value       : integer / preselected value (default 0)
     *    - toadd       : array / array of specific values to add at the begining
     *    - on_change   : string / value to transmit to "onChange"
@@ -197,12 +197,14 @@ class Blacklist extends CommonDropdown {
     *
     * @return string id of the select
    **/
-   static function dropdownType($name, $options=array()) {
+   static function dropdownType($name, $options = []) {
 
-      $params['value']       = 0;
-      $params['toadd']       = array();
-      $params['on_change']   = '';
-      $params['display']     = true;
+      $params = [
+         'value'     => 0,
+         'toadd'     => [],
+         'on_change' => '',
+         'display'   => true,
+      ];
 
       if (is_array($options) && count($options)) {
          foreach ($options as $key => $val) {
@@ -210,7 +212,7 @@ class Blacklist extends CommonDropdown {
          }
       }
 
-      $items = array();
+      $items = [];
       if (count($params['toadd'])>0) {
          $items = $params['toadd'];
       }
@@ -228,11 +230,13 @@ class Blacklist extends CommonDropdown {
    **/
    static function getTypes() {
 
-      $options[self::IP]     = __('IP');
-      $options[self::MAC]    = __('MAC');
-      $options[self::SERIAL] = __('Serial number');
-      $options[self::UUID]   = __('UUID');
-      $options[self::EMAIL]  = _n('Email', 'Emails', 1);
+      $options = [
+         self::IP     => __('IP'),
+         self::MAC    => __('MAC'),
+         self::SERIAL => __('Serial number'),
+         self::UUID   => __('UUID'),
+         self::EMAIL  => _n('Email', 'Emails', 1),
+      ];
 
       return $options;
    }
@@ -241,16 +245,16 @@ class Blacklist extends CommonDropdown {
    /**
     * Get blacklisted items for a specific type
     *
-    * @param $type type to get (see constants)
+    * @param string $type type to get (see constants)
     *
     * @return array of blacklisted items
    **/
    static function getBlacklistedItems($type) {
 
-      $datas = getAllDatasFromTable('glpi_blacklists', "type = '$type'");
-      $items = array();
-      if (count($datas)) {
-         foreach ($datas as $val) {
+      $data = getAllDataFromTable('glpi_blacklists', ['type' => $type]);
+      $items = [];
+      if (count($data)) {
+         foreach ($data as $val) {
             $items[] = $val['value'];
          }
       }

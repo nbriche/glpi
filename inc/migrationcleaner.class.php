@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,24 +30,20 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 
 /**
- * @since version 0.85 (before migration_cleaner)
+ * @since 0.85 (before migration_cleaner)
 **/
 class MigrationCleaner extends CommonGLPI {
 
    static $rightname = 'networking';
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return __('Migration cleaner');
    }
 
@@ -69,10 +65,11 @@ class MigrationCleaner extends CommonGLPI {
 
 
    static function canView() {
+      global $DB;
 
       if (!isset($_SESSION['glpishowmigrationcleaner'])) {
 
-         if (TableExists('glpi_networkportmigrations')
+         if ($DB->tableExists('glpi_networkportmigrations')
              && (countElementsInTable('glpi_networkportmigrations') > 0)) {
             $_SESSION['glpishowmigrationcleaner'] = true;
          } else {

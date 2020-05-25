@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 $AJAX_INCLUDE = 1;
 include ('../inc/includes.php');
 
@@ -46,9 +42,9 @@ Session::checkLoginUser();
 if (isset($_POST['value']) && (strcmp($_POST['value'], '0') == 0)) {
 
    if ($_POST['withtime']) {
-      Html::showDateTimeField($_POST['name'], array('value' => $_POST['specificvalue']));
+      Html::showDateTimeField($_POST['name'], ['value' => $_POST['specificvalue']]);
    } else {
-      Html::showDateField($_POST['name'], array('value' => $_POST['specificvalue']));
+      Html::showDateField($_POST['name'], ['value' => $_POST['specificvalue']]);
    }
 
 } else {

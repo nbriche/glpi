@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,12 +37,12 @@ if (!defined('GLPI_ROOT')) {
 
 /**
  * Only an HTMLTableMain can create an HTMLTableSuperHeader.
- * @since version 0.84
+ * @since 0.84
 **/
 class HTMLTableSuperHeader extends HTMLTableHeader {
 
    /// The headers of each column
-   private $headerSets = array();
+   private $headerSets = [];
    /// The table that owns the current super header
    private $table;
 
@@ -57,7 +53,7 @@ class HTMLTableSuperHeader extends HTMLTableHeader {
     * @param $content            see inc/HTMLTableEntity#__construct()
     * @param $father             HTMLTableSuperHeader objet (default NULL)
    **/
-   function __construct(HTMLTableMain $table, $name, $content, HTMLTableSuperHeader $father=NULL) {
+   function __construct(HTMLTableMain $table, $name, $content, HTMLTableSuperHeader $father = null) {
 
       $this->table = $table;
       parent::__construct($name, $content, $father);

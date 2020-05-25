@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -49,11 +46,11 @@ class RuleRightCollection extends RuleCollection {
 
    // Specific ones
    /// Array containing results : entity + right
-   public $rules_entity_rights = array();
+   public $rules_entity_rights = [];
    /// Array containing results : only entity
-   public $rules_entity        = array();
+   public $rules_entity        = [];
    /// Array containing results : only right
-   public $rules_rights        = array();
+   public $rules_rights        = [];
 
 
    function getTitle() {
@@ -182,17 +179,29 @@ class RuleRightCollection extends RuleCollection {
    function getFieldsToLookFor() {
       global $DB;
 
-      $params = array();
-      $sql = "SELECT DISTINCT `value`
-              FROM `glpi_rules`,
-                   `glpi_rulecriterias`,
-                   `glpi_rulerightparameters`
-              WHERE `glpi_rules`.`sub_type` = 'RuleRight'
-                    AND `glpi_rulecriterias`.`rules_id` = `glpi_rules`.`id`
-                    AND `glpi_rulecriterias`.`criteria` = `glpi_rulerightparameters`.`value`";
-      $result = $DB->query($sql);
+      $params = [];
+      $iterator = $DB->request([
+         'SELECT'          => 'value',
+         'DISTINCT'        => true,
+         'FROM'            => 'glpi_rulerightparameters',
+         'LEFT JOIN'       => [
+            'glpi_rulecriterias' => [
+               'ON' => [
+                  'glpi_rulerightparameters' => 'value',
+                  'glpi_rulecriterias'       => 'criteria'
+               ]
+            ],
+            'glpi_rules'         => [
+               'ON' => [
+                  'glpi_rulecriterias' => 'rules_id',
+                  'glpi_rules'         => 'id'
+               ]
+            ]
+         ],
+         'WHERE'           => ['glpi_rules.sub_type' => 'RuleRight']
+      ]);
 
-      while ($param = $DB->fetch_assoc($result)) {
+      while ($param = $iterator->next()) {
          //Dn is alwsays retreived from ldap : don't need to ask for it !
          if ($param["value"] != "dn") {
             $params[] = Toolbox::strtolower($param["value"]);
@@ -214,7 +223,7 @@ class RuleRightCollection extends RuleCollection {
    **/
    function prepareInputDataForProcess($input, $params) {
 
-      $rule_parameters = array();
+      $rule_parameters = [];
       //LDAP type method
       if ($params["type"] == "LDAP") {
          //Get all the field to retrieve to be able to process rule matching
@@ -229,13 +238,21 @@ class RuleRightCollection extends RuleCollection {
             if (isset($input)) {
                $groups = $input;
             } else {
-               $groups = array();
+               $groups = [];
             }
             $rule_input = $rule_input[0];
             //Get all the ldap fields
             $fields = $this->getFieldsForQuery();
             foreach ($fields as $field) {
                switch (Toolbox::strtoupper($field)) {
+                  case "LOGIN" :
+                     $rule_parameters["LOGIN"] = $params["login"];
+                     break;
+
+                  case "MAIL_EMAIL" :
+                     $rule_parameters["MAIL_EMAIL"] = $params["mail_email"];
+                     break;
+
                   case "LDAP_SERVER" :
                      $rule_parameters["LDAP_SERVER"] = $params["ldap_server"];
                      break;
@@ -273,6 +290,7 @@ class RuleRightCollection extends RuleCollection {
       //IMAP/POP login method
       $rule_parameters["MAIL_SERVER"] = $params["mail_server"];
       $rule_parameters["MAIL_EMAIL"]  = $params["email"];
+      $rule_parameters["LOGIN"]       = $params["login"];
       return $rule_parameters;
    }
 
@@ -285,7 +303,7 @@ class RuleRightCollection extends RuleCollection {
       $rule      = new RuleRight();
       $criterias = $rule->getCriterias();
 
-      $fields = array();
+      $fields = [];
       foreach ($criterias as $criteria) {
          if (!is_array($criteria)) {
             continue;

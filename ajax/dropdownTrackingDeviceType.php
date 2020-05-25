@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 header("Content-Type: text/html; charset=UTF-8");
 Html::header_nocache();
@@ -56,12 +52,12 @@ if (isset($_POST["itemtype"])
    }
    echo "<br>";
    $field_id = Html::cleanId("dropdown_".$_POST['myname'].$rand);
-   $p = array('itemtype'            => $_POST["itemtype"],
+   $p = ['itemtype'            => $_POST["itemtype"],
               'entity_restrict'     => $_POST['entity_restrict'],
               'table'               => $table,
               'multiple'            => $_POST["multiple"],
               'myname'              => $_POST["myname"],
-              'rand'                => $_POST["rand"]);
+              'rand'                => $_POST["rand"]];
 
    if (isset($_POST["used"]) && !empty($_POST["used"])) {
       if (isset($_POST["used"][$_POST["itemtype"]])) {
@@ -74,9 +70,9 @@ if (isset($_POST["itemtype"])
                              $p);
 
    // Auto update summary of active or just solved tickets
-   $params = array('items_id' => '__VALUE__',
-                   'itemtype' => $_POST['itemtype']);
-   Ajax::updateItemOnSelectEvent($field_id, "item_ticket_selection_information",
+   $params = ['items_id' => '__VALUE__',
+                   'itemtype' => $_POST['itemtype']];
+   Ajax::updateItemOnSelectEvent($field_id, "item_ticket_selection_information$rand",
                                  $CFG_GLPI["root_doc"]."/ajax/ticketiteminformation.php",
                                  $params);
 }

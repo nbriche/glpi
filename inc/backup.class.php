@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,7 +37,7 @@ if (!defined('GLPI_ROOT')) {
 /**
  * Backup class
  *
- * @since version 0.85
+ * @since 0.85
 **/
 
 
@@ -52,31 +48,22 @@ class Backup extends CommonGLPI {
    const CHECKUPDATE = 1024;
 
 
-
-   /**
-    * @since version 0.85.3
-    **/
-   static function canView() {
-      return Session::haveRight(self::$rightname, READ);
-   }
-
-
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return __('Maintenance');
    }
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see commonDBTM::getRights()
    **/
-   function getRights($interface='central') {
+   function getRights($interface = 'central') {
 
-      $values = array(READ                => __('Read'),
+      $values = [READ                => __('Read'),
                       CREATE              => __('Create'),
                       PURGE               => _x('button', 'Delete permanently'),
-                      self::CHECKUPDATE   => __('Check for upgrade'));
+                      self::CHECKUPDATE   => __('Check for upgrade')];
       return $values;
    }
 

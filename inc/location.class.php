@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -51,47 +47,78 @@ class Location extends CommonTreeDropdown {
 
    function getAdditionalFields() {
 
-      return array(array('name'  => $this->getForeignKeyField(),
-                         'label' => __('As child of'),
-                         'type'  => 'parent',
-                         'list'  => false),
-                   array('name'  => 'building',
-                         'label' => __('Building number'),
-                         'type'  => 'text',
-                         'list'  => true),
-                   array('name'  => 'room',
-                         'label' => __('Room number'),
-                         'type'  => 'text',
-                         'list'  => true),
-                   array('name'  => 'longitude',
-                         'label' => __('Longitude'),
-                         'type'  => 'text',
-                         'list'  => true),
-                   array('name'  => 'latitude',
-                         'label' => __('Latitude'),
-                         'type'  => 'text',
-                         'list'  => true),
-                   array('name'  => 'altitude',
-                         'label' => __('Altitude'),
-                         'type'  => 'text',
-                         'list'  => true),
-                         );
+      return [
+         [
+            'name'  => $this->getForeignKeyField(),
+            'label' => __('As child of'),
+            'type'  => 'parent',
+            'list'  => false
+         ], [
+            'name'   => 'address',
+            'label'  => __('Address'),
+            'type'   => 'text',
+            'list'   => true
+         ], [
+            'name'   => 'postcode',
+            'label'  => __('Postal code'),
+            'type'   => 'text',
+            'list'   => true
+         ], [
+            'name'   => 'town',
+            'label'  => __('Town'),
+            'type'   => 'text',
+            'list'   => true
+         ], [
+            'name'   => 'state',
+            'label'  => _x('location', 'State'),
+            'type'   => 'text',
+            'list'   => true
+         ], [
+            'name'   => 'country',
+            'label'  => __('Country'),
+            'type'   => 'text',
+            'list'   => true
+         ], [
+            'name'  => 'building',
+            'label' => __('Building number'),
+            'type'  => 'text',
+            'list'  => true
+         ], [
+            'name'  => 'room',
+            'label' => __('Room number'),
+            'type'  => 'text',
+            'list'  => true
+         ], [
+            'name'   => 'setlocation',
+            'type'   => 'setlocation',
+            'label'  => __('Location on map'),
+            'list'   => false
+         ], [
+            'name'  => 'latitude',
+            'label' => __('Latitude'),
+            'type'  => 'text',
+            'list'  => true
+         ], [
+            'name'  => 'longitude',
+            'label' => __('Longitude'),
+            'type'  => 'text',
+            'list'  => true
+         ], [
+            'name'  => 'altitude',
+            'label' => __('Altitude'),
+            'type'  => 'text',
+            'list'  => true
+         ]
+      ];
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Location', 'Locations', $nb);
    }
 
 
-   /**
-    * Get the Search options to add to an item for the given Type
-    *
-    * @return a *not indexed* array of search options
-    * More information on https://forge.indepnet.net/wiki/glpi/SearchEngine
-    * @since 9.2
-   **/
-   static public function getSearchOptionsToAddNew() {
+   static public function rawSearchOptionsToAdd() {
       $tab = [];
 
       $tab[] = [
@@ -100,6 +127,51 @@ class Location extends CommonTreeDropdown {
          'field'              => 'completename',
          'name'               => __('Location'),
          'datatype'           => 'dropdown'
+      ];
+
+      $tab[] = [
+         'id'                 => '101',
+         'table'              => 'glpi_locations',
+         'field'              => 'address',
+         'name'               => __('Address'),
+         'massiveaction'      => false,
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '102',
+         'table'              => 'glpi_locations',
+         'field'              => 'postcode',
+         'name'               => __('Postal code'),
+         'massiveaction'      => false,
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '103',
+         'table'              => 'glpi_locations',
+         'field'              => 'town',
+         'name'               => __('Town'),
+         'massiveaction'      => false,
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '104',
+         'table'              => 'glpi_locations',
+         'field'              => 'state',
+         'name'               => _x('location', 'State'),
+         'massiveaction'      => false,
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '105',
+         'table'              => 'glpi_locations',
+         'field'              => 'country',
+         'name'               => __('Country'),
+         'massiveaction'      => false,
+         'datatype'           => 'string'
       ];
 
       $tab[] = [
@@ -129,11 +201,29 @@ class Location extends CommonTreeDropdown {
          'datatype'           => 'text'
       ];
 
+      $tab[] = [
+         'id'                 => '998',
+         'table'              => 'glpi_locations',
+         'field'              => 'latitude',
+         'name'               => __('Latitude'),
+         'massiveaction'      => false,
+         'datatype'           => 'text'
+      ];
+
+      $tab[] = [
+         'id'                 => '999',
+         'table'              => 'glpi_locations',
+         'field'              => 'longitude',
+         'name'               => __('Longitude'),
+         'massiveaction'      => false,
+         'datatype'           => 'text'
+      ];
+
       return $tab;
    }
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',
@@ -152,11 +242,29 @@ class Location extends CommonTreeDropdown {
       ];
 
       $tab[] = [
-         'id'                 => '20',
+         'id'                 => '15',
          'table'              => 'glpi_locations',
-         'field'              => 'longitude',
-         'name'               => __('Longitude'),
+         'field'              => 'address',
+         'name'               => __('Address'),
          'massiveaction'      => false,
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '17',
+         'table'              => 'glpi_locations',
+         'field'              => 'postcode',
+         'name'               => __('Postal code'),
+         'massiveaction'      => true,
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '18',
+         'table'              => 'glpi_locations',
+         'field'              => 'town',
+         'name'               => __('Town'),
+         'massiveaction'      => true,
          'datatype'           => 'string'
       ];
 
@@ -170,6 +278,15 @@ class Location extends CommonTreeDropdown {
       ];
 
       $tab[] = [
+         'id'                 => '20',
+         'table'              => 'glpi_locations',
+         'field'              => 'longitude',
+         'name'               => __('Longitude'),
+         'massiveaction'      => false,
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
          'id'                 => '22',
          'table'              => 'glpi_locations',
          'field'              => 'altitude',
@@ -178,11 +295,51 @@ class Location extends CommonTreeDropdown {
          'datatype'           => 'string'
       ];
 
+      $tab[] = [
+         'id'                 => '101',
+         'table'              => 'glpi_locations',
+         'field'              => 'address',
+         'name'               => __('Address'),
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '102',
+         'table'              => 'glpi_locations',
+         'field'              => 'postcode',
+         'name'               => __('Postal code'),
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '103',
+         'table'              => 'glpi_locations',
+         'field'              => 'town',
+         'name'               => __('Town'),
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '104',
+         'table'              => 'glpi_locations',
+         'field'              => 'state',
+         'name'               => _x('location', 'State'),
+         'datatype'           => 'string'
+      ];
+
+      $tab[] = [
+         'id'                 => '105',
+         'table'              => 'glpi_locations',
+         'field'              => 'country',
+         'name'               => __('Country'),
+         'datatype'           => 'string'
+      ];
+
       return $tab;
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
       $ong = parent::defineTabs($options);
       $this->addStandardTab('Netpoint', $ong, $options);
@@ -201,16 +358,16 @@ class Location extends CommonTreeDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonTreeDropdown::getTabNameForItem()
    **/
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate) {
          switch ($item->getType()) {
             case __CLASS__ :
-               $ong    = array();
+               $ong    = [];
                $ong[1] = $this->getTypeName(Session::getPluralNumber());
                $ong[2] = _n('Item', 'Items', Session::getPluralNumber());
                return $ong;
@@ -221,9 +378,9 @@ class Location extends CommonTreeDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       if ($item->getType() == __CLASS__) {
          switch ($tabnum) {
@@ -242,7 +399,7 @@ class Location extends CommonTreeDropdown {
    /**
     * Print the HTML array of items for a location
     *
-    * @since version 0.85
+    * @since 0.85
     *
     * @return Nothing (display)
    **/
@@ -250,35 +407,40 @@ class Location extends CommonTreeDropdown {
       global $DB, $CFG_GLPI;
 
       $locations_id = $this->fields['id'];
-      $crit         = Session::getSavedOption(__CLASS__, 'criterion', '');
+      $itemtype     = Session::getSavedOption(__CLASS__, 'criterion', '');
 
       if (!$this->can($locations_id, READ)) {
          return false;
       }
 
-      $first = 1;
-      $query = '';
-
-      if ($crit) {
-         $table = getTableForItemType($crit);
-         $query = "SELECT `$table`.`id`, '$crit' AS type
-                   FROM `$table`
-                   WHERE `$table`.`locations_id` = '$locations_id' ".
-                         getEntitiesRestrictRequest(" AND", $table, "entities_id");
-      } else {
-         foreach ($CFG_GLPI['location_types'] as $type) {
-            $table = getTableForItemType($type);
-            $query .= ($first ? "SELECT " : " UNION SELECT  ")."`id`, '$type' AS type
-                      FROM `$table`
-                      WHERE `$table`.`locations_id` = '$locations_id' ".
-                            getEntitiesRestrictRequest(" AND", $table, "entities_id");
-            $first = 0;
+      $queries = [];
+      $itemtypes = $itemtype ? [$itemtype] : $CFG_GLPI['location_types'];
+      foreach ($itemtypes as $itemtype) {
+         $table = getTableForItemType($itemtype);
+         $itemtype_criteria = [
+            'SELECT' => [
+               "$table.id",
+               new \QueryExpression($DB->quoteValue($itemtype) . ' AS ' . $DB->quoteName('type')),
+            ],
+            'FROM'   => $table,
+            'WHERE'  => [
+               "$table.locations_id"   => $locations_id,
+            ] + getEntitiesRestrictCriteria($table, 'entities_id')
+         ];
+         $item = new $itemtype();
+         if ($item->maybeDeleted()) {
+            $itemtype_criteria['WHERE']['is_deleted'] = 0;
          }
+         $queries[] = $itemtype_criteria;
       }
+      $criteria = count($queries) === 1 ? $queries[0] : ['FROM' => new \QueryUnion($queries)];
 
-      $result = $DB->query($query);
-      $number = $DB->numrows($result);
       $start  = (isset($_REQUEST['start']) ? intval($_REQUEST['start']) : 0);
+      $criteria['START'] = $start;
+      $criteria['LIMIT'] = $_SESSION['glpilist_limit'];
+
+      $iterator = $DB->request($criteria);
+      $number = count($iterator);;
       if ($start >= $number) {
          $start = 0;
       }
@@ -288,8 +450,8 @@ class Location extends CommonTreeDropdown {
       echo "<tr class='tab_bg_1'><td class='center'>";
       echo __('Type')."&nbsp;";
       Dropdown::showItemType($CFG_GLPI['location_types'],
-                             array('value'      => $crit,
-                                   'on_change'  => 'reloadTab("start=0&criterion="+this.value)'));
+                             ['value'      => $itemtype,
+                                   'on_change'  => 'reloadTab("start=0&criterion="+this.value)']);
       echo "</td></tr></table>";
 
       if ($number) {
@@ -304,8 +466,7 @@ class Location extends CommonTreeDropdown {
          echo "<th>".__('Inventory number')."</th>";
          echo "</tr>";
 
-         $DB->data_seek($result, $start);
-         for ($row=0; ($data=$DB->fetch_assoc($result)) && ($row<$_SESSION['glpilist_limit']); $row++) {
+         while ($data = $iterator->next()) {
             $item = getItemForItemtype($data['type']);
             $item->getFromDB($data['id']);
             echo "<tr class='tab_bg_1'><td class='center top'>".$item->getTypeName()."</td>";
@@ -326,4 +487,106 @@ class Location extends CommonTreeDropdown {
 
    }
 
+   function displaySpecificTypeField($ID, $field = []) {
+      switch ($field['type']) {
+         case 'setlocation':
+            echo "<div id='setlocation_container'></div>";
+            $js = "var map_elt, _marker;
+            var _setLocation = function(lat, lng) {
+               if (_marker) {
+                  map_elt.removeLayer(_marker);
+               }
+               _marker = L.marker([lat, lng]).addTo(map_elt);
+               map_elt.fitBounds(
+                  L.latLngBounds([_marker.getLatLng()]), {
+                     padding: [50, 50],
+                     maxZoom: 10
+                  }
+               );
+            };
+
+            var _autoSearch = function() {
+               var _tosearch = '';
+               var _address = $('*[name=address]').val();
+               var _town = $('*[name=town]').val();
+               var _country = $('*[name=country]').val();
+               if (_address != '') {
+                  _tosearch += _address;
+               }
+               if (_town != '') {
+                  if (_address != '') {
+                     _tosearch += ' ';
+                  }
+                  _tosearch += _town;
+               }
+               if (_country != '') {
+                  if (_address != '' || _town != '') {
+                     _tosearch += ' ';
+                  }
+                  _tosearch += _country;
+               }
+
+               $('.leaflet-control-geocoder-form > input[type=text]').val(_tosearch);
+            }
+
+            $(function(){
+               map_elt = initMap($('#setlocation_container'), 'setlocation', '200px');
+
+               var osmGeocoder = new L.Control.OSMGeocoder({
+                  collapsed: false,
+                  placeholder: '".__s('Search')."',
+                  text: '".__s('Search')."'
+               });
+               map_elt.addControl(osmGeocoder);
+               _autoSearch();
+
+               function onMapClick(e) {
+                  var popup = L.popup();
+                  popup
+                     .setLatLng(e.latlng)
+                     .setContent('SELECTPOPUP')
+                     .openOn(map_elt);
+               }
+
+               map_elt.on('click', onMapClick);
+
+               map_elt.on('popupopen', function(e){
+                  var _popup = e.popup;
+                  var _container = $(_popup._container);
+
+                  var _clat = _popup._latlng.lat.toString();
+                  var _clng = _popup._latlng.lng.toString();
+
+                  _popup.setContent('<p><a href=\'#\'>".__s('Set location here')."</a></p>');
+
+                  $(_container).find('a').on('click', function(e){
+                     e.preventDefault();
+                     _popup.remove();
+                     $('*[name=latitude]').val(_clat);
+                     $('*[name=longitude]').val(_clng).trigger('change');
+                  });
+               });
+
+               var _curlat = $('*[name=latitude]').val();
+               var _curlng = $('*[name=longitude]').val();
+
+               if (_curlat && _curlng) {
+                  _setLocation(_curlat, _curlng);
+               }
+
+               $('*[name=latitude],*[name=longitude]').on('change', function(){
+                  var _curlat = $('*[name=latitude]').val();
+                  var _curlng = $('*[name=longitude]').val();
+
+                  if (_curlat && _curlng) {
+                     _setLocation(_curlat, _curlng);
+                  }
+               });
+            });";
+            echo Html::scriptBlock($js);
+            break;
+         default:
+            throw new \RuntimeException("Unknown {$field['type']}");
+      }
+   }
 }

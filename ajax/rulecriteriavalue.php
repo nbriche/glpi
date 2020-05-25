@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 // Direct access to file
 if (strstr($_SERVER['PHP_SELF'], "rulecriteriavalue.php")) {
    include ('../inc/includes.php');
@@ -46,10 +42,11 @@ if (strstr($_SERVER['PHP_SELF'], "rulecriteriavalue.php")) {
 Session::checkLoginUser();
 
 // Non define case
+/** @var $rule Rule */
 if (isset($_POST["sub_type"]) && ($rule = getItemForItemtype($_POST["sub_type"]))) {
    $value = '';
    if (isset($_POST['value'])) {
-      $value = stripslashes($_POST['value']);
+      $value = $_POST['value'];
    }
    $rule->displayCriteriaSelectPattern("pattern", $_POST["criteria"], $_POST['condition'], $value);
 }

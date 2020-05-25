@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 class APIXmlrpc extends API {
    protected $request_uri;
    protected $url_elements;
@@ -42,11 +38,19 @@ class APIXmlrpc extends API {
    protected $debug = 0;
    protected $format = "json";
 
+   static $content_type = "application/xml";
 
    public static function getTypeName($nb = 0) {
       return __('XMLRPC API');
    }
 
+   /**
+    * Upload and validate files from request and append to $this->parameters['input']
+    *
+    * @return void
+    */
+   public function manageUploadedFiles() {
+   }
 
    /**
     * parse POST var to retrieve
@@ -56,7 +60,7 @@ class APIXmlrpc extends API {
     *
     *  And send to method corresponding identified resource
     *
-    * @since version 9.1
+    * @since 9.1
     *
     * @return mixed xmlrpc response
     */
@@ -65,6 +69,7 @@ class APIXmlrpc extends API {
 
       // retrieve session (if exist)
       $this->retrieveSession();
+      $this->initApi();
 
       $code = 200;
 
@@ -116,7 +121,7 @@ class APIXmlrpc extends API {
          $response =  $this->searchItems($this->parameters['itemtype'], $this->parameters);
 
          //add pagination headers
-         $additionalheaders                  = array();
+         $additionalheaders                  = [];
          $additionalheaders["Accept-Range"]  = $this->parameters['itemtype']." "
                                                .Toolbox::get_max_input_vars();
          if ($response['totalcount'] > 0) {
@@ -130,8 +135,11 @@ class APIXmlrpc extends API {
 
          return $this->returnResponse($response, $code, $additionalheaders);
 
+      } else if ($resource === "lostPassword") {
+         return $this->returnResponse($this->lostPassword($this->parameters), 204);
+
       } else if (in_array($resource,
-                          array("getItem", "getItems", "createItems", "updateItems", "deleteItems"))) {
+                          ["getItem", "getItems", "createItems", "updateItems", "deleteItems"])) {
          // commonDBTM manipulation
 
          // check itemtype parameter
@@ -152,7 +160,7 @@ class APIXmlrpc extends API {
 
             $response = $this->getItem($this->parameters['itemtype'], $this->parameters['id'], $this->parameters);
 
-            $additionalheaders = array();
+            $additionalheaders = [];
             if (isset($response['date_mod'])) {
                $datemod = strtotime($response['date_mod']);
                $additionalheaders['Last-Modified'] = gmdate("D, d M Y H:i:s", $datemod)." GMT";
@@ -168,15 +176,19 @@ class APIXmlrpc extends API {
             $range = [0, $_SESSION['glpilist_limit']];
             if (isset($this->parameters['range'])) {
                $range = explode("-", $this->parameters['range']);
-               // fix end range
-               if ($range[1] > $totalcount - 1) {
-                  $range[1] = $totalcount - 1;
-               }
-               if ($range[1] - $range[0] + 1 < $totalcount) {
-                  $code = 206; // partial content
-               }
             }
-            $additionalheaders                  = array();
+
+            // fix end range
+            if ($range[1] > $totalcount - 1) {
+               $range[1] = $totalcount - 1;
+            }
+
+            // trigger partial content return code
+            if ($range[1] - $range[0] + 1 < $totalcount) {
+               $code = 206; // partial content
+            }
+
+            $additionalheaders                  = [];
             $additionalheaders["Accept-Range"]  = $this->parameters['itemtype']." ".
                                                   Toolbox::get_max_input_vars();
             if ($totalcount > 0) {
@@ -188,16 +200,16 @@ class APIXmlrpc extends API {
          } else if ($resource === "createItems") { // create one or many CommonDBTM items
             $response = $this->createItems($this->parameters['itemtype'], $this->parameters);
 
-            $additionalheaders = array();
-            if (count($response) == 1) {
+            $additionalheaders = [];
+            if (isset($response['id'])) {
                // add a location targetting created element
-               $additionalheaders['location'] = self::$api_url.$this->parameters['itemtype']."/".$response['id'];
+               $additionalheaders['location'] = self::$api_url."/".$this->parameters['itemtype']."/".$response['id'];
             } else {
                // add a link header targetting created elements
                $additionalheaders['link'] = "";
                foreach ($response as $created_item) {
                   if ($created_item['id']) {
-                     $additionalheaders['link'] .= self::$api_url.$this->parameters['itemtype'].
+                     $additionalheaders['link'] .= self::$api_url."/".$this->parameters['itemtype'].
                                                   "/".$created_item['id'].",";
                   }
                }
@@ -230,12 +242,12 @@ class APIXmlrpc extends API {
    /**
     * Construct this->parameters from POST data
     *
-    * @since version 9.1
+    * @since 9.1
     *
     * @return string
     */
    public function parseIncomingParams() {
-      $parameters = array();
+      $parameters = [];
       $resource = "";
 
       $parameters = xmlrpc_decode_request(trim($this->getHttpBody()),
@@ -244,7 +256,7 @@ class APIXmlrpc extends API {
 
       $this->parameters = (isset($parameters[0]) && is_array($parameters[0])
                           ? $parameters[0]
-                          : array());
+                          : []);
 
       // transform input from array to object
       if (isset($this->parameters['input'])
@@ -260,21 +272,21 @@ class APIXmlrpc extends API {
          }
       }
 
+      // check boolean parameters
+      foreach ($this->parameters as &$parameter) {
+         if ($parameter === "true") {
+            $parameter = true;
+         }
+         if ($parameter === "false") {
+            $parameter = false;
+         }
+      }
+
       return $resource;
    }
 
-   /**
-    * Generic function to send a message and an http code to client
-    *
-    * @since version 9.1
-    *
-    * @param mixed   $response          string message or array of data to send
-    * @param integer $httpcode          http code (see : https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)
-    * @param array   $additionalheaders headers to send with http response (must be an array(key => value))
-    *
-    * @return void
-    */
-   protected function returnResponse($response, $httpcode = 200, $additionalheaders = array()) {
+
+   protected function returnResponse($response, $httpcode = 200, $additionalheaders = []) {
       if (empty($httpcode)) {
          $httpcode = 200;
       }
@@ -287,8 +299,8 @@ class APIXmlrpc extends API {
       self::header($this->debug);
 
       $response = $this->escapekeys($response);
-      $out = xmlrpc_encode_request(NULL, $response, array('encoding' => 'UTF-8',
-                                                          'escaping' => 'markup'));
+      $out = xmlrpc_encode_request(null, $response, ['encoding' => 'UTF-8',
+                                                          'escaping' => 'markup']);
       echo $out;
       exit;
    }
@@ -297,15 +309,15 @@ class APIXmlrpc extends API {
     * Add a space before all numeric keys to prevent their deletion by xmlrpc_encode_request function
     * see https://bugs.php.net/bug.php?id=21949
     *
-    * @since version 9.1
+    * @since 9.1
     *
     * @param  array $response the response array to escape
     *
     * @return array the escaped response.
     */
-   protected function escapekeys($response = array()) {
+   protected function escapekeys($response = []) {
       if (is_array($response)) {
-         $escaped_response = array();
+         $escaped_response = [];
          foreach ($response as $key => $value) {
             if (is_integer($key)) {
                $key = " ".$key;

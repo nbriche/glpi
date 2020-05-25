@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 if (!basename($_SERVER['SCRIPT_NAME']) == "helpdesk.faq.php") {
@@ -55,7 +51,7 @@ if (isset($_GET['tab']) && isset($_GET['itemtype'])) {
       $tabs[-1]     = 'All';
       $selected_tab = '';
       $current      = 0;
-      foreach ($tabs as $key => $val) {
+      foreach (array_keys($tabs) as $key) {
          if ($current == $_GET['tab']) {
             $selected_tab = $key;
          }

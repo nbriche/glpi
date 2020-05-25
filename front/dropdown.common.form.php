@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,10 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
+/**
+ * Following variables have to be defined before inclusion of this file:
+ * @var CommonDropdown $dropdown
+ */
 
 use Glpi\Event;
 
@@ -65,7 +66,7 @@ if (isset($_POST["add"])) {
                     sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
       }
       if ($_SESSION['glpibackcreated']) {
-         $url = $dropdown->getFormURLWithID($newID);
+         $url = $dropdown->getLinkURL();
          if (isset($_REQUEST['_in_modal'])) {
             $url.="&_in_modal=1";
          }
@@ -113,7 +114,7 @@ if (isset($_POST["add"])) {
            && isset($_POST['_method'])) {
    $method = 'execute'.$_POST['_method'];
    if (method_exists($dropdown, $method)) {
-      call_user_func(array(&$dropdown, $method), $_POST);
+      call_user_func([&$dropdown, $method], $_POST);
       Html::back();
    } else {
       Html::displayErrorAndDie(__('No selected element or badly defined operation'));
@@ -128,7 +129,7 @@ if (isset($_POST["add"])) {
    $dropdown->displayHeader();
 
    if (!isset($options)) {
-      $options = array();
+      $options = [];
    }
    $options['id'] = $_GET["id"];
    $dropdown->display($options);

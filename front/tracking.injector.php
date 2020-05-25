@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,13 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-// Based on:
-// IRMA, Information Resource-Management and Administration
-// Christian Bauer
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 if (empty($_POST["_type"])
@@ -55,15 +48,20 @@ if (empty($_POST) || (count($_POST) == 0)) {
 if (isset($_POST["_type"]) && ($_POST["_type"] == "Helpdesk")) {
    Html::nullHeader(Ticket::getTypeName(Session::getPluralNumber()));
 } else if ($_POST["_from_helpdesk"]) {
-   Html::helpHeader(__('Simplified interface'), '', $_SESSION["glpiname"]);
+   Html::helpHeader(__('Simplified interface'));
 } else {
    Html::header(__('Simplified interface'), '', $_SESSION["glpiname"], "helpdesk", "tracking");
 }
 
 if (isset($_POST['add'])) {
-   if ($newID = $track->add($_POST)) {
+   if (!$CFG_GLPI["use_anonymous_helpdesk"]) {
+      $track->check(-1, CREATE, $_POST);
+   } else {
+      $track->getEmpty();
+   }
+   if ($track->add($_POST)) {
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($track->getFormURL()."?id=".$newID);
+         Html::redirect($track->getLinkURL());
       }
       if (isset($_POST["_type"]) && ($_POST["_type"] == "Helpdesk")) {
          echo "<div class='center spaced'>".

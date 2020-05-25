@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 // Direct access to file
 if (strpos($_SERVER['PHP_SELF'], "ruleaction.php")) {
@@ -74,26 +70,26 @@ if (isset($_POST["sub_type"]) && class_exists($_POST["sub_type"])) {
       $action_type = $_POST["action_type"];
    }
 
-   $randaction = RuleAction::dropdownActions(array('subtype'     => $_POST["sub_type"],
+   $randaction = RuleAction::dropdownActions(['subtype'     => $_POST["sub_type"],
                                                    'name'        => "action_type",
                                                    'field'       => $_POST["field"],
                                                    'value'       => $action_type,
-                                                   'alreadyused' => $already_used));
+                                                   'alreadyused' => $already_used]);
 
    echo "</td><td>";
    echo "<span id='action_type_span$randaction'>\n";
    echo "</span>\n";
 
-   $paramsaction = array('action_type'                   => '__VALUE__',
+   $paramsaction = ['action_type'                   => '__VALUE__',
                          'field'                         => $_POST["field"],
                          'sub_type'                      => $_POST["sub_type"],
-                         $item->getForeignKeyField()     => $_POST[$item->getForeignKeyField()]);
+                         $item->getForeignKeyField()     => $_POST[$item->getForeignKeyField()]];
 
    Ajax::updateItemOnSelectEvent("dropdown_action_type$randaction", "action_type_span$randaction",
                                  $CFG_GLPI["root_doc"]."/ajax/ruleactionvalue.php", $paramsaction);
 
    if (isset($_POST['value'])) {
-      $paramsaction['value'] = stripslashes($_POST['value']);
+      $paramsaction['value'] = $_POST['value'];
    }
 
    Ajax::updateItem("action_type_span$randaction", $CFG_GLPI["root_doc"]."/ajax/ruleactionvalue.php",

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -48,16 +45,16 @@ class RuleTicketCollection extends RuleCollection {
    /**
     * @param $entity (default 0)
    **/
-   function __construct($entity=0) {
+   function __construct($entity = 0) {
       $this->entity = $entity;
    }
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     **/
    static function canView() {
-      return Session::haveRightsOr(self::$rightname, array(READ, RuleTicket::PARENT));
+      return Session::haveRightsOr(self::$rightname, [READ, RuleTicket::PARENT]);
    }
 
 
@@ -108,11 +105,11 @@ class RuleTicketCollection extends RuleCollection {
       if (isset($input['_head']['x-priority'])) {
          $input['_x-priority'] = $input['_head']['x-priority'];
       }
-      $input['_groups_id_of_requester'] = array();
+      $input['_groups_id_of_requester'] = [];
       // Get groups of users
       if (isset($input['_users_id_requester'])) {
          if (!is_array($input['_users_id_requester'])) {
-            $requesters = array($input['_users_id_requester']);
+            $requesters = [$input['_users_id_requester']];
          } else {
             $requesters = $input['_users_id_requester'];
          }

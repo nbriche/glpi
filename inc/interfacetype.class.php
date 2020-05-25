@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -44,13 +40,13 @@ class InterfaceType extends CommonDropdown {
    public $can_be_translated = false;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Interface type (Hard drive...)', 'Interface types (Hard drive...)', $nb);
    }
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $itemtype
     * @param $base               HTMLTableBase object
@@ -59,8 +55,8 @@ class InterfaceType extends CommonDropdown {
     * @param $options   array
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column_name = __CLASS__;
 
@@ -73,15 +69,15 @@ class InterfaceType extends CommonDropdown {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $row                HTMLTableRow object (default NULL)
     * @param $item               CommonDBTM object (default NULL)
     * @param $father             HTMLTableCell object (default NULL)
     * @param $options   array
    **/
-   static function getHTMLTableCellsForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                            HTMLTableCell $father=NULL, array $options=array()) {
+   static function getHTMLTableCellsForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                            HTMLTableCell $father = null, array $options = []) {
       $column_name = __CLASS__;
 
       if (isset($options['dont_display'][$column_name])) {

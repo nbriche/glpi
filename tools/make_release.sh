@@ -2,7 +2,7 @@
 # /**
 #  * ---------------------------------------------------------------------
 #  * GLPI - Gestionnaire Libre de Parc Informatique
-#  * Copyright (C) 2015-2017 Teclib' and contributors.
+#  * Copyright (C) 2015-2018 Teclib' and contributors.
 #  *
 #  * http://glpi-project.org
 #  *
@@ -33,6 +33,13 @@ if [ ! "$#" -eq 2 ]
 then
  echo "Usage $0 glpi_git_dir release";
  exit ;
+fi
+
+read -p "Are translations up to date? [Y/n] " -n 1 -r
+echo    # (optional) move to a new line
+if [[ ! $REPLY =~ ^[Yy]$ ]]
+then
+    [[ "$0" = "$BASH_SOURCE" ]] && exit 1 || return 1 # handle exits from shell or function but don't exit interactive shell
 fi
 
 INIT_DIR=$1;
@@ -76,8 +83,15 @@ echo "Clean PHP vendor"
 \find vendor/ -type d -name "example*" -prune -exec rm -rf {} \;
 \find vendor/ -type d -name "design" -prune -exec rm -rf {} \;
 
+echo "Retrieve and build JS/CSS dependencies"
+npm install
+npm run-script build
+
 echo "Minify stylesheets and javascripts"
 $INIT_PWD/vendor/bin/robo minify --load-from tools
+
+echo "Compile SCSS"
+./bin/console build:compile_scss
 
 echo "Compile locale files"
 ./tools/locale/update_mo.pl
@@ -88,13 +102,20 @@ echo "Delete various scripts and directories"
 \rm -rf tests;
 \rm -rf .gitignore;
 \rm -rf .travis.yml;
+\rm -rf .atoum.php;
+\rm -rf .circleci;
 \rm -rf phpunit.xml.dist;
 \rm -rf composer.json;
 \rm -rf composer.lock;
 \rm -rf .composer.hash;
 \rm -rf ISSUE_TEMPLATE.md;
 \rm -rf PULL_REQUEST_TEMPLATE.md;
+\rm -rf .tx;
+\rm -rf .github;
 \find pics/ -type f -name "*.eps" -exec rm -rf {} \;
+\rm -rf nodes_modules;
+\rm -rf package.json;
+\rm -rf package-lock.json;
 
 echo "Creating tarball";
 cd ..;

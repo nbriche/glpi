@@ -3,7 +3,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -43,7 +43,7 @@ if (isset($_SERVER['argv'])) {
       $it    = explode("=", $_SERVER['argv'][$i], 2);
       $it[0] = preg_replace('/^--/', '', $it[0]);
 
-      $_GET[$it[0]] = (isset($it[1]) ? $DB->escape($it[1]) : true);
+      $_GET[$it[0]] = (isset($it[1]) ? $it[1] : true);
    }
 }
 if (isset($_GET['help']) || !isset($_GET['user'])) {

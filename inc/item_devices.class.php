@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* @since version 0.84
-*/
+/**
+ * @since 0.84
+ */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -65,31 +64,59 @@ class Item_Devices extends CommonDBRelation {
    // This var is defined by CommonDBRelation ...
    public $no_form_page                 = false;
 
-   static protected $forward_entity_to  = array('Infocom');
+   public $dohistory = true;
 
+   static protected $forward_entity_to  = ['Infocom'];
+
+   static $undisclosedFields      = [];
+
+   static public $mustBeAttached_2 = false; // Mandatory to display creation form
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * No READ right for devices and extends CommonDBRelation not CommonDevice
    **/
    static function canView() {
       return true;
    }
 
+   function getRawName() {
+      $itemtype = static::$itemtype_2;
+      if (!empty($this->fields[static::$itemtype_1])) {
+         $item = new $this->fields[static::$itemtype_1];
+         $item->getFromDB($this->fields[static::$items_id_1]);
+         $name = sprintf(__('%1$s of item "%2$s"'), $itemtype::getTypeName(1), $item->getName());
+      } else {
+         $name = $itemtype::getTypeName(1);
+      }
+      return $name;
+   }
+
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
-   static function getTypeName($nb=0) {
-
+   static function getTypeName($nb = 0) {
       $device_type = static::getDeviceType();
-      //TRANS: %s is the type of the component
-      return sprintf(__('Item - %s link'), $device_type::getTypeName($nb));
-
+      return $device_type::getTypeName($nb);
    }
 
 
    /**
-    * @since version 0.85
+    * Get type name for device (used in Log)
+    *
+    * @param integer $nb Count
+    *
+    * @return string
+    */
+   static function getDeviceTypeName($nb = 0) {
+      $device_type = static::getDeviceType();
+      //TRANS: %s is the type of the component
+      return sprintf(__('Item - %s link'), $device_type::getTypeName($nb));
+   }
+
+
+   /**
+    * @since 0.85
     *
     * @see CommonDBTM::getForbiddenStandardMassiveAction()
    **/
@@ -105,20 +132,73 @@ class Item_Devices extends CommonDBRelation {
       return $forbidden;
    }
 
+   function rawSearchOptions() {
+      $tab = [];
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+      $tab[] = [
+         'id'                 => 'common',
+         'name'               => __('Characteristics')
+      ];
+
+      $tab[] = [
+         'id'                 => '1',
+         'table'              => $this->getTable(),
+         'field'              => 'id',
+         'name'               => __('ID'),
+         'datatype'           => 'itemlink',
+         'massiveaction'      => false,
+      ];
+
+      $deviceType = $this->getDeviceType();
+      $tab[] = [
+         'id'                 => '4',
+         'table'              => getTableForItemType($deviceType),
+         'field'              => 'designation',
+         'name'               => $deviceType::getTypeName(1),
+         'datatype'           => 'itemlink',
+         'forcegroupby'       => true,
+         'massiveaction'      => false,
+         'joinparams'         => [
+            'beforejoin'         => [
+               'table'              => $this->getTable(),
+               'joinparams'         => [
+                  'jointype'           => 'child'
+               ]
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '5',
+         'table'              => $this->getTable(),
+         'field'              => 'items_id',
+         'name'               => _n('Associated element', 'Associated elements', 2),
+         'datatype'           => 'specific',
+         'comments'           => true,
+         'nosort'             => true,
+         'additionalfields'   => ['itemtype']
+      ];
+
+      $tab[] = [
+         'id'                 => '6',
+         'table'              => $this->getTable(),
+         'field'              => 'itemtype',
+         'name'               => _n('Associated item type', 'Associated item types', 2),
+         'datatype'           => 'itemtypename',
+         'itemtype_list'      => 'itemdevices_types',
+         'nosort'             => true
+      ];
 
       foreach (static::getSpecificities() as $field => $attributs) {
-         switch ($field) {
-            case 'states_id':
-               $table = 'glpi_states';
-               break;
-            case 'locations_id':
-               $table = 'glpi_locations';
-               break;
-            default:
-               $table = $this->getTable();
+         if (isForeignKeyField($field)) {
+            $table = getTableNameForForeignKeyField($field);
+            $linked_itemtype = getItemTypeForTable($table);
+            $field = $linked_itemtype::getNameField();
+         } else {
+            $table = $this->getTable();
+         }
+         if (array_key_exists('field', $attributs)) {
+            $field = $attributs['field'];
          }
 
          $newtab = [
@@ -131,6 +211,12 @@ class Item_Devices extends CommonDBRelation {
 
          if (isset($attributs['datatype'])) {
             $newtab['datatype'] = $attributs['datatype'];
+         }
+         if (isset($attributs['nosearch'])) {
+            $newtab['nosearch'] = $attributs['nosearch'];
+         }
+         if (isset($attributs['nodisplay'])) {
+            $newtab['nodisplay'] = $attributs['nodisplay'];
          }
          $tab[] = $newtab;
       }
@@ -146,6 +232,97 @@ class Item_Devices extends CommonDBRelation {
       return $tab;
    }
 
+   public static function rawSearchOptionsToAdd($itemtype) {
+      global $CFG_GLPI;
+
+      $options = [];
+      $device_types = $CFG_GLPI['device_types'];
+
+      $main_joinparams = [
+         'jointype'           => 'itemtype_item',
+         'specific_itemtype'  => $itemtype
+      ];
+
+      foreach ($device_types as $device_type) {
+         if (isset($CFG_GLPI['item' . strtolower($device_type) . '_types'])) {
+            $itemtypes = $CFG_GLPI['item' . strtolower($device_type) . '_types'];
+            if ($itemtypes == '*' || in_array($itemtype, $itemtypes)) {
+               if (method_exists($device_type, 'rawSearchOptionsToAdd')) {
+                  $options = array_merge(
+                     $options,
+                     $device_type::rawSearchOptionsToAdd(
+                        $itemtype,
+                        $main_joinparams
+                     )
+                  );
+               }
+            }
+         }
+      }
+
+      if (count($options)) {
+         //add title if there are options
+         $options = array_merge(
+            [[
+               'id'                => 'devices',
+               'name'              => _n('Component', 'Components', Session::getPluralNumber())
+            ]],
+            $options
+         );
+      }
+
+      return $options;
+   }
+
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
+
+      if (!is_array($values)) {
+         $values = [$field => $values];
+      }
+      switch ($field) {
+         case 'items_id':
+            if (isset($values['itemtype'])) {
+               if (isset($options['comments']) && $options['comments']) {
+                  $valueData = Dropdown::getDropdownName(
+                     getTableForItemtype($values['itemtype']),
+                     $values[$field],
+                     1
+                  );
+                  return sprintf(
+                     __('%1$s %2$s'),
+                     $valueData['name'],
+                     Html::showToolTip($valueData['comment'], ['display' => false])
+                  );
+
+               }
+               return Dropdown::getDropdownName(
+                  getTableForItemtype($values['itemtype']),
+                  $values[$field]
+               );
+            }
+            break;
+      }
+      return parent::getSpecificValueToDisplay($field, $values, $options);
+   }
+
+   static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = []) {
+
+      if (!is_array($values)) {
+         $values = [$field => $values];
+      }
+      $options['display'] = false;
+      switch ($field) {
+         case 'items_id' :
+            if (isset($values['itemtype']) && !empty($values['itemtype'])) {
+               $options['name']  = $name;
+               $options['value'] = $values[$field];
+               return Dropdown::show($values['itemtype'], $options);
+            }
+            break;
+      }
+      return parent::getSpecificValueToSelect($field, $name, $values, $options);
+   }
+
 
    /**
     * Get the specificities of the given device. For instance, the
@@ -158,42 +335,42 @@ class Item_Devices extends CommonDBRelation {
     * @return array of the specificities: index is the field name and the values are the attributs
     *                                     of the specificity (long name, short name, size)
    **/
-   static function getSpecificities($specif='') {
+   static function getSpecificities($specif = '') {
 
       switch ($specif) {
          case 'serial' :
-            return array('long name'  => __('Serial number'),
+            return ['long name'  => __('Serial number'),
                          'short name' => __('Serial number'),
                          'size'       => 20,
-                         'id'         => 10);
+                         'id'         => 10];
 
          case 'busID' :
-            return array('long name'  => __('Position of the device on its bus'),
+            return ['long name'  => __('Position of the device on its bus'),
                          'short name' => __('bus ID'),
                          'size'       => 10,
-                         'id'         => 11);
+                         'id'         => 11];
 
          case 'otherserial':
-            return array('long name'  => __('Inventory number'),
+            return ['long name'  => __('Inventory number'),
                          'short name' => __('Inventory number'),
                          'size'       => 20,
-                         'id'         => 12);
+                         'id'         => 12];
 
          case 'locations_id':
-            return array('long name'  => __('Location'),
+            return ['long name'  => __('Location'),
                          'short name' => __('Location'),
                          'size'       => 20,
                          'id'         => 13,
-                         'datatype'   => 'dropdown');
+                         'datatype'   => 'dropdown'];
 
          case 'states_id':
-            return array('long name'  => __('Status'),
+            return ['long name'  => __('Status'),
                          'short name' => __('Status'),
                          'size'       => 20,
                          'id'         => 14,
-                         'datatype'   => 'dropdown');
+                         'datatype'   => 'dropdown'];
       }
-      return array();
+      return [];
    }
 
 
@@ -206,7 +383,7 @@ class Item_Devices extends CommonDBRelation {
     *
     * Alternatively, it could be overloaded from subclasses
     *
-    * @since version 0.85
+    * @since 0.85
     *
     * @return array of the itemtype that can have this Item_Device
    **/
@@ -236,7 +413,7 @@ class Item_Devices extends CommonDBRelation {
       if (!isset($CFG_GLPI['item_device_types'])
           || (count($CFG_GLPI['item_device_types']) != count($CFG_GLPI['device_types']))) {
 
-         $CFG_GLPI['item_device_types'] = array();
+         $CFG_GLPI['item_device_types'] = [];
 
          foreach (CommonDevice::getDeviceTypes() as $deviceType) {
             $CFG_GLPI['item_device_types'][] = $deviceType::getItem_DeviceType();
@@ -252,47 +429,57 @@ class Item_Devices extends CommonDBRelation {
     *
     * @param $itemtype the type of the item that we want to know its devices
     *
-    * @since version 0.85
+    * @since 0.85
     *
     * @return array of Item_Device*
    **/
    static function getItemAffinities($itemtype) {
-
-      if (!isset($_SESSION['glpi_item_device_affinities'])) {
-         $_SESSION['glpi_item_device_affinities'] = array('' => static ::getDeviceTypes());
+      $appCache = Toolbox::getAppCache();
+      if (!$appCache->has('item_device_affinities')) {
+         $appCache->set('item_device_affinities', ['' => static::getDeviceTypes()]);
       }
+      $items_affinities = $appCache->get('item_device_affinities');
 
-      if (!isset($_SESSION['glpi_item_device_affinities'][$itemtype])) {
-         $afffinities = array();
-         foreach ($_SESSION['glpi_item_device_affinities'][''] as $item_id => $item_device) {
+      if (!isset($items_affinities[$itemtype])) {
+         $afffinities = [];
+         foreach ($items_affinities[''] as $item_id => $item_device) {
             if (in_array($itemtype, $item_device::itemAffinity()) || in_array('*', $item_device::itemAffinity())) {
                $afffinities[$item_id] = $item_device;
             }
          }
-         $_SESSION['glpi_item_device_affinities'][$itemtype] = $afffinities;
+         $items_affinities[$itemtype] = $afffinities;
+         $appCache->set('item_device_affinities', $items_affinities);
       }
 
-      return $_SESSION['glpi_item_device_affinities'][$itemtype];
+      return $items_affinities[$itemtype];
    }
 
 
    /**
     * Get all kind of items that can be used by Item_Device*
     *
-    * @since version 0.85
+    * @since 0.85
     *
     * @return array of the available items
    **/
    static function getConcernedItems() {
       global $CFG_GLPI;
-      return $CFG_GLPI["itemdevices_types"];
+
+      $itemtypes = $CFG_GLPI['itemdevices_types'];
+
+      $conf_param = str_replace('_', '', strtolower(static::class)) . '_types';
+      if (isset($CFG_GLPI[$conf_param]) && !in_array('*', $CFG_GLPI[$conf_param])) {
+         $itemtypes = array_intersect($itemtypes, $CFG_GLPI[$conf_param]);
+      }
+
+      return $itemtypes;
    }
 
 
    /**
     * Get associated device to the current item_device
     *
-    * @since version 0.85
+    * @since 0.85
     *
     * @return string containing the device
    **/
@@ -311,15 +498,20 @@ class Item_Devices extends CommonDBRelation {
 
       foreach (self::getItemAffinities($itemtype) as $link_type) {
          $table = $link_type::getTable();
-         foreach ($DB->request($table,
-                               "`itemtype` = '$itemtype'
-                                 AND `items_id` = '$oldid'") as $data) {
+         $olds = $DB->request([
+            'FROM'   => $table,
+            'WHERE'  => [
+               'itemtype'  => $itemtype,
+               'items_id'  => $oldid
+            ]
+         ]);
+
+         while ($data = $olds->next()) {
             $link = new $link_type();
             unset($data['id']);
             $data['items_id']     = $newid;
             $data['_itemtype']    = $itemtype;
             $data['_no_history']  = true;
-            $data                 = Toolbox::addslashes_deep($data);
 
             $link->add($data);
          }
@@ -327,12 +519,14 @@ class Item_Devices extends CommonDBRelation {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   //TODO: remove with old UI
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
+      global $IS_TWIG;
 
       if ($item->canView()) {
          $nb = 0;
          if (in_array($item->getType(), self::getConcernedItems())) {
-            if ($_SESSION['glpishow_count_on_tabs']) {
+            if ($_SESSION['glpishow_count_on_tabs'] && !$IS_TWIG) {
                foreach (self::getItemAffinities($item->getType()) as $link_type) {
                   $nb   += countElementsInTable($link_type::getTable(),
                                                 ['items_id'   => $item->getID(),
@@ -344,7 +538,7 @@ class Item_Devices extends CommonDBRelation {
                                         $nb);
          }
          if ($item instanceof CommonDevice) {
-            if ($_SESSION['glpishow_count_on_tabs']) {
+            if ($_SESSION['glpishow_count_on_tabs'] && !$IS_TWIG) {
                $deviceClass     = $item->getType();
                $linkClass       = $deviceClass::getItem_DeviceType();
                $table           = $linkClass::getTable();
@@ -359,15 +553,37 @@ class Item_Devices extends CommonDBRelation {
       return '';
    }
 
+   protected function countForTab($item, $tab, $deleted = 0, $template = 0) {
+      $count = 0;
+      if (static::class != 'Item_Devices' && !Toolbox::endsWith('__main', $tab)) {
+         $count = countElementsInTable(
+            self::getTable(), [
+               $item->getForeignKeyField() => $item->fields['id']
+            ]
+         );
+      } else {
+         foreach (self::getItemAffinities($item->getType()) as $link_type) {
+            $count += countElementsInTable(
+               $link_type::getTable(), [
+                  'items_id'   => $item->getID(),
+                  'itemtype'   => $item->getType(),
+                  'is_deleted' => 0
+               ]
+            );
+         }
+      }
+      return $count;
+   }
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       self::showForItem($item, $withtemplate);
       return true;
    }
 
 
-   static function showForItem(CommonGLPI $item, $withtemplate=0) {
+   static function showForItem(CommonGLPI $item, $withtemplate = 0) {
       global $CFG_GLPI;
 
       $is_device = ($item instanceof CommonDevice);
@@ -380,7 +596,7 @@ class Item_Devices extends CommonDBRelation {
 
       $canedit = (($withtemplate != 2)
                   && $item->canEdit($ID)
-                  && Session::haveRightsOr('device', array(UPDATE, PURGE)));
+                  && Session::haveRightsOr('device', [UPDATE, PURGE]));
       echo "<div class='spaced'>";
       $rand = mt_rand();
       if ($canedit) {
@@ -414,25 +630,25 @@ class Item_Devices extends CommonDBRelation {
       }
 
       if ($canedit) {
-         $massiveactionparams = array('container'     => "form_device_action$rand",
+         $massiveactionparams = ['container'     => "form_device_action$rand",
                                       'fixed'         => false,
-                                      'display_arrow' => false);
-         $content = array(array('function'   => 'Html::showMassiveActions',
-                                'parameters' => array($massiveactionparams)));
+                                      'display_arrow' => false];
+         $content = [['function'   => 'Html::showMassiveActions',
+                                'parameters' => [$massiveactionparams]]];
          $delete_column = $table->addHeader('delete one', $content);
          $delete_column->setHTMLClass('center');
       } else {
          $delete_column = null;
       }
 
-      $table_options = array('canedit' => $canedit,
-                             'rand'    => $rand);
+      $table_options = ['canedit' => $canedit,
+                             'rand'    => $rand];
 
       if ($is_device) {
          Session::initNavigateListItems(static::getType(),
                                         sprintf(__('%1$s = %2$s'),
                                                 $item->getTypeName(1), $item->getName()));
-         foreach (array_merge(array(''), self::getConcernedItems()) as $itemtype) {
+         foreach (array_merge([''], self::getConcernedItems()) as $itemtype) {
             $table_options['itemtype'] = $itemtype;
             $link                      = getItemForItemtype(static::getType());
 
@@ -441,7 +657,7 @@ class Item_Devices extends CommonDBRelation {
                                  $dynamic_column);
          }
       } else {
-         $devtypes = array();
+         $devtypes = [];
          foreach (self::getItemAffinities($item->getType()) as $link_type) {
             $devtypes [] = $link_type::getDeviceType();
             $link        = getItemForItemtype($link_type);
@@ -459,16 +675,16 @@ class Item_Devices extends CommonDBRelation {
          echo "<table class='tab_cadre_fixe'><tr class='tab_bg_1'><td>";
          echo __('Add a new component')."</td><td class=left width='70%'>";
          if ($is_device) {
-            Dropdown::showNumber('number_devices_to_add', array('value' => 0,
+            Dropdown::showNumber('number_devices_to_add', ['value' => 0,
                                                                 'min'   => 0,
-                                                                'max'   => 10));
+                                                                'max'   => 10]);
          } else {
-            Dropdown::showSelectItemFromItemtypes(array('itemtype_name'       => 'devicetype',
+            Dropdown::showSelectItemFromItemtypes(['itemtype_name'       => 'devicetype',
                                                         'items_id_name'       => 'devices_id',
                                                         'itemtypes'           => $devtypes,
                                                         'entity_restrict'     => $item->getEntityID(),
                                                         'showItemSpecificity' => $CFG_GLPI['root_doc']
-                                                                 .'/ajax/selectUnaffectedOrNewItem_Device.php'));
+                                                                 .'/ajax/selectUnaffectedOrNewItem_Device.php']);
          }
          echo "</td><td>";
          echo "<input type='submit' class='submit' name='add' value='"._sx('button', 'Add')."'>";
@@ -483,8 +699,8 @@ class Item_Devices extends CommonDBRelation {
          echo "\t<input type='hidden' name='itemtype' value='".$item->getType()."'>\n";
       }
 
-      $table->display(array('display_super_for_each_group' => false,
-                            'display_title_for_each_group' => false));
+      $table->display(['display_super_for_each_group' => false,
+                            'display_title_for_each_group' => false]);
 
       if ($canedit) {
           echo "<input type='submit' class='submit' name='updateall' value='" .
@@ -495,7 +711,7 @@ class Item_Devices extends CommonDBRelation {
 
       echo "</div>";
       // Force disable selected items
-      $_SESSION['glpimassiveactionselected'] = array();
+      $_SESSION['glpimassiveactionselected'] = [];
    }
 
 
@@ -544,7 +760,7 @@ class Item_Devices extends CommonDBRelation {
 
          $table_group = $table->createGroup($group_name, '');
 
-         $peer_column = $table_group->addHeader('item', $column_label, $common_column, NULL);
+         $peer_column = $table_group->addHeader('item', $column_label, $common_column, null);
 
          if (!empty($peer_type)) {
             //TRANS : %1$s is the type of the device
@@ -566,11 +782,11 @@ class Item_Devices extends CommonDBRelation {
          $options['itemtype_title'] = sprintf(__('%1$s of %2$s: %3$s'), $peer_type::getTypeName(Session::getPluralNumber()),
                                               $item->getTypeName(1), $item->getName());
 
-         $peer_type::getHTMLTableHeader($item->getType(), $table_group, $common_column, NULL,
+         $peer_type::getHTMLTableHeader($item->getType(), $table_group, $common_column, null,
                                           $options);
       }
 
-      $specificity_columns = array();
+      $specificity_columns = [];
       $link_column         = $table_group->addHeader('spec_link', '', $specific_column);
       $spec_column         = $link_column;
 
@@ -597,54 +813,68 @@ class Item_Devices extends CommonDBRelation {
 
       if ($options['canedit']) {
          $group_checkbox_tag =  (empty($peer_type) ? '__' : $peer_type);
-         $content            = Html::getCheckbox(array('criterion'
-                                                         => array('tag_for_massive'
-                                                                   => $group_checkbox_tag)));
+         $content            = Html::getCheckbox(['criterion'
+                                                         => ['tag_for_massive'
+                                                                   => $group_checkbox_tag]]);
          $delete_one         = $table_group->addHeader('one', $content, $delete_column,
                                                        $previous_column);
       }
 
+      $ctable = $this->getTable();
+      $criteria = [
+         'SELECT' => "$ctable.*",
+         'FROM'   => $ctable
+      ];
       if ($is_device) {
          $fk = 'items_id';
 
          // Entity restrict
          $leftjoin = '';
          $where = "";
+         $criteria['WHERE'] = [
+            $this->getDeviceForeignKey()  => $item->getID(),
+            "$ctable.itemtype"            => $peer_type,
+            "$ctable.is_deleted"          => 0
+         ];
+         $criteria['ORDERBY'] = [
+            "$ctable.itemtype",
+            "$ctable.$fk"
+         ];
          if (!empty($peer_type)) {
-            $leftjoin = "LEFT JOIN `".getTableForItemType($peer_type)."`
-                        ON (`".$this->getTable()."`.`items_id` = `".getTableForItemType($peer_type)."`.`id`
-                            AND `".$this->getTable()."`.`itemtype` = '$peer_type')";
-            $where = getEntitiesRestrictRequest(" AND", getTableForItemType($peer_type));
+            $criteria['LEFT JOIN'] = [
+               getTableForItemType($peer_type) => [
+                  'ON' => [
+                     $ctable                          => 'items_id',
+                     getTableForItemType($peer_type)  => 'id', [
+                        'AND' => [
+                           "$ctable.itemtype"   => $peer_type
+                        ]
+                     ]
+                  ]
+               ]
+            ];
+            $criteria['WHERE'] = $criteria['WHERE'] + getEntitiesRestrictCriteria(getTableForItemType($peer_type));
          }
-
-         $query = "SELECT `".$this->getTable()."`.*
-                   FROM `".$this->getTable()."`
-                   $leftjoin
-                   WHERE `".$this->getDeviceForeignKey()."` = '".$item->getID()."'
-                         AND `".$this->getTable()."`.`itemtype` = '$peer_type'
-                         AND `".$this->getTable()."`.`is_deleted` = '0'
-                         $where
-                   ORDER BY `".$this->getTable()."`.`itemtype`, `".$this->getTable()."`.`$fk`";
-
       } else {
          $fk = $this->getDeviceForeignKey();
 
-         $query = "SELECT *
-                   FROM `".$this->getTable()."`
-                   WHERE `itemtype` = '".$item->getType()."'
-                         AND `items_id` = '".$item->getID()."'
-                         AND `is_deleted` = '0'
-                   ORDER BY $fk";
-
+         $criteria['WHERE'] = [
+            'itemtype'     => $item->getType(),
+            'items_id'     => $item->getID(),
+            'is_deleted'   => 0
+         ];
+         $criteria['ORDERBY'] = $fk;
       }
 
       if (!empty($peer_type)) {
          $peer = new $peer_type();
          $peer->getEmpty();
       } else {
-         $peer = NULL;
+         $peer = null;
       }
-      foreach ($DB->request($query) as $link) {
+
+      $iterator = $DB->request($criteria);
+      while ($link = $iterator->next()) {
 
          Session::addToNavigateListItems(static::getType(), $link["id"]);
          $this->getFromDB($link['id']);
@@ -665,12 +895,12 @@ class Item_Devices extends CommonDBRelation {
 
             if ($is_device) {
                $cell = $current_row->addCell($peer_column, ($peer ? $peer->getLink() : __('None')),
-                                             NULL, $peer);
+                                             null, $peer);
                if (is_null($peer)) {
                   $cell->setHTMLClass('center');
                }
             } else {
-               $peer->getHTMLTableCellForItem($current_row, $item, NULL, $options);
+               $peer->getHTMLTableCellForItem($current_row, $item, null, $options);
             }
 
          }
@@ -684,42 +914,70 @@ class Item_Devices extends CommonDBRelation {
                                             "<a href='" . $this->getLinkURL() . "'>$mode</a>");
 
          foreach ($this->getSpecificities() as $field => $attributs) {
+            $content = '';
+
             if (!empty($link[$field])) {
-               switch ($field) {
-                  case 'states_id':
-                     $content = Dropdown::getDropdownName("glpi_states", $link[$field]);
-                     break;
-                  case 'locations_id':
-                     $content = Dropdown::getDropdownName("glpi_locations", $link[$field]);
-                     break;
-                  default:
-                     $content = $link[$field];
+               // Check the user can view the field
+               if (!isset($attributs['right'])) {
+                  $canRead = true;
+               } else {
+                  $canRead = (Session::haveRightsOr($attributs['right'], [READ, UPDATE]));
                }
-            } else {
-               $content = '';
+
+               // Don't show if the field shall not display in the list
+               if (isset($attributs['nodisplay']) && $attributs['nodisplay']) {
+                  $canRead = false;
+               }
+
+               if (!isset($attributs['datatype'])) {
+                  $attributs['datatype'] = 'text';
+               }
+               if ($canRead) {
+                  switch ($attributs['datatype']) {
+                     case 'dropdown':
+                        $dropdownType = getItemtypeForForeignKeyField($field);
+                        $content = Dropdown::getDropdownName($dropdownType::getTable(), $link[$field]);
+                        break;
+
+                     default:
+                        $content = $link[$field];
+                  }
+               }
             }
+
             $spec_cell = $current_row->addCell($specificity_columns[$field], $content, $spec_cell);
          }
 
          if (countElementsInTable('glpi_infocoms', ['itemtype' => $this->getType(),
                                                     'items_id' => $link['id']])) {
-            $content = array(array('function'   => 'Infocom::showDisplayLink',
-                                   'parameters' => array($this->getType(), $link['id'])));
+            $content = [['function'   => 'Infocom::showDisplayLink',
+                                   'parameters' => [$this->getType(), $link['id']]]];
          } else {
             $content = '';
          }
          $current_row->addCell($infocom_column, $content, $spec_cell);
 
-         $content = array();
+         $content = [];
          // The order is to be sure that specific documents appear first
-         $query = "SELECT `documents_id`
-                   FROM `glpi_documents_items`
-                   WHERE (`itemtype` = '".$this->getType()."' AND `items_id` = '".$link['id']."')
-                          OR (`itemtype` = '".$this->getDeviceType()."'
-                              AND `items_id` = '".$link[$this->getDeviceForeignKey()]."')
-                   ORDER BY `itemtype` = '".$this->getDeviceType()."'";
+         $doc_iterator = $DB->request([
+            'SELECT' => 'documents_id',
+            'FROM'   => 'glpi_documents_items',
+            'WHERE'  => [
+               'OR' => [
+                  [
+                     'itemtype'  => $this->getType(),
+                     'items_id'  => $link['id']
+                  ],
+                  [
+                     'itemtype'  => $this->getDeviceType(),
+                     'items_id'  => $link[$this->getDeviceForeignKey()]
+                  ]
+               ]
+            ],
+            'ORDER'  => 'itemtype'
+         ]);
          $document = new Document();
-         foreach ($DB->request($query) as $document_link) {
+         while ($document_link = $doc_iterator->next()) {
             if ($document->can($document_link['documents_id'], READ)) {
                $content[] = $document->getLink();
             }
@@ -737,7 +995,7 @@ class Item_Devices extends CommonDBRelation {
 
          if ($options['canedit']) {
             $cell_value = Html::getMassiveActionCheckBox($this->getType(), $link['id'],
-                                                         array('massive_tags' => $group_checkbox_tag));
+                                                         ['massive_tags' => $group_checkbox_tag]);
             $current_row->addCell($delete_one, $cell_value, $previous_cell);
          }
       }
@@ -751,7 +1009,7 @@ class Item_Devices extends CommonDBRelation {
     * @param $devices_id
     * @param $input          array to complete (permit to define values)
    **/
-   function addDevices($numberToAdd, $itemtype, $items_id, $devices_id, $input=array()) {
+   function addDevices($numberToAdd, $itemtype, $items_id, $devices_id, $input = []) {
       global $DB;
 
       if ($numberToAdd == 0) {
@@ -785,23 +1043,43 @@ class Item_Devices extends CommonDBRelation {
     *
     * @param $input array of input: should be $_POST
     *
-    * @since version 0.85
+    * @since 0.85
    **/
    static function addDevicesFromPOST($input) {
-
-      if (!isset($input['itemtype'])
-          || !isset($input['items_id'])) {
-         Html::displayNotFoundError();
+      if (isset($input['devicetype']) && !$input['devicetype']) {
+         Session::addMessageAfterRedirect(
+            __('Please select a device type'),
+            false,
+            ERROR
+         );
+         return;
+      } else if (isset($_POST['devices_id']) && !$_POST['devices_id']) {
+         Session::addMessageAfterRedirect(
+            __('Please select a device'),
+            false,
+            ERROR
+         );
+         return;
       }
 
       if (isset($input['devicetype'])) {
          $devicetype = $input['devicetype'];
          $linktype   = $devicetype::getItem_DeviceType();
          if ($link = getItemForItemtype($linktype)) {
+            if (!isset($input[$linktype::getForeignKeyField()])
+               && (!isset($input['new_devices']) || !$input['new_devices'])) {
+               Session::addMessageAfterRedirect(
+                  __('You must choose any unaffected device or ask to add new.'),
+                  false,
+                  ERROR
+               );
+               return;
+            }
+
             if ((isset($input[$linktype::getForeignKeyField()]))
                 && (count($input[$linktype::getForeignKeyField()]))) {
-               $update_input = array('itemtype' => $input['itemtype'],
-                                     'items_id' => $input['items_id']);
+               $update_input = ['itemtype' => $input['itemtype'],
+                                     'items_id' => $input['items_id']];
                foreach ($input[$linktype::getForeignKeyField()] as $id) {
                   $update_input['id'] = $id;
                   $link->update($update_input);
@@ -847,7 +1125,7 @@ class Item_Devices extends CommonDBRelation {
          $link_type = $itemtype::getItem_DeviceType();
       }
 
-      $links   = array();
+      $links   = [];
       // Update quantity or values
       $device_type = '';
       foreach ($input as $key => $val) {
@@ -876,8 +1154,8 @@ class Item_Devices extends CommonDBRelation {
             continue;
          }
          if (!isset($links[$link_type])) {
-            $links[$link_type] = array('add'    => array(),
-                                       'update' => array());
+            $links[$link_type] = ['add'    => [],
+                                       'update' => []];
          }
 
          switch ($command) {
@@ -887,7 +1165,7 @@ class Item_Devices extends CommonDBRelation {
 
             case 'value' :
                if (!isset($links[$link_type]['update'][$links_id])) {
-                  $links[$link_type]['update'][$links_id] = array();
+                  $links[$link_type]['update'][$links_id] = [];
                }
                if (isset($data[3])) {
                   $links[$link_type]['update'][$links_id][$data[3]] = $val;
@@ -913,7 +1191,7 @@ class Item_Devices extends CommonDBRelation {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @param $item_devices_id
     * @param $items_id
@@ -924,9 +1202,9 @@ class Item_Devices extends CommonDBRelation {
    static function affectItem_Device($item_devices_id, $items_id, $itemtype) {
 
       $link = new static();
-      return $link->update(array('id'       => $item_devices_id,
+      return $link->update(['id'       => $item_devices_id,
                                  'items_id' => $items_id,
-                                 'itemtype' => $itemtype));
+                                 'itemtype' => $itemtype]);
    }
 
 
@@ -942,16 +1220,15 @@ class Item_Devices extends CommonDBRelation {
          $link = getItemForItemtype($link_type);
          if ($link) {
             if ($unaffect) {
-               $query = "SELECT `id`
-                         FROM `".$link->getTable()."`
-                         WHERE `itemtype` = '$itemtype'
-                               AND `items_id` = '$items_id'";
-               $input = array('items_id' => 0,
-                              'itemtype' => '');
-               foreach ($DB->request($query) as $data) {
-                  $input['id'] = $data['id'];
-                  $link->update($input);
-               }
+               $DB->update(
+                  $link->getTable(), [
+                     'items_id'  => 0,
+                     'itemtype'  => ''
+                  ], [
+                     'items_id'  => $items_id,
+                     'itemtype'  => $itemtype
+                  ]
+               );
             } else {
                $link->cleanDBOnItemDelete($itemtype, $items_id);
             }
@@ -961,11 +1238,11 @@ class Item_Devices extends CommonDBRelation {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see commonDBTM::getRights()
     **/
-   function getRights($interface='central') {
+   function getRights($interface = 'central') {
 
       $values = parent::getRights();
       return $values;
@@ -973,7 +1250,7 @@ class Item_Devices extends CommonDBRelation {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonDBConnexity::getConnexityMassiveActionsSpecificities()
    **/
@@ -990,13 +1267,13 @@ class Item_Devices extends CommonDBRelation {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonGLPI::defineTabs()
    **/
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addDefaultFormTab($ong);
       $this->addStandardTab('Infocom', $ong, $options);
       $this->addStandardTab('Document_Item', $ong, $options);
@@ -1008,11 +1285,9 @@ class Item_Devices extends CommonDBRelation {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
-   function showForm($ID, $options=array()) {
-      global $CFG_GLPI;
-
+   function showForm($ID, $options = []) {
       if (!$this->isNewID($ID)) {
          $this->check($ID, READ);
       } else {
@@ -1034,29 +1309,125 @@ class Item_Devices extends CommonDBRelation {
       echo "</td>";
 
       echo "<td>"._n('Component', 'Components', 1)."</td>";
-      echo "<td>".$device->getLink()."</td>";
+      echo "<td>";
+      if (false === $device) {
+         Dropdown::show(
+            static::$itemtype_2, [
+               'name'   => static::$items_id_2
+            ]
+         );
+      } else {
+         echo $device->getLink();
+      }
+      echo "</td>";
       echo "</tr>";
       $even = 0;
       $nb = count(static::getSpecificities());
+      echo Html::scriptBlock('function showField(item) {
+            $("#" + item).prop("type", "text");
+         }
+         function hideField(item) {
+            $("#" + item).prop("type", "password");
+         }
+         function copyToClipboard(item) {
+            showField(item);
+            $("#" + item).select();
+            try {
+               document.execCommand("copy");
+            } catch (e) {
+               alert("' . addslashes(__('Copy to clipboard failed')) . '");
+            }
+            hideField(item);
+         }');
       foreach (static::getSpecificities() as $field => $attributs) {
          if (($even % 2) == 0) {
             echo "<tr class='tab_bg_1'>";
          }
-         echo "<td>".$attributs['long name']."</td>";
+         $out = '';
+
+         // Can the user view the value of the field ?
+         if (!isset($attributs['right'])) {
+            $canRead = true;
+         } else {
+            $canRead = (Session::haveRightsOr($attributs['right'], [READ, UPDATE]));
+         }
+
+         if (!isset($attributs['datatype'])) {
+            $attributs['datatype'] = 'text';
+         }
+
+         $rand = mt_rand();
          echo "<td>";
-         switch ($field) {
-            case 'locations_id':
-               Location::dropdown(array('value'  => $this->fields["locations_id"],
-                                        'entity' => $this->fields["entities_id"]));
-               break;
-            case 'states_id':
-               State::dropdown(array('value'     => $this->fields["states_id"],
-                                     'entity'    => $this->fields["entities_id"],
-                                     //'condition' => "`is_visible_computer`"
-                                     ));
-               break;
-            default:
-               Html::autocompletionTextField($this, $field, array('size' => $attributs['size']));
+         if ($canRead) {
+            switch ($attributs['datatype']) {
+               case 'dropdown':
+                  $fieldType = 'dropdown';
+                  break;
+
+               default:
+                  $fieldType = 'textfield';
+            }
+            echo "<label for='${fieldType}_$field$rand'>".$attributs['long name']."</label>";
+         } else {
+            echo $attributs['long name'];
+         }
+         echo "</td><td>";
+
+         // Do the field needs a user action to display ?
+         if (isset($attributs['protected']) && $attributs['protected']) {
+            $protected = true;
+            $out.= '<span class="disclosablefield">';
+         } else {
+            $protected = false;
+         }
+
+         if (isset($attributs['tooltip']) && strlen($attributs['tooltip']) > 0) {
+            $tooltip = $attributs['tooltip'];
+         } else {
+            $tooltip = null;
+         }
+
+         if ($canRead) {
+            $value = $this->fields[$field];
+            switch ($attributs['datatype']) {
+               case 'dropdown':
+                  $dropdownType = getItemtypeForForeignKeyField($field);
+                  $out.= $dropdownType::dropdown(['value'    => $value,
+                                                  'rand'     => $rand,
+                                                  'entity'   => $this->fields["entities_id"],
+                                                  'display'  => false]);
+                  break;
+               default:
+                  if (!$protected) {
+                     $out.= Html::autocompletionTextField($this, $field, ['value'    => $value,
+                                                                          'rand'     => $rand,
+                                                                          'size'     => $attributs['size'],
+                                                                          'display'  => false]);
+                  } else {
+                     $out.= '<input class="protected" type="password" autocomplete="off" name="' . $field . '" ';
+                     $out.= 'id="' . $field . $rand . '" value="' . $value . '">';
+                  }
+            }
+            if ($tooltip !== null) {
+               $comment_id      = Html::cleanId("comment_".$field.$rand);
+               $link_id         = Html::cleanId("comment_link_".$field.$rand);
+               $options_tooltip = ['contentid' => $comment_id,
+                  'linkid'    => $link_id,
+                  'display'   => false];
+               $out.= '&nbsp;'.Html::showToolTip($tooltip, $options_tooltip);
+            }
+            if ($protected) {
+               $out.= '<span><i class="far fa-eye pointer disclose" ';
+               $out.= 'onmousedown="showField(\'' . $field . $rand . '\')" ';
+               $out.= 'onmouseup="hideField(\'' . $field . $rand . '\')" ';
+               $out.= 'onmouseout="hideField(\'' . $field . $rand . '\')"></i>';
+               $out.= '<i class="fa fa-paste pointer disclose" ';
+               $out.= 'onclick="copyToClipboard(\'' . $field . $rand . '\')"></i>';
+               $out.= '</span>';
+            }
+            echo $out;
+         } else {
+            echo NOT_AVAILABLE;
          }
          echo "</td>";
          $even ++;
@@ -1083,31 +1454,117 @@ class Item_Devices extends CommonDBRelation {
    function prepareInputForAdd($input) {
       global $DB, $CFG_GLPI;
 
+      if (!isset($input[static::$items_id_2]) || !$input[static::$items_id_2]) {
+         Session::addMessageAfterRedirect(__('A device ID is mandatory'), false, ERROR);
+         return false;
+      }
+
       $computer = static::getItemFromArray(static::$itemtype_1, static::$items_id_1, $input);
 
-      if ($CFG_GLPI["is_location_autoupdate"]
-         && (!isset($input['locations_id']) ||
-         $computer->fields['locations_id'] != $input['locations_id'])
-      ) {
-         $input['locations_id'] = $computer->fields['locations_id'];
-      }
+      if ($computer instanceOf CommonDBTM) {
+         if (isset($CFG_GLPI['is_location_autoupdate']) && $CFG_GLPI["is_location_autoupdate"]
+            && (!isset($input['locations_id']) ||
+            $computer->fields['locations_id'] != $input['locations_id'])
+         ) {
+            $input['locations_id'] = $computer->fields['locations_id'];
+         }
 
-      if (($CFG_GLPI["state_autoupdate_mode"] < 0)
-         && ($computer->fields['states_id'] != $input['states_id']
-         || !isset($input['states_id']))
-      ) {
+         if ((isset($CFG_GLPI['state_autoupdate_mode']) && $CFG_GLPI["state_autoupdate_mode"] < 0)
+            && (!isset($input['states_id']) ||
+            $computer->fields['states_id'] != $input['states_id'])
+         ) {
 
-         $input['states_id'] = $computer->fields['states_id'];
-      }
+            $input['states_id'] = $computer->fields['states_id'];
+         }
 
-      if (($CFG_GLPI["state_autoupdate_mode"] > 0)
-         && ($input['states_id'] != $CFG_GLPI["state_autoupdate_mode"]
-         || !isset($input['states_id']))
-      ) {
+         if ((isset($CFG_GLPI['state_autoupdate_mode']) && $CFG_GLPI["state_autoupdate_mode"] > 0)
+            && (!isset($input['states_id']) ||
+            $input['states_id'] != $CFG_GLPI["state_autoupdate_mode"])
+         ) {
 
-         $input['states_id'] = $CFG_GLPI["state_autoupdate_mode"];
+            $input['states_id'] = $CFG_GLPI["state_autoupdate_mode"];
+         }
       }
 
       return parent::prepareInputForAdd($input);
+   }
+
+   function prepareInputForUpdate($input) {
+      foreach (static::getSpecificities() as $field => $attributs) {
+         if (!isset($attributs['right'])) {
+            $canUpdate = true;
+         } else {
+            $canUpdate = (Session::haveRightsOr($attributs['right'], [UPDATE]));
+         }
+         if (isset($input[$field]) && !$canUpdate) {
+            unset($input[$field]);
+            Session::addMessageAfterRedirect(__('Update of ' . $attributs['short name'] . ' denied'));
+         }
+      }
+
+      return $input;
+   }
+
+   static public function unsetUndisclosedFields(&$fields) {
+      foreach (static::getSpecificities() as $key => $attributs) {
+         if (isset($attributs['right'])) {
+            if (!Session::haveRightsOr($attributs['right'], [READ])) {
+               unset($fields[$key]);
+            }
+         }
+      }
+   }
+
+   static function getSearchURL($full = true) {
+      global $CFG_GLPI;
+
+      $dir = ($full ? $CFG_GLPI['root_doc'] : '');
+      $itemtype = get_called_class();
+      $link = "$dir/front/item_device.php?itemtype=$itemtype";
+
+      return $link;
+   }
+
+   public static function addSubDefaultJoin(CommonDBTM $item, $itemtype = null) {
+      if ($itemtype === 'AllAssets') {
+         $joins = '';
+         foreach (static::itemAffinity() as $link_type) {
+            $joins .= static::addSubDefaultJoin($item, $link_type);
+         }
+         return $joins;
+      }
+
+      $sub_link_item = new $itemtype;
+      if ($item->getType() == static::$itemtype_1) {
+         $link_type = static::$itemtype_2;
+         $link_id = static::$items_id_2;
+      } else if ($item->getType() == static::$itemtype_2) {
+         $link_type = static::$itemtype_1;
+         $link_id = static::$items_id_1;
+      } else {
+         $link_type = (static::$itemtype_1 != 'itemtype' ? static::$itemtype_1 : static::$itemtype_2);
+         $link_id = (static::$itemtype_1 != 'itemtype' ? static::$items_id_1 : static::$items_id_2);
+      }
+
+      if (empty($link_type) || $link_type == 'itemtype') {
+         $link_type = $itemtype;
+      }
+
+      $link_table = getTableForItemtype($link_type);
+
+      $existing = [];
+      $search = new \Search($link_type, []);
+      $join = $search->addLeftJoin(
+         $link_type,
+         $link_table,
+         $existing,
+         static::getTable(),
+         $link_id,
+         0,
+         0,
+         ['jointype' => 'child']
+      );
+
+      return $join;
    }
 }

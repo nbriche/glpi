@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* * @since version 0.85 in front
-*/
+/**
+ * @since 0.85
+ */
 
 include ('../inc/includes.php');
 
@@ -41,7 +40,8 @@ include ('../inc/includes.php');
 
 if (!isset($_SESSION["noAUTO"])
     && isset($_SESSION["glpiauthtype"])
-    && ($_SESSION["glpiauthtype"] == Auth::CAS)) {
+    && $_SESSION["glpiauthtype"] == Auth::CAS
+    && Toolbox::canUseCAS()) {
 
    phpCAS::client(CAS_VERSION_2_0, $CFG_GLPI["cas_host"], intval($CFG_GLPI["cas_port"]),
                   $CFG_GLPI["cas_uri"], false);

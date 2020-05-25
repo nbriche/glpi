@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -28,11 +28,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
-*/
-
-/** @file
-* @brief
-*/
+* */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -49,7 +45,7 @@ class IPNetmask extends IPAddress {
     * @param $ipnetmask (default '')
     * @param $version   (default 0)
    **/
-   function __construct($ipnetmask='', $version=0) {
+   function __construct($ipnetmask = '', $version = 0) {
 
       // First, be sure that the parent is correctly initialised
       parent::__construct();
@@ -74,7 +70,7 @@ class IPNetmask extends IPAddress {
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Subnet mask', 'Subnet masks', $nb);
    }
 
@@ -104,7 +100,7 @@ class IPNetmask extends IPAddress {
          $bits          = str_repeat("1", $nbBits).str_repeat("0", 128 - $nbBits);
          $this->version = $version;
          $this->textual = $netmask;
-         $this->binary  = array();
+         $this->binary  = [];
          for ($i = 0; $i  < 4; $i++) {
             $localBits      = substr($bits, 32 * $i, 32);
             $this->binary[] = bindec($localBits);
@@ -126,7 +122,7 @@ class IPNetmask extends IPAddress {
 
       if ($version == 4) {
          $mask    = decbin($this->binary[3]);
-         $textual = array();
+         $textual = [];
          for ($i = 0; $i < 4; $i++) {
             $textual[] = bindec(substr($mask, 8 * $i, 8));
          }

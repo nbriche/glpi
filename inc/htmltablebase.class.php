@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -43,13 +39,13 @@ class HTMLTableUnknownHeaders      extends Exception {}
 class HTMLTableUnknownHeadersOrder extends Exception {}
 
 /**
- * @since version 0.84
+ * @since 0.84
 **/
 abstract class HTMLTableBase  {
 
-   private $headers = array();
-   private $headers_order = array();
-   private $headers_sub_order = array();
+   private $headers = [];
+   private $headers_order = [];
+   private $headers_sub_order = [];
    private $super;
 
 
@@ -65,7 +61,7 @@ abstract class HTMLTableBase  {
     * @param $header_object         HTMLTableHeader object
     * @param $allow_super_header    (false by default
    **/
-   function appendHeader(HTMLTableHeader $header_object, $allow_super_header=false) {
+   function appendHeader(HTMLTableHeader $header_object, $allow_super_header = false) {
 
       if (!$header_object instanceof HTMLTableHeader) {
          throw new Exception('Implementation error: appendHeader requires HTMLTableHeader as parameter');
@@ -86,9 +82,9 @@ abstract class HTMLTableBase  {
       }
 
       if (!isset($this->headers[$header_name])) {
-         $this->headers[$header_name]           = array();
+         $this->headers[$header_name]           = [];
          $this->headers_order[]                 = $header_name;
-         $this->headers_sub_order[$header_name] = array();
+         $this->headers_sub_order[$header_name] = [];
       }
       if (!isset($this->headers[$header_name][$subHeader_name])) {
          $this->headers_sub_order[$header_name][] = $subHeader_name;
@@ -125,8 +121,8 @@ abstract class HTMLTableBase  {
     *
     * @return the HTMLTableHeader        that have been created
    **/
-   function addHeader($name, $content, HTMLTableSuperHeader $super=NULL,
-                      HTMLTableHeader $father=NULL) {
+   function addHeader($name, $content, HTMLTableSuperHeader $super = null,
+                      HTMLTableHeader $father = null) {
 
       $this->tryAddHeader();
       if (is_null($super)) {
@@ -155,7 +151,7 @@ abstract class HTMLTableBase  {
     * @param $name
     * @param $sub_name (default NULL)
    **/
-   function getHeaderByName($name, $sub_name=NULL) {
+   function getHeaderByName($name, $sub_name = null) {
 
       if (is_string($sub_name)) {
          if (isset($this->headers[$name][$sub_name])) {
@@ -176,7 +172,7 @@ abstract class HTMLTableBase  {
    /**
     * @param $header_name  (default '')
    **/
-   function getHeaders($header_name='') {
+   function getHeaders($header_name = '') {
 
       if (empty($header_name)) {
          return $this->headers;
@@ -191,7 +187,7 @@ abstract class HTMLTableBase  {
    /**
     * @param $header_name  (default '')
    **/
-   function getHeaderOrder($header_name='') {
+   function getHeaderOrder($header_name = '') {
 
       if (empty($header_name)) {
          return $this->headers_order;

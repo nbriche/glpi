@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (strpos($_SERVER['PHP_SELF'], "dropdownTicketCategories.php")) {
    include ('../inc/includes.php');
    header("Content-Type: text/html; charset=UTF-8");
@@ -42,12 +38,11 @@ if (strpos($_SERVER['PHP_SELF'], "dropdownTicketCategories.php")) {
    die("Sorry. You can't access this file directly");
 }
 
-$opt = array('entity' => $_POST["entity_restrict"]);
+$opt = ['entity' => $_POST["entity_restrict"]];
+$condition  =[];
 
-if ($_SESSION["glpiactiveprofile"]["interface"] == "helpdesk") {
-   $opt['condition'] = "`is_helpdeskvisible`='1' AND ";
-} else {
-   $opt['condition'] = '';
+if (Session::getCurrentInterface() == "helpdesk") {
+   $condition['is_helpdeskvisible'] = 1;
 }
 
 $currentcateg = new ItilCategory();
@@ -56,14 +51,14 @@ $currentcateg->getFromDB($_POST['value']);
 if ($_POST["type"]) {
    switch ($_POST['type']) {
       case Ticket::INCIDENT_TYPE :
-         $opt['condition'].= " `is_incident`='1'";
+         $condition['is_incident'] = 1;
          if ($currentcateg->getField('is_incident') == 1) {
             $opt['value'] = $_POST['value'];
          }
          break;
 
       case Ticket::DEMAND_TYPE:
-         $opt['condition'].= " `is_request`='1'";
+         $condition['is_request'] = 1;
          if ($currentcateg->getField('is_request') == 1) {
             $opt['value'] = $_POST['value'];
          }
@@ -71,4 +66,5 @@ if ($_POST["type"]) {
    }
 }
 
+$opt['condition'] = $condition;
 ItilCategory::dropdown($opt);

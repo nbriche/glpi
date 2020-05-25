@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,12 +30,10 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
+$ajax = false;
 // Direct access to file
 if (strpos($_SERVER['PHP_SELF'], "searchoptionvalue.php")) {
+   $ajax = true;
    include ('../inc/includes.php');
    header("Content-Type: text/html; charset=UTF-8");
    Html::header_nocache();
@@ -47,8 +45,9 @@ Session::checkLoginUser();
 
 if (isset($_POST['searchtype'])) {
    $searchopt      = $_POST['searchopt'];
-   $_POST['value'] = rawurldecode($_POST['value']);
-
+   if ($ajax) {
+      $_POST['value'] = rawurldecode($_POST['value']);
+   }
    $fieldname = 'criteria';
    if (isset($_POST['meta']) && $_POST['meta']) {
       $fieldname = 'metacriteria';
@@ -57,7 +56,7 @@ if (isset($_POST['searchtype'])) {
    $inputname         = $fieldname.'['.$_POST['num'].'][value]';
    $display           = false;
    $item              = getItemForItemtype($_POST['itemtype']);
-   $options2          = array();
+   $options2          = [];
    $options2['value'] = $_POST['value'];
    $options2['width'] = '100%';
    // For tree dropdpowns
@@ -70,12 +69,12 @@ if (isset($_POST['searchtype'])) {
       case "lessthan" :
       case "under" :
       case "notunder" :
-         if (!$display && isset($searchopt['field'])) {
+         if (isset($searchopt['field'])) {
             // Specific cases
             switch ($searchopt['table'].".".$searchopt['field']) {
                // Add mygroups choice to searchopt
                case "glpi_groups.completename" :
-                  $searchopt['toadd'] = array('mygroups' => __('My groups'));
+                  $searchopt['toadd'] = ['mygroups' => __('My groups')];
                   break;
 
                case "glpi_changes.status" :
@@ -109,12 +108,13 @@ if (isset($_POST['searchtype'])) {
 
 
                case "glpi_users.name" :
-                  $options2['right'] = (isset($searchopt['right']) ? $searchopt['right'] : 'all');
+                  $options2['right']            = (isset($searchopt['right']) ? $searchopt['right'] : 'all');
+                  $options2['inactive_deleted'] = 1;
                   break;
             }
 
             // Standard datatype usage
-            if (!$display && isset($searchopt['datatype'])) {
+            if (isset($searchopt['datatype'])) {
                switch ($searchopt['datatype']) {
 
                   case "date" :
@@ -136,10 +136,10 @@ if (isset($_POST['searchtype'])) {
                 && $plug = isPluginItemType(getItemTypeForTable($searchopt['table']))) {
                $function = 'plugin_'.$plug['plugin'].'_searchOptionsValues';
                if (function_exists($function)) {
-                  $params = array('name'           => $inputname,
+                  $params = ['name'           => $inputname,
                                   'searchtype'     => $_POST['searchtype'],
                                   'searchoption'   => $searchopt,
-                                  'value'          => $_POST['value']);
+                                  'value'          => $_POST['value']];
                   $display = $function($params);
                }
             }

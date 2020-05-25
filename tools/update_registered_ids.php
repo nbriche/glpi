@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,17 +30,21 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
- * @since version 0.85
-* @brief Purge history with some criteria
-*/
+if (PHP_SAPI != 'cli') {
+   echo "This script must be run from command line";
+   exit();
+}
+
+/**
+ * @since 0.85
+ */
 
 include ('../inc/includes.php');
 
 $registeredid = new RegisteredID();
 $manufacturer = new Manufacturer();
-foreach (array('PCI' => 'http://pciids.sourceforge.net/v2.2/pci.ids',
-               'USB' => 'http://www.linux-usb.org/usb.ids') as $type => $URL) {
+foreach (['PCI' => 'http://pciids.sourceforge.net/v2.2/pci.ids',
+               'USB' => 'http://www.linux-usb.org/usb.ids'] as $type => $URL) {
    echo "Processing : $type\n";
    foreach (file($URL) as $line) {
       if ($line[0] == '#') {
@@ -52,20 +56,22 @@ foreach (array('PCI' => 'http://pciids.sourceforge.net/v2.2/pci.ids',
       }
       if ($line[0] != '\t') {
          $id   = strtolower(substr($line, 0, 4));
-         $name = addslashes(trim(substr($line, 4)));
-         if ($registeredid->getFromDBByQuery("WHERE `itemtype` = 'Manufacturer'
-                                                    AND `name` = '$id'
-                                                    AND `device_type` = '$type'")) {
+         $name = trim(substr($line, 4));
+         if ($registeredid->getFromDBByCrit([
+            'itemtype'     => 'Manufacturer',
+            'name'         => $id,
+            'device_type'  => $type
+         ])) {
             $manufacturer->getFromDB($registeredid->fields['items_id']);
          } else {
-            if (!$manufacturer->getFromDBByQuery("WHERE `name` = '$name'")) {
-               $input = array('name' => $name);
+            if (!$manufacturer->getFromDBByCrit(['name' => $name])) {
+               $input = ['name' => $name];
                $manufacturer->add($input);
             }
-            $input = array('itemtype'    => $manufacturer->getType(),
+            $input = ['itemtype'    => $manufacturer->getType(),
                            'items_id'    => $manufacturer->getID(),
                            'device_type' => $type,
-                           'name'        => $id);
+                           'name'        => $id];
             $registeredid->add($input);
          }
          continue;
@@ -73,7 +79,7 @@ foreach (array('PCI' => 'http://pciids.sourceforge.net/v2.2/pci.ids',
       // if (($line[0] == "\t") && ($line[1] != '\t'))  {
       //    $line = trim($line);
       //    $id   = strtolower(substr($line, 0, 4));
-      //    $name = addslashes(trim(substr($line, 4)));
+      //    $name = trim(substr($line, 4));
       //    continue;
       // }
    }

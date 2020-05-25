@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 Session::checkRight("reports", READ);
@@ -54,25 +50,25 @@ echo "<tr><th colspan='4'>".__("Equipment's report by year")."</th></tr>";
 echo "<tr class='tab_bg_2'>";
 echo "<td width='20%' class='b center'>".__('Item type')."</td>";
 echo "<td width='30%'>";
-$values = array(0 => __('All'));
+$values = [0 => __('All')];
 foreach ($CFG_GLPI["contract_types"] as $itemtype) {
    if ($item = getItemForItemtype($itemtype)) {
       $values[$itemtype] = $item->getTypeName();
    }
 }
-Dropdown::showFromArray('item_type', $values, array('value'    => 0,
-                                                   'multiple' => true));
+Dropdown::showFromArray('item_type', $values, ['value'    => 0,
+                                                   'multiple' => true]);
 echo "</td>";
 
 echo "<td width='20%' class='center'><p class='b'>".__('Date')."</p></td>";
 echo "<td width='30%'>";
 $y = date("Y");
-$values = array( 0 => __('All'));
+$values = [ 0 => __('All')];
 for ($i=($y-10); $i<($y+10); $i++) {
    $values[$i] = $i;
 }
-Dropdown::showFromArray('year', $values, array('value'    => $y,
-                                              'multiple' => true));
+Dropdown::showFromArray('year', $values, ['value'    => $y,
+                                              'multiple' => true]);
 echo "</td></tr>";
 
 echo "<tr class='tab_bg_2'><td colspan='4' class='center'>";

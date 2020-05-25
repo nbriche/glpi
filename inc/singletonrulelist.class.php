@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,16 +30,13 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 class SingletonRuleList {
    /// Items list
-   public $list = array();
+   public $list = [];
    /// Items loaded ?
    public $load = 0;
 
@@ -53,7 +50,7 @@ class SingletonRuleList {
     * @return unique instance of an object
    **/
    public static function &getInstance($type, $entity) {
-      static $instances = array();
+      static $instances = [];
 
       if (!isset($instances[$type][$entity])) {
          $instances[$type][$entity] = new self();

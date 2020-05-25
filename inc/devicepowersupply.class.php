@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,9 +37,9 @@ if (!defined('GLPI_ROOT')) {
 /// Class DevicePowerSupply
 class DevicePowerSupply extends CommonDevice {
 
-   static protected $forward_entity_to = array('Item_DevicePowerSupply', 'Infocom');
+   static protected $forward_entity_to = ['Item_DevicePowerSupply', 'Infocom'];
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Power supply', 'Power supplies', $nb);
    }
 
@@ -51,20 +47,20 @@ class DevicePowerSupply extends CommonDevice {
    function getAdditionalFields() {
 
       return array_merge(parent::getAdditionalFields(),
-                         array(array('name'  => 'is_atx',
+                         [['name'  => 'is_atx',
                                      'label' => __('ATX'),
-                                     'type'  => 'bool'),
-                               array('name'  => 'power',
+                                     'type'  => 'bool'],
+                               ['name'  => 'power',
                                      'label' => __('Power'),
-                                     'type'  => 'text'),
-                               array('name'  => 'devicepowersupplymodels_id',
+                                     'type'  => 'text'],
+                               ['name'  => 'devicepowersupplymodels_id',
                                      'label' => __('Model'),
-                                     'type'  => 'dropdownValue')));
+                                     'type'  => 'dropdownValue']]);
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',
@@ -95,13 +91,13 @@ class DevicePowerSupply extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableHeader()
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column = parent::getHTMLTableHeader($itemtype, $base, $super, $father, $options);
 
@@ -118,12 +114,12 @@ class DevicePowerSupply extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableCellForItem()
    **/
-   function getHTMLTableCellForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                    HTMLTableCell $father=NULL, array $options=array()) {
+   function getHTMLTableCellForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                    HTMLTableCell $father = null, array $options = []) {
 
       $column = parent::getHTMLTableCellForItem($row, $item, $father, $options);
 
@@ -133,7 +129,30 @@ class DevicePowerSupply extends CommonDevice {
 
       switch ($item->getType()) {
          case 'Computer' :
-            Manufacturer::getHTMLTableCellsForItem($row, $this, NULL, $options);
+            Manufacturer::getHTMLTableCellsForItem($row, $this, null, $options);
       }
+   }
+
+   public static function rawSearchOptionsToAdd($itemtype, $main_joinparams) {
+      $tb = [];
+
+      $tab[] = [
+         'id'                 => '39',
+         'table'              => 'glpi_devicepowersupplies',
+         'field'              => 'designation',
+         'name'               => __('Power supply'),
+         'forcegroupby'       => true,
+         'usehaving'          => true,
+         'massiveaction'      => false,
+         'datatype'           => 'string',
+         'joinparams'         => [
+            'beforejoin'         => [
+               'table'              => 'glpi_items_devicepowersupplies',
+               'joinparams'         => $main_joinparams
+            ]
+         ]
+      ];
+
+      return $tab;
    }
 }

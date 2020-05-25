@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,17 +30,13 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 
 /**
- *  Timer class for debug
+ *  Timer class for debug and some other cases
  */
 class Timer {
 
@@ -48,7 +44,11 @@ class Timer {
    public $timer=0;
 
 
-   //! Start the Timer
+   /**
+    * Start the Timer
+    *
+    * @return true
+    */
    function start () {
 
       $this->timer = microtime(true);
@@ -59,14 +59,18 @@ class Timer {
    /**
     * Get the current time of the timer
     *
-    * @param $decimals number of decimal of the result (default 3)
+    * @param integer $decimals Number of decimal of the result (default 3)
+    * @param boolean $raw      Get raw time
     *
     * @return time past from start
    **/
-   function getTime ($decimals=3) {
-
-      // $decimals will set the number of decimals you want for your milliseconds.
-      return number_format(microtime(true) - $this->timer, $decimals, '.', ' ');
+   function getTime ($decimals = 3, $raw = false) {
+      $elapsed = microtime(true) - $this->timer;
+      if ($raw === true) {
+         return $elapsed * 1000;
+      } else {
+         // $decimals will set the number of decimals you want for your milliseconds.
+         return number_format($elapsed, $decimals, '.', ' ');
+      }
    }
-
 }

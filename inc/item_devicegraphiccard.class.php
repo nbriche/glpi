@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -49,19 +45,19 @@ class Item_DeviceGraphicCard extends Item_Devices {
    static protected $notable = false;
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
-   static function getSpecificities($specif='') {
+   static function getSpecificities($specif = '') {
 
-      return array('memory' => array('long name'  => sprintf(__('%1$s (%2$s)'), __('Memory'),
+      return ['memory' => ['long name'  => sprintf(__('%1$s (%2$s)'), __('Memory'),
                                                             __('Mio')),
                                      'short name' => __('Memory'),
                                      'size'       => 10,
-                                     'id'         => 20),
+                                     'id'         => 20],
                    'serial' => parent::getSpecificities('serial'),
                    'otherserial' => parent::getSpecificities('otherserial'),
                    'locations_id' => parent::getSpecificities('locations_id'),
                    'states_id' => parent::getSpecificities('states_id'),
-                   'busID'  => parent::getSpecificities('busID'));
+                   'busID'  => parent::getSpecificities('busID')];
    }
 }

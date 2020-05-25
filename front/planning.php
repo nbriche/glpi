@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 include ('../inc/includes.php');
 
@@ -71,6 +67,17 @@ if (isset($_GET['checkavailability'])) {
       if ($user->getFromDBByToken($_GET['token'])) {
          if (isset($_GET['entities_id']) && isset($_GET['is_recursive'])) {
             $user->loadMinimalSession($_GET['entities_id'], $_GET['is_recursive']);
+
+            // load entities & profiles
+            // needed to pass canViewItem() in populatePlanning functions in case of ical export
+            $_SESSION["glpidefault_entity"]  = $user->fields['entities_id'];
+            Session::initEntityProfiles($user->getID());
+            if (isset($_SESSION['glpiprofiles'][$user->fields['profiles_id']])) {
+               Session::changeProfile($user->fields['profiles_id']);
+
+            } else {
+               Session::changeProfile(key($_SESSION['glpiprofiles']));
+            }
          }
          //// check if the request is valid: rights on uID / gID
          // First check mine : user then groups
@@ -84,6 +91,7 @@ if (isset($_GET['checkavailability'])) {
                $ismine = true;
             } else {
                $entities = Profile_User::getUserEntitiesForRight($user->getID(),
+                                                                 Planning::$rightname,
                                                                  Planning::READGROUP);
                $groups   = Group_User::getUserGroups($user->getID());
                foreach ($groups as $group) {
@@ -99,7 +107,9 @@ if (isset($_GET['checkavailability'])) {
          // If not mine check global right
          if (!$ismine) {
             // First check user
-            $entities = Profile_User::getUserEntitiesForRight($user->getID(), Planning::READALL);
+            $entities = Profile_User::getUserEntitiesForRight($user->getID(),
+                                                              Planning::$rightname,
+                                                              Planning::READALL);
             if ($_GET["uID"]) {
                $userentities = Profile_User::getUserEntities($user->getID());
                $intersect    = array_intersect($entities, $userentities);
@@ -126,7 +136,7 @@ if (isset($_GET['checkavailability'])) {
 } else {
    Html::header(__('Planning'), $_SERVER['PHP_SELF'], "helpdesk", "planning");
 
-   Session::checkRightsOr('planning', array(Planning::READALL, Planning::READMY));
+   Session::checkRightsOr('planning', [Planning::READALL, Planning::READMY]);
 
    if (!isset($_GET["date"]) || empty($_GET["date"])) {
       $_GET["date"] = strftime("%Y-%m-%d");

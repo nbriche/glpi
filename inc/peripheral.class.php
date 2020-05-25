@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -43,11 +39,13 @@ if (!defined('GLPI_ROOT')) {
  * Peripheral Class
 **/
 class Peripheral extends CommonDBTM {
+   use DCBreadcrumb;
 
    // From CommonDBTM
    public $dohistory                   = true;
 
-   static protected $forward_entity_to = array('Infocom', 'NetworkPort', 'ReservationItem');
+   static protected $forward_entity_to = ['Infocom', 'NetworkPort', 'ReservationItem',
+                                          'Item_OperatingSystem'];
 
    static $rightname                   = 'peripheral';
    protected $usenotepad               = true;
@@ -58,7 +56,7 @@ class Peripheral extends CommonDBTM {
     *
     * @param $nb : number of item in the type
    **/
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Device', 'Devices', $nb);
    }
 
@@ -66,17 +64,18 @@ class Peripheral extends CommonDBTM {
    /**
     * @see CommonDBTM::useDeletedToLockIfDynamic()
     *
-    * @since version 0.84
+    * @since 0.84
    **/
    function useDeletedToLockIfDynamic() {
       return false;
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addDefaultFormTab($ong);
+      $this->addStandardTab('Item_OperatingSystem', $ong, $options);
       $this->addStandardTab('Item_Devices', $ong, $options);
       $this->addStandardTab('Computer_Item', $ong, $options);
       $this->addStandardTab('NetworkPort', $ong, $options);
@@ -90,6 +89,7 @@ class Peripheral extends CommonDBTM {
       $this->addStandardTab('Link', $ong, $options);
       $this->addStandardTab('Notepad', $ong, $options);
       $this->addStandardTab('Reservation', $ong, $options);
+      $this->addStandardTab('Certificate_Item', $ong, $options);
       $this->addStandardTab('Log', $ong, $options);
 
       return $ong;
@@ -112,6 +112,9 @@ class Peripheral extends CommonDBTM {
 
       // Manage add from template
       if (isset($this->input["_oldID"])) {
+         // ADD OS
+         Item_OperatingSystem::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
+
          // ADD Devices
          Item_devices::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
 
@@ -137,19 +140,14 @@ class Peripheral extends CommonDBTM {
    }
 
    function cleanDBonPurge() {
-      global $DB;
 
-      $ci = new Computer_Item();
-      $ci->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $ip = new Item_Problem();
-      $ip->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $ci = new Change_Item();
-      $ci->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $ip = new Item_Project();
-      $ip->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
+      $this->deleteChildrenAndRelationsFromDb(
+         [
+            Certificate_Item::class,
+            Computer_Item::class,
+            Item_Project::class,
+         ]
+      );
 
       Item_Devices::cleanItemDeviceDBOnItemDelete($this->getType(), $this->fields['id'],
                                                   (!empty($this->input['keep_devices'])));
@@ -166,66 +164,72 @@ class Peripheral extends CommonDBTM {
     *
     * @return boolean item found
    **/
-   function showForm($ID, $options=array()) {
+   function showForm($ID, $options = []) {
       global $CFG_GLPI;
 
       $target       = $this->getFormURL();
       $withtemplate = $this->initForm($ID, $options);
       $this->showFormHeader($options);
 
+      $tplmark = $this->getAutofillMark('name', $options);
       echo "<tr class='tab_bg_1'>";
       //TRANS: %1$s is a string, %2$s a second one without spaces between them : to change for RTL
-      echo "<td>".sprintf(__('%1$s%2$s'), __('Name'),
-                          (isset($options['withtemplate']) && $options['withtemplate']?"*":""));
+      echo "<td>".sprintf(__('%1$s%2$s'), __('Name'), $tplmark);
       echo "</td>";
       echo "<td>";
       $objectName = autoName($this->fields["name"], "name",
                              (isset($options['withtemplate']) && ($options['withtemplate'] == 2)),
                              $this->getType(), $this->fields["entities_id"]);
-      Html::autocompletionTextField($this, "name", array('value' => $objectName));
+      Html::autocompletionTextField($this, "name", ['value' => $objectName]);
       echo "</td>\n";
       echo "<td>".__('Status')."</td>\n";
       echo "<td>";
-      State::dropdown(array('value'     => $this->fields["states_id"],
-                            'entity'    => $this->fields["entities_id"],
-                            'condition' => "`is_visible_peripheral`"));
+      State::dropdown([
+         'value'     => $this->fields["states_id"],
+         'entity'    => $this->fields["entities_id"],
+         'condition' => ['is_visible_peripheral' => 1]
+      ]);
       echo "</td></tr>\n";
+
+      $this->showDcBreadcrumb();
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Location')."</td>\n";
       echo "<td>";
-      Location::dropdown(array('value'  => $this->fields["locations_id"],
-                               'entity' => $this->fields["entities_id"]));
+      Location::dropdown(['value'  => $this->fields["locations_id"],
+                               'entity' => $this->fields["entities_id"]]);
       echo "</td>\n";
       echo "<td>".__('Type')."</td>\n";
       echo "<td>";
-      PeripheralType::dropdown(array('value' => $this->fields["peripheraltypes_id"]));
+      PeripheralType::dropdown(['value' => $this->fields["peripheraltypes_id"]]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Technician in charge of the hardware')."</td>\n";
       echo "<td>";
-      User::dropdown(array('name'   => 'users_id_tech',
+      User::dropdown(['name'   => 'users_id_tech',
                            'value'  => $this->fields["users_id_tech"],
                            'right'  => 'own_ticket',
-                           'entity' => $this->fields["entities_id"]));
+                           'entity' => $this->fields["entities_id"]]);
       echo "</td>";
       echo "<td>".__('Manufacturer')."</td>\n";
       echo "<td>";
-      Manufacturer::dropdown(array('value' => $this->fields["manufacturers_id"]));
+      Manufacturer::dropdown(['value' => $this->fields["manufacturers_id"]]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Group in charge of the hardware')."</td>";
       echo "<td>";
-      Group::dropdown(array('name'      => 'groups_id_tech',
-                            'value'     => $this->fields['groups_id_tech'],
-                            'entity'    => $this->fields['entities_id'],
-                            'condition' => '`is_assign`'));
+      Group::dropdown([
+         'name'      => 'groups_id_tech',
+         'value'     => $this->fields['groups_id_tech'],
+         'entity'    => $this->fields['entities_id'],
+         'condition' => ['is_assign' => 1]
+      ]);
       echo "</td>";
       echo "<td>".__('Model')."</td>\n";
       echo "<td>";
-      PeripheralModel::dropdown(array('value' => $this->fields["peripheralmodels_id"]));
+      PeripheralModel::dropdown(['value' => $this->fields["peripheralmodels_id"]]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
@@ -243,40 +247,43 @@ class Peripheral extends CommonDBTM {
       echo "<td>";
       Html::autocompletionTextField($this, "contact");
       echo "</td>\n";
-      echo "<td>".sprintf(__('%1$s%2$s'), __('Inventory number'),
-                 (        isset($options['withtemplate']) && $options['withtemplate']?"*":"")).
+
+      $tplmark = $this->getAutofillMark('otherserial', $options);
+      echo "<td>".sprintf(__('%1$s%2$s'), __('Inventory number'), $tplmark).
            "</td>\n";
       echo "<td>";
       $objectName = autoName($this->fields["otherserial"], "otherserial",
                              (isset($options['withtemplate']) && ($options['withtemplate'] == 2)),
                              $this->getType(), $this->fields["entities_id"]);
-      Html::autocompletionTextField($this, "otherserial", array('value' => $objectName));
+      Html::autocompletionTextField($this, "otherserial", ['value' => $objectName]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('User')."</td>\n";
       echo "<td>";
-      User::dropdown(array('value'  => $this->fields["users_id"],
+      User::dropdown(['value'  => $this->fields["users_id"],
                            'entity' => $this->fields["entities_id"],
-                           'right'  => 'all'));
+                           'right'  => 'all']);
       echo "</td>\n";
       echo "<td>".__('Management type')."</td>\n";
       echo "<td>";
       Dropdown::showGlobalSwitch($this->fields["id"],
-                                 array('withtemplate' => $withtemplate,
+                                 ['withtemplate' => $withtemplate,
                                        'value'        => $this->fields["is_global"],
                                        'management_restrict'
                                                       => $CFG_GLPI["peripherals_management_restrict"],
-                                       'target'       => $target));
+                                       'target'       => $target]);
       echo "</td></tr>\n";
 
       $rowspan        = 2;
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Group')."</td>\n";
       echo "<td>";
-      Group::dropdown(array('value'     => $this->fields["groups_id"],
-                            'entity'    => $this->fields["entities_id"],
-                            'condition' => '`is_itemgroup`'));
+      Group::dropdown([
+         'value'     => $this->fields["groups_id"],
+         'entity'    => $this->fields["entities_id"],
+         'condition' => ['is_itemgroup' => 1]
+      ]);
       echo "</td>\n";
       echo "<td rowspan='$rowspan'>".__('Comments')."</td>\n";
       echo "<td rowspan='$rowspan'>
@@ -308,17 +315,21 @@ class Peripheral extends CommonDBTM {
     * Return the linked items (in computers_items)
     *
     * @return an array of linked items  like array('Computer' => array(1,2), 'Printer' => array(5,6))
-    * @since version 0.84.4
+    * @since 0.84.4
    **/
    function getLinkedItems() {
       global $DB;
 
-      $query = "SELECT 'Computer', `computers_id`
-                FROM `glpi_computers_items`
-                WHERE `itemtype` = '".$this->getType()."'
-                      AND `items_id` = '" . $this->fields['id']."'";
-      $tab = array();
-      foreach ($DB->request($query) as $data) {
+      $iterator = $DB->request([
+         'SELECT' => 'computers_id',
+         'FROM'   => 'glpi_computers_items',
+         'WHERE'  => [
+            'itemtype'  => $this->getType(),
+            'items_id'  => $this->fields['id']
+         ]
+      ]);
+      $tab = [];
+      while ($data = $iterator->next()) {
          $tab['Computer'][$data['computers_id']] = $data['computers_id'];
       }
       return $tab;
@@ -328,13 +339,12 @@ class Peripheral extends CommonDBTM {
    /**
     * @see CommonDBTM::getSpecificMassiveActions()
    **/
-   function getSpecificMassiveActions($checkitem=NULL) {
+   function getSpecificMassiveActions($checkitem = null) {
 
       $actions = parent::getSpecificMassiveActions($checkitem);
 
       if (static::canUpdate()) {
          Computer_Item::getMassiveActionsForItemtype($actions, __CLASS__, 0, $checkitem);
-         MassiveAction::getAddTransferList($actions);
 
          $kb_item = new KnowbaseItem();
          $kb_item->getEmpty();
@@ -347,7 +357,7 @@ class Peripheral extends CommonDBTM {
    }
 
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
       $tab = [];
 
       $tab[] = [
@@ -373,7 +383,7 @@ class Peripheral extends CommonDBTM {
          'datatype'           => 'number'
       ];
 
-      $tab = array_merge($tab, Location::getSearchOptionsToAddNew());
+      $tab = array_merge($tab, Location::rawSearchOptionsToAdd());
 
       $tab[] = [
          'id'                 => '4',
@@ -397,7 +407,7 @@ class Peripheral extends CommonDBTM {
          'field'              => 'completename',
          'name'               => __('Status'),
          'datatype'           => 'dropdown',
-         'condition'          => '`is_visible_peripheral`'
+         'condition'          => ['is_visible_peripheral' => 1]
       ];
 
       $tab[] = [
@@ -446,7 +456,7 @@ class Peripheral extends CommonDBTM {
          'table'              => 'glpi_groups',
          'field'              => 'completename',
          'name'               => __('Group'),
-         'condition'          => '`is_itemgroup`',
+         'condition'          => ['is_itemgroup' => 1],
          'datatype'           => 'dropdown'
       ];
 
@@ -508,7 +518,7 @@ class Peripheral extends CommonDBTM {
          'field'              => 'completename',
          'linkfield'          => 'groups_id_tech',
          'name'               => __('Group in charge of the hardware'),
-         'condition'          => '`is_assign`',
+         'condition'          => ['is_assign' => 1],
          'datatype'           => 'dropdown'
       ];
 
@@ -531,9 +541,11 @@ class Peripheral extends CommonDBTM {
       ];
 
       // add objectlock search options
-      $tab = array_merge($tab, ObjectLock::getSearchOptionsToAddNew(get_class($this)));
+      $tab = array_merge($tab, ObjectLock::rawSearchOptionsToAdd(get_class($this)));
 
-      $tab = array_merge($tab, Notepad::getSearchOptionsToAddNew());
+      $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
+
+      $tab = array_merge($tab, Datacenter::rawSearchOptionsToAdd(get_class($this)));
 
       return $tab;
    }

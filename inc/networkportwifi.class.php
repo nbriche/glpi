@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -44,13 +40,13 @@ if (!defined('GLPI_ROOT')) {
 class NetworkPortWifi extends NetworkPortInstantiation {
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return __('Wifi port');
    }
 
 
    function getNetworkCardInterestingFields() {
-      return array('link.`mac`' => 'mac');
+      return ['link.mac' => 'mac'];
    }
 
 
@@ -63,7 +59,7 @@ class NetworkPortWifi extends NetworkPortInstantiation {
          echo "<tr class='tab_bg_1'>\n";
          $this->showNetworkCardField($netport, $options, $recursiveItems);
          echo "<td>" . WifiNetwork::getTypeName(1) . "</td><td>";
-         WifiNetwork::dropdown(array('value'  => $this->fields["wifinetworks_id"]));
+         WifiNetwork::dropdown(['value'  => $this->fields["wifinetworks_id"]]);
          echo "</td>";
          echo "</tr>\n";
 
@@ -72,13 +68,13 @@ class NetworkPortWifi extends NetworkPortInstantiation {
          echo "<td>";
 
          Dropdown::showFromArray('mode', WifiNetwork::getWifiCardModes(),
-                                 array('value' => $this->fields['mode']));
+                                 ['value' => $this->fields['mode']]);
 
          echo "</td>\n";
          echo "<td>" . __('Wifi protocol version') . "</td><td>";
 
          Dropdown::showFromArray('version', WifiNetwork::getWifiCardVersion(),
-                                 array('value' => $this->fields['version']));
+                                 ['value' => $this->fields['version']]);
 
          echo "</td>\n";
          echo "</tr>\n";
@@ -94,18 +90,18 @@ class NetworkPortWifi extends NetworkPortInstantiation {
     * @see NetworkPortInstantiation::getInstantiationHTMLTableHeaders
    **/
    function getInstantiationHTMLTableHeaders(HTMLTableGroup $group, HTMLTableSuperHeader $super,
-                                             HTMLTableSuperHeader $internet_super=NULL,
-                                             HTMLTableHeader $father=NULL,
-                                             array $options=array()) {
+                                             HTMLTableSuperHeader $internet_super = null,
+                                             HTMLTableHeader $father = null,
+                                             array $options = []) {
 
-      DeviceNetworkCard::getHTMLTableHeader('NetworkPortWifi', $group, $super, NULL, $options);
+      DeviceNetworkCard::getHTMLTableHeader('NetworkPortWifi', $group, $super, null, $options);
 
       $group->addHeader('ESSID', __('ESSID'), $super);
       $group->addHeader('Mode', __('Wifi mode'), $super);
       $group->addHeader('Version', __('Wifi protocol version'), $super);
 
       parent::getInstantiationHTMLTableHeaders($group, $super, $internet_super, $father, $options);
-      return NULL;
+      return null;
    }
 
 
@@ -113,9 +109,9 @@ class NetworkPortWifi extends NetworkPortInstantiation {
     * @see NetworkPortInstantiation::getInstantiationHTMLTable()
    **/
    function getInstantiationHTMLTable(NetworkPort $netport, HTMLTableRow $row,
-                                      HTMLTableCell $father=NULL, array $options=array()) {
+                                      HTMLTableCell $father = null, array $options = []) {
 
-      DeviceNetworkCard::getHTMLTableCellsForItem($row, $this, NULL, $options);
+      DeviceNetworkCard::getHTMLTableCellsForItem($row, $this, null, $options);
 
       $row->addCell($row->getHeaderByName('Instantiation', 'ESSID'),
                     Dropdown::getDropdownName("glpi_wifinetworks",
@@ -126,11 +122,11 @@ class NetworkPortWifi extends NetworkPortInstantiation {
       $row->addCell($row->getHeaderByName('Instantiation', 'Version'), $this->fields['version']);
 
       parent::getInstantiationHTMLTable($netport, $row, $father, $options);
-      return NULL;
+      return null;
    }
 
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
       $tab = [];
 
       $tab[] = [
@@ -182,10 +178,10 @@ class NetworkPortWifi extends NetworkPortInstantiation {
     * @param $values
     * @param $options   array
    **/
-   static function getSpecificValueToDisplay($field, $values, array $options=array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       switch ($field) {
          case 'mode':
@@ -212,10 +208,10 @@ class NetworkPortWifi extends NetworkPortInstantiation {
     * @param $values           (default '')
     * @param $options   array
    **/
-   static function getSpecificValueToSelect($field, $name='', $values='', array $options=array()) {
+   static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       $options['display'] = false;
       switch ($field) {

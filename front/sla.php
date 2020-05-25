@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,15 +30,11 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
-Session::checkRight("sla", READ);
+Session::checkRight("slm", READ);
 
-Html::header(SLA::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "sla");
+Html::header(SLA::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "slm", "sla");
 
 Search::show('SLA');
 

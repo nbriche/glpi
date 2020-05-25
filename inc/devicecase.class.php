@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,9 +37,9 @@ if (!defined('GLPI_ROOT')) {
 /// Class DeviceCase
 class DeviceCase extends CommonDevice {
 
-   static protected $forward_entity_to = array('Item_DeviceCase', 'Infocom');
+   static protected $forward_entity_to = ['Item_DeviceCase', 'Infocom'];
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Case', 'Cases', $nb);
    }
 
@@ -51,17 +47,17 @@ class DeviceCase extends CommonDevice {
    function getAdditionalFields() {
 
       return array_merge(parent::getAdditionalFields(),
-                         array(array('name'  => 'devicecasetypes_id',
+                         [['name'  => 'devicecasetypes_id',
                                      'label' => __('Type'),
-                                     'type'  => 'dropdownValue'),
-                              array('name'  => 'devicecasemodels_id',
+                                     'type'  => 'dropdownValue'],
+                              ['name'  => 'devicecasemodels_id',
                                      'label' => __('Model'),
-                                     'type'  => 'dropdownValue')));
+                                     'type'  => 'dropdownValue']]);
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '12',
@@ -84,13 +80,13 @@ class DeviceCase extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableHeader()
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column = parent::getHTMLTableHeader($itemtype, $base, $super, $father, $options);
 
@@ -107,12 +103,12 @@ class DeviceCase extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableCellForItem()
    **/
-   function getHTMLTableCellForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                    HTMLTableCell $father=NULL, array $options=array()) {
+   function getHTMLTableCellForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                    HTMLTableCell $father = null, array $options = []) {
 
       $column = parent::getHTMLTableCellForItem($row, $item, $father, $options);
 
@@ -122,7 +118,7 @@ class DeviceCase extends CommonDevice {
 
       switch ($item->getType()) {
          case 'Computer' :
-            Manufacturer::getHTMLTableCellsForItem($row, $this, NULL, $options);
+            Manufacturer::getHTMLTableCellsForItem($row, $this, null, $options);
             break;
       }
    }
@@ -133,13 +129,13 @@ class DeviceCase extends CommonDevice {
     *
     * @see CommonDevice::getImportCriteria()
     *
-    * @since version 0.84
+    * @since 0.84
    **/
    function getImportCriteria() {
 
-      return array('designation'        => 'equal',
+      return ['designation'        => 'equal',
                    'manufacturers_id'   => 'equal',
-                   'devicecasetypes_id' => 'equal');
+                   'devicecasetypes_id' => 'equal'];
    }
 
 }

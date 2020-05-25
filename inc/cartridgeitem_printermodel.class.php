@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -60,7 +56,7 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($item->getType()) {
          case 'CartridgeItem' :
@@ -72,14 +68,14 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate && Printer::canView()) {
          $nb = 0;
          switch ($item->getType()) {
             case 'CartridgeItem' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  $nb = self::countForCartridgeItem($item);
+                  $nb = self::countForItem($item);
                }
                return self::createTabEntry(PrinterModel::getTypeName(Session::getPluralNumber()), $nb);
          }
@@ -89,25 +85,13 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
 
 
    /**
-    * @param $item   CartridgeItem object
-   **/
-   static function countForCartridgeItem(CartridgeItem $item) {
-
-      return countElementsInTable(array('glpi_printermodels', static::getTable()),
-                                        [static::getTable().'cartridgeitems_id' => $item->getField('id'),
-                                         'FKEY' => [static::getTable() => 'printermodels_id', 'glpi_printermodels' => 'id']]);
-   }
-
-
-   /**
     * Show the printer types that are compatible with a cartridge type
     *
     * @param $item   CartridgeItem object
     *
-    * @return nothing (display)
+    * @return boolean|void
    **/
    static function showForCartridgeItem(CartridgeItem $item) {
-      global $DB, $CFG_GLPI;
 
       $instID = $item->getField('id');
       if (!$item->can($instID, READ)) {
@@ -116,25 +100,14 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
       $canedit = $item->canEdit($instID);
       $rand    = mt_rand();
 
-      $query = "SELECT `".static::getTable()."`.`id`,
-                       `glpi_printermodels`.`name` AS `type`,
-                       `glpi_printermodels`.`id` AS `pmid`
-                FROM `".static::getTable()."`,
-                     `glpi_printermodels`
-                WHERE `".static::getTable()."`.`printermodels_id` = `glpi_printermodels`.`id`
-                      AND `".static::getTable()."`.`cartridgeitems_id` = '$instID'
-                ORDER BY `glpi_printermodels`.`name`";
+      $iterator = self::getListForItem($item);
+      $number = count($iterator);
 
-      $result = $DB->query($query);
-      $i      = 0;
-
-      $used  = array();
-      $datas = array();
-      if ($number = $DB->numrows($result)) {
-         while ($data = $DB->fetch_assoc($result)) {
-            $used[$data["pmid"]] = $data["pmid"];
-            $datas[$data["id"]]  = $data;
-         }
+      $used  = [];
+      $datas = [];
+      while ($data = $iterator->next()) {
+         $used[$data["id"]] = $data["id"];
+         $datas[$data["linkid"]]  = $data;
       }
 
       if ($canedit) {
@@ -148,7 +121,7 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
 
          echo "<tr><td class='tab_bg_2 center'>";
          echo "<input type='hidden' name='cartridgeitems_id' value='$instID'>";
-         PrinterModel::dropdown(array('used' => $used));
+         PrinterModel::dropdown(['used' => $used]);
          echo "</td><td class='tab_bg_2 center'>";
          echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
          echo "</td></tr>";
@@ -162,8 +135,8 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
          if ($canedit) {
             $rand     = mt_rand();
             Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-            $massiveactionparams = array('num_displayed' => count($used),
-                              'container'     => 'mass'.__CLASS__.$rand);
+            $massiveactionparams = ['num_displayed' => min($_SESSION['glpilist_limit'], count($used)),
+                              'container'     => 'mass'.__CLASS__.$rand];
             Html::showMassiveActions($massiveactionparams);
          }
 
@@ -185,7 +158,7 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
             echo "<tr class='tab_bg_1'>";
             if ($canedit) {
                echo "<td width='10'>";
-               Html::showMassiveActionCheckBox(__CLASS__, $data["id"]);
+               Html::showMassiveActionCheckBox(__CLASS__, $data["linkid"]);
                echo "</td>";
             }
             $opt = [
@@ -194,12 +167,12 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
                   [
                      'field'      => 40, // printer model
                      'searchtype' => 'equals',
-                     'value'      => $data["pmid"],
+                     'value'      => $data["id"],
                   ]
                ]
             ];
             $url = Printer::getSearchURL()."?".Toolbox::append_params($opt, '&amp;');
-            echo "<td class='center'><a href='".$url."'>".$data["type"]."</a></td>";
+            echo "<td class='center'><a href='".$url."'>".$data["name"]."</a></td>";
             echo "</tr>";
          }
          echo $header_begin.$header_bottom.$header_end;

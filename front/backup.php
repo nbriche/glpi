@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 if (isset($_POST['check_version'])) {
@@ -43,9 +39,6 @@ if (isset($_POST['check_version'])) {
 }
 
 Session::checkRight("backup", READ);
-
-// full path
-$path = GLPI_DUMP_DIR;
 
 Html::header(__('Maintenance'), $_SERVER['PHP_SELF'], "admin", "backup");
 
@@ -66,65 +59,55 @@ if ($max_time == 0) {
 
 
 /**
- * Genere un fichier backup.xml a partir de base dbhost connecte avec l'utilisateur dbuser
- * et le mot de passe dbpassword sur le serveur dbdefault
-**/
+ * Generate an XML backup file of the database
+ * @global DB $DB
+ */
 function xmlbackup() {
-   global $CFG_GLPI, $DB;
+   global $DB;
 
    //on parcoure la DB et on liste tous les noms des tables dans $table
    //on incremente $query[] de "select * from $table"  pour chaque occurence de $table
 
-   $result = $DB->list_tables();
+   $result = $DB->listTables();
    $i      = 0;
-   while ($line = $DB->fetch_row($result)) {
-      $table = $line[0];
+   $query  = [];
+   while ($line = $result->next()) {
+      $table = $line['TABLE_NAME'];
 
       $query[$i] = "SELECT *
-                    FROM `$table`";
+                    FROM ".$DB->quoteName($table);
       $i++;
    }
 
-   //le nom du fichier a generer...
-   //Si fichier existe deja il sera remplac�par le nouveau
-   $chemin = GLPI_DUMP_DIR."/backup.xml";
+   // Filename
+   $time_file = date("Y-m-d-H-i");
+   $filename = GLPI_DUMP_DIR . "/glpi-backup-" . GLPI_VERSION . "-$time_file.xml";
 
-   // Creation d'une nouvelle instance de la classe
-   // et initialisation des variables
    $A = new XML();
 
    // Your query
    $A->SqlString = $query;
 
    //File path
-   $A->FilePath = $chemin;
+   $A->FilePath = $filename;
 
-   // Type of layout : 1,2,3,4
-   // For details about Type see file genxml.php
-   if (empty($Type)) {
-      $A->Type = 4;
-   } else {
-      $A->Type = $Type;
-   }
+   // Define layout type
+   $A->Type = 4;
 
-   //appelle de la methode gerant le fichier XML
+   // Generate the XML file
    $A->DoXML();
 
-   // Affichage, si erreur affiche erreur
-   //sinon affiche un lien vers le fichier XML genere
-
+   // In case of error, display it
    if ($A->IsError == 1) {
       printf(__('ERROR:'), $A->ErrorString);
    }
-
-   //fin de fonction xmlbackup
 }
 
-
-////////////////////////// DUMP SQL FUNCTIONS
 /**
  * Init time to computer time spend
-**/
+ * @global type $TPSDEB
+ * @global int $TPSCOUR
+ */
 function init_time() {
    global $TPSDEB, $TPSCOUR;
 
@@ -133,10 +116,11 @@ function init_time() {
    $TPSCOUR         = 0;
 }
 
-
 /**
  * Get current time
-**/
+ * @global type $TPSDEB
+ * @global type $TPSCOUR
+ */
 function current_time() {
    global $TPSDEB, $TPSCOUR;
 
@@ -147,59 +131,56 @@ function current_time() {
    }
 }
 
-
-/**  Get data of a table
- *
- * @param $DB     DB object
- * @param $table  table  name
- * @param $from   begin from
- * @param $limit  limit to
-**/
+/**
+ * Get data of a table
+ * @param DB $DB
+ * @param string $table table name
+ * @param integer $from FROM xxx
+ * @param integer $limit LIMIT xxx
+ * @return string SQL query "INSERT INTO..."
+ */
 function get_content($DB, $table, $from, $limit) {
 
    $content = "";
 
-   $result = $DB->query("SELECT *
-                         FROM `$table`
-                         LIMIT ".intval($from).",".intval($limit));
-   if ($result) {
-      $num_fields = $DB->num_fields($result);
+   $iterator = $DB->request($table, ['START' => $from, 'LIMIT' => $limit]);
 
-      while ($row = $DB->fetch_row($result)) {
-         $insert = "INSERT INTO `$table` VALUES (";
+   if ($iterator->count()) {
 
-         for ($j=0; $j<$num_fields; $j++) {
-            if (is_null($row[$j])) {
+      while ($row = $iterator->next()) {
+         $insert = "INSERT INTO ".$DB->quoteName($table)." VALUES (";
+
+         foreach ($row as $field_val) {
+            if (is_null($field_val)) {
                $insert .= "NULL,";
-            } else if ($row[$j] != "") {
-               $insert .= "'".addslashes($row[$j])."',";
+            } else if ($field_val != "") {
+               $insert .= "'" . addslashes($field_val) . "',";
             } else {
                $insert .= "'',";
             }
          }
-         $insert   = preg_replace("/,$/", "", $insert);
-         $insert  .= ");\n";
+         $insert = preg_replace("/,$/", "", $insert);
+         $insert .= ");\n";
          $content .= $insert;
       }
    }
    return $content;
 }
 
-
 /**  Get structure of a table
  *
- * @param $DB     DB object
- * @param $table  table name
+ * @param \Glpi\Database\AbstractDatabase $DB     DB object
+ * @param string                 $table  table name
 **/
 function get_def($DB, $table) {
 
    $def  = "### Dump table $table\n\n";
-   $def .= "DROP TABLE IF EXISTS `$table`;\n";
+   $def .= "DROP TABLE IF EXISTS ".$DB->quoteName($table).";\n";
 
-   $query  = "SHOW CREATE TABLE `$table`";
-   $result = $DB->query($query);
-   $DB->query("SET SESSION sql_quote_show_create = 1");
-   $row = $DB->fetch_row($result);
+   $query  = "SHOW CREATE TABLE ".$DB->quoteName($table);
+   $result = $DB->rawQuery($query);
+   $DB->rawQuery("SET SESSION sql_quote_show_create = 1");
+   $row = $DB->fetchRow($result);
 
    $def .= preg_replace("/AUTO_INCREMENT=\w+/i", "", $row[1]);
    $def .= ";";
@@ -209,9 +190,9 @@ function get_def($DB, $table) {
 
 /**  Restore a mysql dump
  *
- * @param $DB        DB object
- * @param $dumpFile  dump file
- * @param $duree     max delay before refresh
+ * @param \Glpi\Database\AbstractDatabase $DB        DB object
+ * @param string                 $dumpFile  dump file
+ * @param integer                $duree     max delay before refresh
 **/
 function restoreMySqlDump($DB, $dumpFile, $duree) {
    global $DB, $TPSCOUR, $offset, $cpt;
@@ -308,7 +289,7 @@ function restoreMySqlDump($DB, $dumpFile, $duree) {
       }
    }
 
-   if ($DB->error) {
+   if ($DB->error()) {
       echo "<hr>";
       //TRANS: %s is the SQL query which generates the error
       printf(__("SQL error starting from %s"), "[$formattedQuery]");
@@ -327,10 +308,10 @@ function restoreMySqlDump($DB, $dumpFile, $duree) {
 
 /**  Backup a glpi DB
  *
- * @param $DB        DB object
- * @param $dumpFile  dump file
- * @param $duree     max delay before refresh
- * @param $rowlimit  rowlimit to backup in one time
+ * @param \Glpi\Database\AbstractDatabase $DB        DB object
+ * @param string                 $dumpFile  dump file
+ * @param integer                $duree     max delay before refresh
+ * @param integer                $rowlimit  rowlimit to backup in one time
 **/
 function backupMySql($DB, $dumpFile, $duree, $rowlimit) {
    global $TPSCOUR, $offsettable, $offsetrow, $cpt;
@@ -351,16 +332,16 @@ function backupMySql($DB, $dumpFile, $duree, $rowlimit) {
    }
 
    if ($offsettable == 0 && $offsetrow == -1) {
-      $time_file = date("Y-m-d-H-i");
       $cur_time  = date("Y-m-d H:i");
       $todump    = "#GLPI Dump database on $cur_time\n";
       gzwrite ($fileHandle, $todump);
    }
 
-   $result = $DB->list_tables();
+   $result = $DB->listTables();
    $numtab = 0;
-   while ($t = $DB->fetch_row($result)) {
-      $tables[$numtab] = $t[0];
+   $tables = [];
+   while ($t = $result->next()) {
+      $tables[$numtab] = $t['TABLE_NAME'];
       $numtab++;
    }
 
@@ -413,8 +394,7 @@ function backupMySql($DB, $dumpFile, $duree, $rowlimit) {
 
    if ($DB->error()) {
       echo "<hr>";
-      //TRANS: %s is the SQL query which generates the error
-      printf(__("SQL error starting from %s"), "[$formattedQuery]");
+      echo __("SQL error ");
       echo "<br>".$DB->error()."<hr>";
    }
    $offsettable = -1;
@@ -427,8 +407,7 @@ function backupMySql($DB, $dumpFile, $duree, $rowlimit) {
 
 if (isset($_GET["dump"]) && $_GET["dump"] != "") {
    $time_file = date("Y-m-d-H-i");
-   $cur_time  = date("Y-m-d H:i");
-   $filename  = $path . "/glpi-".GLPI_VERSION."-$time_file.sql.gz";
+   $filename  = GLPI_DUMP_DIR . "/glpi-backup-".GLPI_VERSION."-$time_file.sql.gz";
 
    if (!isset($_GET["duree"]) && is_file($filename)) {
       echo "<div class='center'>".__('The file already exists')."</div>";
@@ -471,8 +450,7 @@ if (isset($_GET["dump"]) && $_GET["dump"] != "") {
          $fichier = $_GET["fichier"];
       }
 
-      $tab = $DB->list_tables();
-      $tot = $DB->numrows($tab);
+      $tot = $DB->listTables()->count();
       if (isset($offsettable)) {
          if ($offsettable >= 0) {
             $percent = min(100, round(100*$offsettable/$tot, 0));
@@ -517,71 +495,73 @@ if (isset($_GET["xmlnow"]) && ($_GET["xmlnow"] != "")) {
 
 // ################################## fin dump XML #############################
 
-if (isset($_GET["file"]) && ($_GET["file"] != "")
-    && is_file($path."/".$_GET["file"])) {
+if (isset($_GET["file"]) && ($_GET["file"] != "") && is_file(GLPI_DUMP_DIR . "/" . $_GET["file"])) {
+   $filepath = realpath(GLPI_DUMP_DIR . "/" . $_GET['file']);
+   if (is_file($filepath) && Toolbox::startsWith($filepath, GLPI_DUMP_DIR)) {
+      init_time(); //initialise le temps
 
-   $_SESSION['TRY_OLD_CONFIG_FIRST'] = true;
-   init_time(); //initialise le temps
-
-   //debut de fichier
-   if (!isset($_GET["offset"])) {
-      $offset = 0;
-   } else {
-      $offset = $_GET["offset"];
-   }
-
-   //timeout de 5 secondes par defaut, -1 pour utiliser sans timeout
-   if (!isset($_GET["duree"])) {
-      $duree = $defaulttimeout;
-   } else {
-      $duree = $_GET["duree"];
-   }
-
-   $fsize = filesize($path."/".$_GET["file"]);
-   if (isset($offset)) {
-      if ($offset == -1) {
-         $percent = 100;
+      //debut de fichier
+      if (!isset($_GET["offset"])) {
+         $offset = 0;
       } else {
-         $percent = min(100, round(100*$offset/$fsize, 0));
-      }
-   } else {
-      $percent = 0;
-   }
-
-   if ($percent >= 0) {
-      Html::displayProgressBar(400, $percent);
-      echo '<br>';
-   }
-
-   if ($offset != -1) {
-      if (restoreMySqlDump($DB, $path."/".$_GET["file"], $duree)) {
-         echo "<div class='center'>".
-              "<a href=\"backup.php?file=".$_GET["file"]."&amp;duree=$duree&amp;offset=".
-                    "$offset&amp;cpt=$cpt&amp;donotcheckversion=1\">";
-         echo __('Automatic redirection, else click')."</a>";
-         echo "<script type='text/javascript'>" .
-            "window.location=\"backup.php?file=".
-                $_GET["file"]."&duree=$duree&offset=$offset&cpt=$cpt&donotcheckversion=1\";".
-                "</script></div>";
-         Html::glpi_flush();
-         exit;
+         $offset = $_GET["offset"];
       }
 
-   } else {
-      DBmysql::optimize_tables(NULL, true);
-      // Compatiblity for old version for utf8 complete conversion
-      $cnf                = new Config();
-      $input['id']        = 1;
-      $input['utf8_conv'] = 1;
-      $cnf->update($input);
+      //timeout de 5 secondes par defaut, -1 pour utiliser sans timeout
+      if (!isset($_GET["duree"])) {
+         $duree = $defaulttimeout;
+      } else {
+         $duree = $_GET["duree"];
+      }
+
+      $fsize = filesize($filepath);
+      if (isset($offset)) {
+         if ($offset == -1) {
+            $percent = 100;
+         } else {
+            $percent = min(100, round(100*$offset/$fsize, 0));
+         }
+      } else {
+         $percent = 0;
+      }
+
+      if ($percent >= 0) {
+         Html::displayProgressBar(400, $percent);
+         echo '<br>';
+      }
+
+      if ($offset != -1) {
+         if (restoreMySqlDump($DB, $filepath, $duree)) {
+            echo "<div class='center'>".
+               "<a href=\"backup.php?file=".$_GET["file"]."&amp;duree=$duree&amp;offset=".
+                     "$offset&amp;cpt=$cpt&amp;donotcheckversion=1\">";
+            echo __('Automatic redirection, else click')."</a>";
+            echo "<script language='javascript' type='text/javascript'>".
+                  "window.location=\"backup.php?file=".
+                  $_GET["file"]."&duree=$duree&offset=$offset&cpt=$cpt&donotcheckversion=1\";".
+                  "</script></div>";
+            Html::glpi_flush();
+            exit;
+         }
+
+      } else {
+         // Compatiblity for old version for utf8 complete conversion
+         $cnf                = new Config();
+         $input = [
+            'id'        => 1,
+            'utf8_conv' => 1,
+         ];
+         $cnf->update($input);
+      }
    }
 }
 
 if (isset($_POST["delfile"])) {
    if (isset($_POST['file']) && ($_POST["file"] != "")) {
-      $filename = $_POST["file"];
-      if (is_file($path."/".$_POST["file"])) {
-         unlink($path."/".$_POST["file"]);
+      $filepath = realpath(GLPI_DUMP_DIR . "/" . $_POST['file']);
+      if (is_file($filepath) && Toolbox::startsWith($filepath, GLPI_DUMP_DIR)) {
+         $filename = $_POST["file"];
+         unlink($filepath);
          // TRANS: %s is a file name
          echo "<div class ='center spaced'>".sprintf(__('%s deleted'), $filename)."</div>";
       }
@@ -599,8 +579,13 @@ if (Session::haveRight('backup', Backup::CHECKUPDATE)) {
 // Title backup
 echo "<div class='center'>";
 if (Session::haveRight('backup', CREATE)) {
-   echo "<table class='tab_glpi'><tr><td>".
-         "<img src='".$CFG_GLPI["root_doc"]."/pics/sauvegardes.png' alt=\"".__s('Deleted')."\">".
+   echo "<table class='tab_glpi'><tr><td colspan='4'>";
+   echo "<div class='warning'><i class='fa fa-exclamation-triangle fa-5x'></i><ul><li>";
+   echo __('GLPI internal backup system is a helper for very small instances.');
+   echo "<br/>" . __('You should rather use a dedicated tool on your server.');
+   echo "</li></ul></div>";
+   echo "</td></tr><tr><td>";
+   echo "<i class='far fa-save fa-3x'></i>";
          "</td>";
    echo "<td><a class='vsubmit'
               href=\"#\" ".HTML::addConfirmationOnAction(__('Backup the database?'),
@@ -622,21 +607,21 @@ echo "<br><table class='tab_cadre' cellpadding='5'>".
      "<th colspan='3'>&nbsp;</th>".
      "</tr>";
 
-$dir   = opendir($path);
-$files = array();
+$dir   = opendir(GLPI_DUMP_DIR);
+$files = [];
 while ($file = readdir($dir)) {
    if (($file != ".") && ($file != "..")
        && (preg_match("/\.sql.gz$/i", $file)
            || preg_match("/\.sql$/i", $file))) {
 
-      $files[$file] = filemtime($path."/".$file);
+      $files[$file] = filemtime(GLPI_DUMP_DIR . "/" . $file);
    }
 }
 arsort($files);
 
 if (count($files)) {
    foreach ($files as $file => $date) {
-      $taille_fic = filesize($path."/".$file);
+      $taille_fic = filesize(GLPI_DUMP_DIR . "/" . $file);
       echo "<tr class='tab_bg_2'><td>$file&nbsp;</td>".
            "<td class='right'>".Toolbox::getSize($taille_fic)."</td>".
            "<td>&nbsp;" . Html::convDateTime(date("Y-m-d H:i", $date)) . "</td>";
@@ -646,16 +631,16 @@ if (count($files)) {
               $string = sprintf(__('Delete the file %s?'), $file);
               Html::showSimpleForm($_SERVER['PHP_SELF'], 'delfile',
                                    _x('button', 'Delete permanently'),
-                                   array('file' => $file), '', '', $string);
+                                   ['file' => $file], '', '', $string);
 
          echo "</td>";
          echo "<td>&nbsp;";
          // Multiple confirmation
-         $string   = array();
+         $string   = [];
          //TRANS: %s is the filename
-         $string[] = array(sprintf(__('Replace the current database with the backup file %s?'),
-                                   $file));
-         $string[] = array(__('Warning, your actual database will be totaly overwriten by the database you want to restore !!!'));
+         $string[] = [sprintf(__('Replace the current database with the backup file %s?'),
+                                   $file)];
+         $string[] = [__('Warning, your actual database will be totaly overwriten by the database you want to restore !!!')];
 
          echo "<a class='vsubmit' href=\"#\" ".HTML::addConfirmationOnAction($string,
                                         "window.location='".$CFG_GLPI["root_doc"].
@@ -672,22 +657,22 @@ if (count($files)) {
 }
 closedir($dir);
 
-$dir   = opendir($path);
+$dir = opendir(GLPI_DUMP_DIR);
 unset($files);
-$files = array();
+$files = [];
 
 while ($file = readdir($dir)) {
    if (($file != ".") && ($file != "..")
        && preg_match("/\.xml$/i", $file)) {
 
-      $files[$file] = filemtime($path."/".$file);
+      $files[$file] = filemtime(GLPI_DUMP_DIR . "/" . $file);
    }
 }
 arsort($files);
 
 if (count($files)) {
    foreach ($files as $file => $date) {
-      $taille_fic = filesize($path."/".$file);
+      $taille_fic = filesize(GLPI_DUMP_DIR . "/" . $file);
       echo "<tr class='tab_bg_1'><td colspan='6'><hr noshade></td></tr>".
            "<tr class='tab_bg_2'><td>$file&nbsp;</td>".
             "<td class='right'>".Toolbox::getSize($taille_fic)."</td>".
@@ -697,7 +682,7 @@ if (count($files)) {
          //TRANS: %s is the filename
          $string = sprintf(__('Delete the file %s?'), $file);
          Html::showSimpleForm($_SERVER['PHP_SELF'], 'delfile', _x('button', 'Delete permanently'),
-                              array('file' => $file), '', '', $string);
+                              ['file' => $file], '', '', $string);
          echo "</td>";
       }
       if (Session::haveRight('backup', CREATE)) {

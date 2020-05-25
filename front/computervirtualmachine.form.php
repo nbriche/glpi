@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -52,12 +48,12 @@ $disk = new ComputerVirtualMachine();
 if (isset($_POST["add"])) {
    $disk->check(-1, CREATE, $_POST);
 
-   if ($newID = $disk->add($_POST)) {
+   if ($disk->add($_POST)) {
       Event::log($_POST['computers_id'], "computers", 4, "inventory",
                  //TRANS: %s is the user login
                  sprintf(__('%s adds a virtual machine'), $_SESSION["glpiname"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect(Toolbox::getItemTypeFormURL('ComputerVirtualMachine')."?id=".$newID);
+         Html::redirect($disk->getLinkURL());
       }
    }
    Html::back();
@@ -87,7 +83,8 @@ if (isset($_POST["add"])) {
 
 } else {
    Html::header(Computer::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "assets", "computer");
-   $disk->display(array('id'           => $_GET["id"],
-                        'computers_id' => $_GET["computers_id"]));
+   $disk->display(['id'           => $_GET["id"],
+                        'computers_id' => $_GET["computers_id"]]);
    Html::footer();
 }
+

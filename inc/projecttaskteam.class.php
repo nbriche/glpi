@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,11 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -44,7 +39,7 @@ if (!defined('GLPI_ROOT')) {
  * This class is used to manage the project task team
  * @see ProjectTask
  * @author Julien Dombre
- * @since version 0.85
+ * @since 0.85
  **/
 class ProjectTaskTeam extends CommonDBRelation {
 
@@ -60,7 +55,7 @@ class ProjectTaskTeam extends CommonDBRelation {
    static public $items_id_2          = 'items_id';
    static public $checkItem_2_Rights  = self::DONT_CHECK_ITEM_RIGHTS;
 
-   static public $available_types     = array('User', 'Group', 'Supplier', 'Contact');
+   static public $available_types     = ['User', 'Group', 'Supplier', 'Contact'];
 
 
    /**
@@ -71,7 +66,7 @@ class ProjectTaskTeam extends CommonDBRelation {
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Task team', 'Task teams', $nb);
    }
 
@@ -84,7 +79,7 @@ class ProjectTaskTeam extends CommonDBRelation {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate && static::canView()) {
          $nb = 0;
@@ -100,18 +95,7 @@ class ProjectTaskTeam extends CommonDBRelation {
    }
 
 
-   /**
-    * @param $item      Project object
-    *
-    * @return number
-   **/
-   static function countForProject(Project $item) {
-
-      return countElementsInTable(array('glpi_projecttaskteams'), ['glpi_projecttaskteams.projecttasks_id' => $item->getField('id')]);
-   }
-
-
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($item->getType()) {
          case 'ProjectTask' :
@@ -122,33 +106,96 @@ class ProjectTaskTeam extends CommonDBRelation {
 
 
    /**
-    * Get team for a project
+    * Get team for a project task
     *
-    * @param $projects_id
+    * @param $tasks_id
    **/
-   static function getTeamFor($projects_id) {
+   static function getTeamFor($tasks_id) {
       global $DB;
 
-      $team = array();
-      $query = "SELECT `glpi_projecttaskteams`.*
-                FROM `glpi_projecttaskteams`
-                WHERE `projecttasks_id` = '$projects_id'";
-
-      foreach ($DB->request($query) as $data) {
-         if (!isset($team[$data['itemtype']])) {
-            $team[$data['itemtype']] = array();
-         }
-         $team[$data['itemtype']][] = $data;
-      }
-
+      $team = [];
       // Define empty types
       foreach (static::$available_types as $type) {
          if (!isset($team[$type])) {
-            $team[$type] = array();
+            $team[$type] = [];
          }
+      }
+
+      $iterator = $DB->request([
+         'FROM'   => self::getTable(),
+         'WHERE'  => ['projecttasks_id' => $tasks_id]
+      ]);
+
+      while ($data = $iterator->next()) {
+         $team[$data['itemtype']][] = $data;
       }
 
       return $team;
    }
 
+
+   function prepareInputForAdd($input) {
+      global $DB;
+
+      if (!isset($input['itemtype'])) {
+         Session::addMessageAfterRedirect(
+            __('An item type is mandatory'),
+            false,
+            ERROR
+         );
+         return false;
+      }
+
+      if (!isset($input['items_id'])) {
+         Session::addMessageAfterRedirect(
+            __('An item ID is mandatory'),
+            false,
+            ERROR
+         );
+         return false;
+      }
+
+      if (!isset($input['projecttasks_id'])) {
+         Session::addMessageAfterRedirect(
+            __('A project task is mandatory'),
+            false,
+            ERROR
+         );
+         return false;
+      }
+
+      $task = new ProjectTask();
+      $task->getFromDB($input['projecttasks_id']);
+      switch ($input['itemtype']) {
+         case User::getType():
+            Planning::checkAlreadyPlanned(
+               $input['items_id'],
+               $task->fields['plan_start_date'],
+               $task->fields['plan_end_date']
+            );
+            break;
+         case Group::getType():
+            $group_iterator = $DB->request([
+               'SELECT' => 'users_id',
+               'FROM'   => Group_User::getTable(),
+               'WHERE'  => ['groups_id' => $input['items_id']]
+            ]);
+            while ($row = $group_iterator->next()) {
+               Planning::checkAlreadyPlanned(
+                  $row['users_id'],
+                  $task->fields['plan_start_date'],
+                  $task->fields['plan_end_date']
+               );
+            }
+            break;
+         case Supplier::getType():
+         case Contact::getType():
+            //only Users can be checked for planning conflicts
+            break;
+         default:
+            throw new \RuntimeException($input['itemtype'] . " is not (yet?) handled.");
+      }
+
+      return $input;
+   }
 }

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -42,78 +38,46 @@ if (!defined('GLPI_ROOT')) {
  *  Computer class
 **/
 class Computer extends CommonDBTM {
+   use DCBreadcrumb;
 
    // From CommonDBTM
    public $dohistory                   = true;
 
-   static protected $forward_entity_to = array('ComputerDisk','ComputerVirtualMachine',
-                                               'Computer_SoftwareVersion', 'Infocom',
-                                               'NetworkPort', 'ReservationItem');
+   static protected $forward_entity_to = ['Item_Disk','ComputerVirtualMachine',
+                                          'Computer_SoftwareVersion', 'Infocom',
+                                          'NetworkPort', 'ReservationItem',
+                                          'Item_OperatingSystem'];
    // Specific ones
    ///Device container - format $device = array(ID,"device type","ID in device table","specificity value")
-   public $devices                     = array();
+   public $devices                     = [];
 
    static $rightname                   = 'computer';
    protected $usenotepad               = true;
 
+   protected $twig_compat              = true;
 
-   /**
-    * Name of the type
-    *
-    * @param $nb  integer  number of item in the type (default 0)
-   **/
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Computer', 'Computers', $nb);
    }
 
 
-   /**
-    * @see CommonGLPI::getTabNameForItem()
-    *
-    * @since version 9.1
-   **/
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
-
-      if (static::canView()) {
-         switch ($item->getType()) {
-            case __CLASS__ :
-               $ong = array(1 => __('Operating System'));
-               return $ong;
-         }
-      }
-   }
-
-
-   /**
-    * @see CommonDBTM::useDeletedToLockIfDynamic()
-    *
-    * @since version 0.84
-   **/
    function useDeletedToLockIfDynamic() {
       return false;
    }
 
 
-   /**
-    * @see CommonGLPI::getMenuShorcut()
-    *
-    * @since version 0.85
-   **/
    static function getMenuShorcut() {
       return 'o';
    }
 
 
-   /**
-    * @see CommonGLPI::defineTabs()
-   **/
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addDefaultFormTab($ong)
-         ->addStandardTab(__CLASS__, $ong, $options)
+         ->addStandardTab('Item_OperatingSystem', $ong, $options)
          ->addStandardTab('Item_Devices', $ong, $options)
-         ->addStandardTab('ComputerDisk', $ong, $options)
+         ->addStandardTab('Item_Disk', $ong, $options)
          ->addStandardTab('Computer_SoftwareVersion', $ong, $options)
          ->addStandardTab('Computer_Item', $ong, $options)
          ->addStandardTab('NetworkPort', $ong, $options)
@@ -127,6 +91,7 @@ class Computer extends CommonDBTM {
          ->addStandardTab('Item_Problem', $ong, $options)
          ->addStandardTab('Change_Item', $ong, $options)
          ->addStandardTab('Link', $ong, $options)
+         ->addStandardTab('Certificate_Item', $ong, $options)
          ->addStandardTab('Lock', $ong, $options)
          ->addStandardTab('Notepad', $ong, $options)
          ->addStandardTab('Reservation', $ong, $options)
@@ -135,87 +100,22 @@ class Computer extends CommonDBTM {
       return $ong;
    }
 
-
-   /**
-    * @param $item         CommonGLPI object
-    * @param $tabnum       (default 1)
-    * @param $withtemplate (default 0)
-    *
-    * @since version 9.1
-   **/
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
-
-      self::showOperatingSystem($item);
-      return true;
+   protected function getMainTabs() {
+      return [
+         'Item_OperatingSystem',
+         'Item_Disk',
+         'Computer_SoftwareVersion',
+         'Computer_Item',
+         'NetworkPort'
+      ];
    }
 
-
-   /**
-    * Print the computer's operating system form
-    *
-    * @param $comp Computer object
-    *
-    * @since version 9.1
-    *
-    * @return Nothing (call to classes members)
-   **/
-   static function showOperatingSystem(Computer $comp) {
-      global $DB;
-
-      $ID = $comp->fields['id'];
-      $colspan = 4;
-
-      echo "<div class='center'>";
-
-      $comp->initForm($ID);
-      $comp->showFormHeader(['formtitle' => false]);
-
-      echo "<tr class='headerRow'><th colspan='".$colspan."'>";
-      echo __('Operating system');
-      echo "</th></tr>";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Name')."</td>";
-      echo "<td>";
-      OperatingSystem::dropdown(array('value' => $comp->fields["operatingsystems_id"]));
-      echo "</td>";
-      echo "<td>".__('Version')."</td>";
-      echo "<td >";
-      OperatingSystemVersion::dropdown(array('value' => $comp->fields["operatingsystemversions_id"]));
-      echo "</td>";
-      echo "</tr>";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Architecture')."</td>";
-      echo "<td >";
-      OperatingSystemArchitecture::dropdown(array('value'
-                                                 => $comp->fields["operatingsystemarchitectures_id"]));
-      echo "</td>";
-      echo "<td>".__('Service pack')."</td>";
-      echo "<td >";
-      OperatingSystemServicePack::dropdown(array('value'
-                                                 => $comp->fields["operatingsystemservicepacks_id"]));
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Kernel version')."</td>";
-      echo "<td >";
-      Html::autocompletionTextField($comp, 'os_kernel_version');
-      echo "</td>";
-      echo "<td>".__('Product ID')."</td>";
-      echo "<td >";
-      Html::autocompletionTextField($comp, 'os_licenseid');
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Serial number')."</td>";
-      echo "<td >";
-      Html::autocompletionTextField($comp, 'os_license_number');
-      echo "</td><td colspan='2'></td></tr>";
-
-      $comp->showFormButtons(array('candel' => false, 'formfooter' => false));
+   protected function getExtraTabs() {
+      return [
+         'ComputerVirtualMachine',
+         'ComputerAntivirus'
+      ];
    }
-
 
    function post_restoreItem() {
 
@@ -231,10 +131,7 @@ class Computer extends CommonDBTM {
    }
 
 
-   /**
-    * @see CommonDBTM::post_updateItem()
-   **/
-   function post_updateItem($history=1) {
+   function post_updateItem($history = 1) {
       global $DB, $CFG_GLPI;
 
       $changes = [];
@@ -272,12 +169,19 @@ class Computer extends CommonDBTM {
 
          // Propagates the changes to linked items
          foreach ($CFG_GLPI['directconnect_types'] as $type) {
-            $crit = ['FIELDS'       => ['items_id'],
+            $items_result = $DB->request(
+               [
+                  'SELECT' => ['items_id'],
+                  'FROM'   => Computer_Item::getTable(),
+                  'WHERE'  => [
                      'itemtype'     => $type,
                      'computers_id' => $this->fields["id"],
-                     'is_deleted'   => 0];
+                     'is_deleted'   => 0
+                  ]
+               ]
+            );
             $item      = new $type();
-            foreach ($DB->request('glpi_computers_items', $crit) as $data) {
+            foreach ($items_result as $data) {
                $tID = $data['items_id'];
                $item->getFromDB($tID);
                if (!$item->getField('is_global')) {
@@ -299,13 +203,18 @@ class Computer extends CommonDBTM {
             // Propagates the changes to linked devices
             foreach ($CFG_GLPI['itemdevices'] as $device) {
                $item = new $device();
-               $crit = [
-                  'FIELDS'       => 'id',
-                  'itemtype'     => self::getType(),
-                  'items_id'     => $this->fields["id"],
-                  'is_deleted'   => 0
-               ];
-               foreach ($DB->request($item::getTable(), $crit) as $data) {
+               $devices_result = $DB->request(
+                  [
+                     'SELECT' => ['id'],
+                     'FROM'   => $item::getTable(),
+                     'WHERE'  => [
+                        'itemtype'     => self::getType(),
+                        'items_id'     => $this->fields["id"],
+                        'is_deleted'   => 0
+                     ]
+                  ]
+               );
+               foreach ($devices_result as $data) {
                   $tID = $data['id'];
                   $item->getFromDB($tID);
                   $changes['id'] = $item->getField('id');
@@ -342,9 +251,6 @@ class Computer extends CommonDBTM {
    }
 
 
-   /**
-    * @see CommonDBTM::prepareInputForAdd()
-   **/
    function prepareInputForAdd($input) {
 
       if (isset($input["id"]) && ($input["id"] > 0)) {
@@ -358,10 +264,12 @@ class Computer extends CommonDBTM {
 
 
    function post_addItem() {
-      global $DB;
 
       // Manage add from template
       if (isset($this->input["_oldID"])) {
+         // ADD OS
+         Item_OperatingSystem::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
+
          // ADD Devices
          Item_devices::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
 
@@ -369,7 +277,7 @@ class Computer extends CommonDBTM {
          Infocom::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
 
          // ADD volumes
-         ComputerDisk::cloneComputer($this->input["_oldID"], $this->fields['id']);
+         Item_Disk::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
 
          // ADD software
          Computer_SoftwareVersion::cloneComputer($this->input["_oldID"], $this->fields['id']);
@@ -388,6 +296,9 @@ class Computer extends CommonDBTM {
          // Add connected devices
          Computer_Item::cloneComputer($this->input["_oldID"], $this->fields['id']);
 
+         //Add notepad
+         Notepad::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
+
          //Add KB links
          KnowbaseItem_Item::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
       }
@@ -396,35 +307,21 @@ class Computer extends CommonDBTM {
 
    function cleanDBonPurge() {
 
-      $csv = new Computer_SoftwareVersion();
-      $csv->cleanDBonItemDelete('Computer', $this->fields['id']);
-
-      $csl = new Computer_SoftwareLicense();
-      $csl->cleanDBonItemDelete('Computer', $this->fields['id']);
-
-      $ip = new Item_Problem();
-      $ip->cleanDBonItemDelete('Computer', $this->fields['id']);
-
-      $ci = new Change_Item();
-      $ci->cleanDBonItemDelete('Computer', $this->fields['id']);
-
-      $ip = new Item_Project();
-      $ip->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $ci = new Computer_Item();
-      $ci->cleanDBonItemDelete('Computer', $this->fields['id']);
+      $this->deleteChildrenAndRelationsFromDb(
+         [
+            Certificate_Item::class,
+            Computer_Item::class,
+            Computer_SoftwareLicense::class,
+            Computer_SoftwareVersion::class,
+            ComputerAntivirus::class,
+            ComputerVirtualMachine::class,
+            Item_Disk::class,
+            Item_Project::class,
+         ]
+      );
 
       Item_Devices::cleanItemDeviceDBOnItemDelete($this->getType(), $this->fields['id'],
                                                   (!empty($this->input['keep_devices'])));
-
-      $disk = new ComputerDisk();
-      $disk->cleanDBonItemDelete('Computer', $this->fields['id']);
-
-      $vm = new ComputerVirtualMachine();
-      $vm->cleanDBonItemDelete('Computer', $this->fields['id']);
-
-      $antivirus = new ComputerAntivirus();
-      $antivirus->cleanDBonItemDelete('Computer', $this->fields['id']);
    }
 
 
@@ -436,145 +333,190 @@ class Computer extends CommonDBTM {
     *     - target for the Form
     *     - withtemplate template or basic computer
     *
-    *@return Nothing (display)
+    * @return boolean
    **/
-   function showForm($ID, $options=array()) {
-      global $CFG_GLPI, $DB;
+   function showForm($ID, $options = []) {
 
       $this->initForm($ID, $options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
+
+      $rand = mt_rand();
+      $tplmark = $this->getAutofillMark('name', $options);
+
       //TRANS: %1$s is a string, %2$s a second one without spaces between them : to change for RTL
-      echo "<td>".sprintf(__('%1$s%2$s'), __('Name'),
-                          (isset($options['withtemplate']) && $options['withtemplate']?"*":"")).
-           "</td>";
+      echo "<td><label for='textfield_name$rand'>".sprintf(__('%1$s%2$s'), __('Name'), $tplmark) .
+           "</label></td>";
       echo "<td>";
       $objectName = autoName($this->fields["name"], "name",
                              (isset($options['withtemplate']) && ( $options['withtemplate']== 2)),
                              $this->getType(), $this->fields["entities_id"]);
-      Html::autocompletionTextField($this, 'name', array('value' => $objectName));
+      Html::autocompletionTextField(
+         $this,
+         'name',
+         [
+            'value'     => $objectName,
+            'rand'      => $rand
+         ]
+      );
       echo "</td>";
-      echo "<td>".__('Status')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_states_id$randDropdown'>".__('Status')."</label></td>";
       echo "<td>";
-      State::dropdown(array('value'     => $this->fields["states_id"],
-                            'entity'    => $this->fields["entities_id"],
-                            'condition' => "`is_visible_computer`"));
+      State::dropdown([
+         'value'     => $this->fields["states_id"],
+         'entity'    => $this->fields["entities_id"],
+         'condition' => ['is_visible_computer' => 1],
+         'rand'      => $randDropdown
+      ]);
+      echo "</td></tr>\n";
+
+      $this->showDcBreadcrumb();
+
+      echo "<tr class='tab_bg_1'>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_locations_id$randDropdown'>".__('Location')."</label></td>";
+      echo "<td>";
+      Location::dropdown(['value'  => $this->fields["locations_id"],
+                               'entity' => $this->fields["entities_id"],
+                               'rand' => $randDropdown]);
+      echo "</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_computertypes_id$randDropdown'>".__('Type')."</label></td>";
+      echo "<td>";
+      ComputerType::dropdown(['value' => $this->fields["computertypes_id"], 'rand' => $randDropdown]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Location')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_users_id_tech$randDropdown'>".__('Technician in charge of the hardware')."</label></td>";
       echo "<td>";
-      Location::dropdown(array('value'  => $this->fields["locations_id"],
-                               'entity' => $this->fields["entities_id"]));
-      echo "</td>";
-      echo "<td>".__('Type')."</td>";
-      echo "<td>";
-      ComputerType::dropdown(array('value' => $this->fields["computertypes_id"]));
-      echo "</td></tr>\n";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Technician in charge of the hardware')."</td>";
-      echo "<td>";
-      User::dropdown(array('name'   => 'users_id_tech',
+      User::dropdown(['name'   => 'users_id_tech',
                            'value'  => $this->fields["users_id_tech"],
                            'right'  => 'own_ticket',
-                           'entity' => $this->fields["entities_id"]));
+                           'entity' => $this->fields["entities_id"],
+                           'rand'   => $randDropdown]);
       echo "</td>";
-      echo "<td>".__('Manufacturer')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_manufacturers_id$randDropdown'>".__('Manufacturer')."</label></td>";
       echo "<td>";
-      Manufacturer::dropdown(array('value' => $this->fields["manufacturers_id"]));
+      Manufacturer::dropdown(['value' => $this->fields["manufacturers_id"], 'rand' => $randDropdown]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Group in charge of the hardware')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_groups_id_tech$randDropdown'>".__('Group in charge of the hardware')."</label></td>";
       echo "<td>";
-      Group::dropdown(array('name'      => 'groups_id_tech',
-                            'value'     => $this->fields['groups_id_tech'],
-                            'entity'    => $this->fields['entities_id'],
-                            'condition' => '`is_assign`'));
+      Group::dropdown([
+         'name'      => 'groups_id_tech',
+         'value'     => $this->fields['groups_id_tech'],
+         'entity'    => $this->fields['entities_id'],
+         'condition' => ['is_assign' => 1],
+         'rand' => $randDropdown
+      ]);
 
       echo "</td>";
-      echo "<td>".__('Model')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_computermodels_id$randDropdown'>".__('Model')."</label></td>";
       echo "<td>";
-      ComputerModel::dropdown(array('value' => $this->fields["computermodels_id"]));
+      ComputerModel::dropdown(['value' => $this->fields["computermodels_id"], 'rand' => $randDropdown]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       //TRANS: Number of the alternate username
-      echo "<td>".__('Alternate username number')."</td>";
+      echo "<td><label for='textfield_contact_num$rand'>".__('Alternate username number')."</label></td>";
       echo "<td >";
-      Html::autocompletionTextField($this, 'contact_num');
+      Html::autocompletionTextField($this, 'contact_num', ['rand' => $rand]);
       echo "</td>";
-      echo "<td>".__('Serial number')."</td>";
+      echo "<td><label for='textfield_serial$rand'>".__('Serial number')."</label></td>";
       echo "<td >";
-      Html::autocompletionTextField($this, 'serial');
+      Html::autocompletionTextField($this, 'serial', ['rand' => $rand]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Alternate username')."</td>";
+      echo "<td><label for='textfield_contact$rand'>".__('Alternate username')."</label></td>";
       echo "<td>";
-      Html::autocompletionTextField($this, 'contact');
+      Html::autocompletionTextField($this, 'contact', ['rand' => $rand]);
       echo "</td>";
-      echo "<td>".sprintf(__('%1$s%2$s'), __('Inventory number'),
-                          (isset($options['withtemplate']) && $options['withtemplate']?"*":"")).
-           "</td>";
+
+      echo "<td><label for='textfield_otherserial$rand'>".sprintf(__('%1$s%2$s'), __('Inventory number'), $tplmark).
+           "</label></td>";
       echo "<td>";
+
       $objectName = autoName($this->fields["otherserial"], "otherserial",
                              (isset($options['withtemplate']) && ($options['withtemplate'] == 2)),
                              $this->getType(), $this->fields["entities_id"]);
-      Html::autocompletionTextField($this, 'otherserial', array('value' => $objectName));
+      Html::autocompletionTextField(
+         $this,
+         'otherserial',
+         [
+            'value'     => $objectName,
+            'rand'      => $rand
+         ]
+      );
+
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('User')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_users_id$randDropdown'>".__('User')."</label></td>";
       echo "<td>";
-      User::dropdown(array('value'  => $this->fields["users_id"],
+      User::dropdown(['value'  => $this->fields["users_id"],
                            'entity' => $this->fields["entities_id"],
-                           'right'  => 'all'));
+                           'right'  => 'all',
+                           'rand'   => $randDropdown]);
       echo "</td>";
-      echo "<td>".__('Network')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_networks_id$randDropdown'>".__('Network')."</label></td>";
       echo "<td>";
-      Network::dropdown(array('value' => $this->fields["networks_id"]));
+      Network::dropdown(['value' => $this->fields["networks_id"], 'rand' => $randDropdown]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Group')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_groups_id$randDropdown'>".__('Group')."</label></td>";
       echo "<td>";
-      Group::dropdown(array('value'     => $this->fields["groups_id"],
-                            'entity'    => $this->fields["entities_id"],
-                            'condition' => '`is_itemgroup`'));
+      Group::dropdown([
+         'value'     => $this->fields["groups_id"],
+         'entity'    => $this->fields["entities_id"],
+         'condition' => ['is_itemgroup' => 1],
+         'rand'      => $randDropdown
+      ]);
 
       echo "</td>";
 
       // Display auto inventory informations
       $rowspan        = 4;
 
-      echo "<td rowspan='$rowspan'>".__('Comments')."</td>";
+      echo "<td rowspan='$rowspan'><label for='comment'>".__('Comments')."</label></td>";
       echo "<td rowspan='$rowspan' class='middle'>";
 
-      echo "<textarea cols='45' rows='".($rowspan+3)."' name='comment' >".
+      echo "<textarea cols='45' rows='".($rowspan+3)."' id='comment' name='comment' >".
            $this->fields["comment"];
       echo "</textarea></td></tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Domain')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_domains_id$randDropdown'>".__('Domain')."</label></td>";
       echo "<td >";
-      Domain::dropdown(array('value'  => $this->fields["domains_id"],
-                             'entity' => $this->fields["entities_id"]));
+      Domain::dropdown(['value'  => $this->fields["domains_id"],
+                             'entity' => $this->fields["entities_id"],
+                             'rand'   => $randDropdown]);
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('UUID')."</td>";
+      echo "<td><label for='textfield_uuid$rand'>".__('UUID')."</label></td>";
       echo "<td >";
-      Html::autocompletionTextField($this, 'uuid');
+      Html::autocompletionTextField($this, 'uuid', ['rand' => $rand]);
       echo "</td>";
       echo "</tr>\n";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Update Source')."</td>";
+      $randDropdown = mt_rand();
+      echo "<td><label for='dropdown_autoupdatesystems_id$randDropdown'>".__('Update Source')."</label></td>";
       echo "<td >";
-      AutoUpdateSystem::dropdown(array('value' => $this->fields["autoupdatesystems_id"]));
+      AutoUpdateSystem::dropdown(['value' => $this->fields["autoupdatesystems_id"], 'rand' => $randDropdown]);
       echo "</td></tr>";
       // Display auto inventory informations
       if (!empty($ID)
@@ -591,38 +533,32 @@ class Computer extends CommonDBTM {
    }
 
 
-   /**
-    * Return the linked items (in computers_items)
-    *
-    * @return an array of linked items  like array('Computer' => array(1,2), 'Printer' => array(5,6))
-    * @since version 0.84.4
-   **/
    function getLinkedItems() {
       global $DB;
 
-      $query = "SELECT `itemtype`, `items_id`
-                FROM `glpi_computers_items`
-                WHERE `computers_id` = '" . $this->fields['id']."'";
-      $tab = array();
-      foreach ($DB->request($query) as $data) {
+      $iterator = $DB->request([
+         'SELECT' => ['itemtype', 'items_id'],
+         'FROM'   => 'glpi_computers_items',
+         'WHERE'  => ['computers_id' => $this->getID()]
+      ]);
+
+      $tab = [];
+      while ($data = $iterator->next()) {
          $tab[$data['itemtype']][$data['items_id']] = $data['items_id'];
       }
       return $tab;
    }
 
 
-   /**
-    * @see CommonDBTM::getSpecificMassiveActions()
-    **/
-   function getSpecificMassiveActions($checkitem=NULL) {
+   function getSpecificMassiveActions($checkitem = null) {
 
       $isadmin = static::canUpdate();
       $actions = parent::getSpecificMassiveActions($checkitem);
 
       if ($isadmin) {
+         $actions['Item_OperatingSystem'.MassiveAction::CLASS_ACTION_SEPARATOR.'update']    = OperatingSystem::getTypeName();
          $actions['Computer_Item'.MassiveAction::CLASS_ACTION_SEPARATOR.'add']    = _x('button', 'Connect');
          $actions['Computer_SoftwareVersion'.MassiveAction::CLASS_ACTION_SEPARATOR.'add'] = _x('button', 'Install');
-         MassiveAction::getAddTransferList($actions);
 
          $kb_item = new KnowbaseItem();
          $kb_item->getEmpty();
@@ -635,8 +571,7 @@ class Computer extends CommonDBTM {
    }
 
 
-   function getSearchOptionsNew() {
-      global $CFG_GLPI;
+   function rawSearchOptions() {
 
       $tab = [];
 
@@ -663,7 +598,7 @@ class Computer extends CommonDBTM {
          'datatype'           => 'number'
       ];
 
-      $tab = array_merge($tab, Location::getSearchOptionsToAddNew());
+      $tab = array_merge($tab, Location::rawSearchOptionsToAdd());
 
       $tab[] = [
          'id'                 => '4',
@@ -687,31 +622,7 @@ class Computer extends CommonDBTM {
          'field'              => 'completename',
          'name'               => __('Status'),
          'datatype'           => 'dropdown',
-         'condition'          => '`is_visible_computer`'
-      ];
-
-      $tab[] = [
-         'id'                 => '45',
-         'table'              => 'glpi_operatingsystems',
-         'field'              => 'name',
-         'name'               => __('Operating system'),
-         'datatype'           => 'dropdown'
-      ];
-
-      $tab[] = [
-         'id'                 => '46',
-         'table'              => 'glpi_operatingsystemversions',
-         'field'              => 'name',
-         'name'               => __('Version of the operating system'),
-         'datatype'           => 'dropdown'
-      ];
-
-      $tab[] = [
-         'id'                 => '41',
-         'table'              => 'glpi_operatingsystemservicepacks',
-         'field'              => 'name',
-         'name'               => __('Service pack'),
-         'datatype'           => 'dropdown'
+         'condition'          => ['is_visible_computer' => 1]
       ];
 
       $tab[] = [
@@ -723,48 +634,16 @@ class Computer extends CommonDBTM {
       ];
 
       $tab[] = [
-         'id'                 => '43',
-         'table'              => 'glpi_computers',
-         'field'              => 'os_license_number',
-         'name'               => __('Serial of the operating system'),
-         'datatype'           => 'string'
-      ];
-
-      $tab[] = [
-         'id'                 => '44',
-         'table'              => 'glpi_computers',
-         'field'              => 'os_licenseid',
-         'name'               => __('Product ID of the operating system'),
-         'datatype'           => 'string'
-      ];
-
-      $tab[] = [
-         'id'                 => '61',
-         'table'              => 'glpi_operatingsystemarchitectures',
-         'field'              => 'name',
-         'name'               => __('Operating system architecture'),
-         'datatype'           => 'dropdown'
-      ];
-
-      $tab[] = [
          'id'                 => '47',
-         'table'              => 'glpi_computers',
+         'table'              => $this->getTable(),
          'field'              => 'uuid',
          'name'               => __('UUID'),
          'datatype'           => 'string'
       ];
 
       $tab[] = [
-         'id'                 => '48',
-         'table'              => 'glpi_computers',
-         'field'              => 'os_kernel_version',
-         'name'               => __('Kernel version of the operating system'),
-         'datatype'           => 'string'
-      ];
-
-      $tab[] = [
          'id'                 => '5',
-         'table'              => 'glpi_computers',
+         'table'              => $this->getTable(),
          'field'              => 'serial',
          'name'               => __('Serial number'),
          'datatype'           => 'string'
@@ -772,7 +651,7 @@ class Computer extends CommonDBTM {
 
       $tab[] = [
          'id'                 => '6',
-         'table'              => 'glpi_computers',
+         'table'              => $this->getTable(),
          'field'              => 'otherserial',
          'name'               => __('Inventory number'),
          'datatype'           => 'string'
@@ -780,7 +659,7 @@ class Computer extends CommonDBTM {
 
       $tab[] = [
          'id'                 => '16',
-         'table'              => 'glpi_computers',
+         'table'              => $this->getTable(),
          'field'              => 'comment',
          'name'               => __('Comments'),
          'datatype'           => 'text'
@@ -788,7 +667,7 @@ class Computer extends CommonDBTM {
 
       $tab[] = [
          'id'                 => '7',
-         'table'              => 'glpi_computers',
+         'table'              => $this->getTable(),
          'field'              => 'contact',
          'name'               => __('Alternate username'),
          'datatype'           => 'string'
@@ -796,7 +675,7 @@ class Computer extends CommonDBTM {
 
       $tab[] = [
          'id'                 => '8',
-         'table'              => 'glpi_computers',
+         'table'              => $this->getTable(),
          'field'              => 'contact_num',
          'name'               => __('Alternate username number'),
          'datatype'           => 'string'
@@ -816,13 +695,13 @@ class Computer extends CommonDBTM {
          'table'              => 'glpi_groups',
          'field'              => 'completename',
          'name'               => __('Group'),
-         'condition'          => '`is_itemgroup`',
+         'condition'          => ['is_itemgroup' => 1],
          'datatype'           => 'dropdown'
       ];
 
       $tab[] = [
          'id'                 => '19',
-         'table'              => 'glpi_computers',
+         'table'              => $this->getTable(),
          'field'              => 'date_mod',
          'name'               => __('Last update'),
          'datatype'           => 'datetime',
@@ -831,7 +710,7 @@ class Computer extends CommonDBTM {
 
       $tab[] = [
          'id'                 => '121',
-         'table'              => 'glpi_computers',
+         'table'              => $this->getTable(),
          'field'              => 'date_creation',
          'name'               => __('Creation date'),
          'datatype'           => 'datetime',
@@ -842,7 +721,7 @@ class Computer extends CommonDBTM {
          'id'                 => '32',
          'table'              => 'glpi_networks',
          'field'              => 'name',
-         'name'               => __('Network Device'),
+         'name'               => __('Network'),
          'datatype'           => 'dropdown'
       ];
 
@@ -878,7 +757,7 @@ class Computer extends CommonDBTM {
          'field'              => 'completename',
          'linkfield'          => 'groups_id_tech',
          'name'               => __('Group in charge of the hardware'),
-         'condition'          => '`is_assign`',
+         'condition'          => ['is_assign' => 1],
          'datatype'           => 'dropdown'
       ];
 
@@ -890,446 +769,23 @@ class Computer extends CommonDBTM {
          'datatype'           => 'dropdown'
       ];
 
+      // add operating system search options
+      $tab = array_merge($tab, Item_OperatingSystem::rawSearchOptionsToAdd(get_class($this)));
+
       // add objectlock search options
-      $tab = array_merge($tab, ObjectLock::getSearchOptionsToAddNew(get_class($this)));
+      $tab = array_merge($tab, ObjectLock::rawSearchOptionsToAdd(get_class($this)));
 
-      $tab = array_merge($tab, Notepad::getSearchOptionsToAddNew());
+      $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
 
-      $tab[] = [
-          'id'                => 'periph',
-          'name'              => _n('Component', 'Components', Session::getPluralNumber())
-      ];
+      $tab = array_merge($tab, Item_Devices::rawSearchOptionsToAdd(get_class($this)));
 
-      $items_device_joinparams   = array('jointype'          => 'itemtype_item',
-                                         'specific_itemtype' => 'Computer');
+      $tab = array_merge($tab, Item_Disk::rawSearchOptionsToAdd(get_class($this)));
 
-      $tab[] = [
-         'id'                 => '17',
-         'table'              => 'glpi_deviceprocessors',
-         'field'              => 'designation',
-         'name'               => __('Processor'),
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_deviceprocessors',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
+      $tab = array_merge($tab, ComputerVirtualMachine::rawSearchOptionsToAdd(get_class($this)));
 
-      $tab[] = [
-         'id'                 => '36',
-         'table'              => 'glpi_items_deviceprocessors',
-         'field'              => 'frequency',
-         'name'               => __('Processor frequency'),
-         'unit'               => 'MHz',
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'datatype'           => 'number',
-         'width'              => 100,
-         'massiveaction'      => false,
-         'joinparams'         => $items_device_joinparams,
-         'computation'        => 'SUM(TABLE.`frequency`) / COUNT(TABLE.`id`)'
-      ];
+      $tab = array_merge($tab, ComputerAntivirus::rawSearchOptionsToAdd());
 
-      $tab[] = [
-         'id'                 => '10',
-         'table'              => 'glpi_devicememories',
-         'field'              => 'designation',
-         'name'               => __('Memory type'),
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_devicememories',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '35',
-         'table'              => 'glpi_items_devicememories',
-         'field'              => 'size',
-         'unit'               => 'Mio',
-         'name'               => __('Memory (Mio)'),
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'datatype'           => 'number',
-         'width'              => 100,
-         'massiveaction'      => false,
-         'joinparams'         => $items_device_joinparams,
-         'computation'        => '(SUM(TABLE.`size`) / COUNT(TABLE.`id`))
-                                    * COUNT(DISTINCT TABLE.`id`)'
-      ];
-
-      $tab[] = [
-         'id'                 => '11',
-         'table'              => 'glpi_devicenetworkcards',
-         'field'              => 'designation',
-         'name'               => __('Network interface'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_devicenetworkcards',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '20',
-         'table'              => 'glpi_items_devicenetworkcards',
-         'field'              => 'mac',
-         'name'               => __('MAC address'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => $items_device_joinparams
-      ];
-
-      $tab[] = [
-         'id'                 => '12',
-         'table'              => 'glpi_devicesoundcards',
-         'field'              => 'designation',
-         'name'               => __('Soundcard'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_devicesoundcards',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '13',
-         'table'              => 'glpi_devicegraphiccards',
-         'field'              => 'designation',
-         'name'               => __('Graphics card'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_devicegraphiccards',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '14',
-         'table'              => 'glpi_devicemotherboards',
-         'field'              => 'designation',
-         'name'               => __('System board'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_devicemotherboards',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '15',
-         'table'              => 'glpi_deviceharddrives',
-         'field'              => 'designation',
-         'name'               => __('Hard drive type'),
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_deviceharddrives',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '34',
-         'table'              => 'glpi_items_deviceharddrives',
-         'field'              => 'capacity',
-         'name'               => __('Hard drive size'),
-         'unit'               => 'Mio',
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'datatype'           => 'number',
-         'width'              => 1000,
-         'massiveaction'      => false,
-         'joinparams'         => $items_device_joinparams,
-         'computation'        => '(SUM(TABLE.`capacity`) / COUNT(TABLE.`id`))
-                                       * COUNT(DISTINCT TABLE.`id`)'
-      ];
-
-      $tab[] = [
-         'id'                 => '39',
-         'table'              => 'glpi_devicepowersupplies',
-         'field'              => 'designation',
-         'name'               => __('Power supply'),
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_devicepowersupplies',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '95',
-         'table'              => 'glpi_devicepcis',
-         'field'              => 'designation',
-         'name'               => __('Other component'),
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_items_devicepcis',
-               'joinparams'         => $items_device_joinparams
-            ]
-         ]
-      ];
-
-      $tab[] = [
-          'id'                 => 'disk',
-          'name'               => _n('Volume', 'Volumes', Session::getPluralNumber())
-      ];
-
-      $tab[] = [
-         'id'                 => '156',
-         'table'              => 'glpi_computerdisks',
-         'field'              => 'name',
-         'name'               => __('Volume'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'dropdown',
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '150',
-         'table'              => 'glpi_computerdisks',
-         'field'              => 'totalsize',
-         'name'               => __('Global size (Mio)'),
-         'forcegroupby'       => true,
-         'usehaving'          => true,
-         'datatype'           => 'number',
-         'width'              => 1000,
-         'massiveaction'      => false,
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '151',
-         'table'              => 'glpi_computerdisks',
-         'field'              => 'freesize',
-         'name'               => __('Free size'),
-         'forcegroupby'       => true,
-         'datatype'           => 'number',
-         'width'              => 1000,
-         'massiveaction'      => false,
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '152',
-         'table'              => 'glpi_computerdisks',
-         'field'              => 'freepercent',
-         'name'               => __('Free percentage'),
-         'forcegroupby'       => true,
-         'datatype'           => 'decimal',
-         'width'              => 2,
-         'computation'        => 'ROUND(100*TABLE.freesize/TABLE.totalsize)',
-         'computationgroupby' => true,
-         'unit'               => '%',
-         'massiveaction'      => false,
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '153',
-         'table'              => 'glpi_computerdisks',
-         'field'              => 'mountpoint',
-         'name'               => __('Mount point'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '154',
-         'table'              => 'glpi_computerdisks',
-         'field'              => 'device',
-         'name'               => __('Partition'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'string',
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '155',
-         'table'              => 'glpi_filesystems',
-         'field'              => 'name',
-         'name'               => __('File system'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'dropdown',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_computerdisks',
-               'joinparams'         => [
-                  'jointype'           => 'child'
-               ]
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => 'virtualmachine',
-         'name'               => _n('Virtual machine', 'Virtual machines', Session::getPluralNumber())
-      ];
-
-      $tab[] = [
-         'id'                 => '160',
-         'table'              => 'glpi_computervirtualmachines',
-         'field'              => 'name',
-         'name'               => __('Virtual machine'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'dropdown',
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '161',
-         'table'              => 'glpi_virtualmachinestates',
-         'field'              => 'name',
-         'name'               => __('State of the virtual machine'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'dropdown',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_computervirtualmachines',
-               'joinparams'         => [
-                  'jointype'           => 'child'
-               ]
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '162',
-         'table'              => 'glpi_virtualmachinesystems',
-         'field'              => 'name',
-         'name'               => __('Virtualization model'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'datatype'           => 'dropdown',
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_computervirtualmachines',
-               'joinparams'         => [
-                  'jointype'           => 'child'
-               ]
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '163',
-         'table'              => 'glpi_virtualmachinetypes',
-         'field'              => 'name',
-         'name'               => __('Virtualization system'),
-         'datatype'           => 'dropdown',
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'joinparams'         => [
-            'beforejoin'         => [
-               'table'              => 'glpi_computervirtualmachines',
-               'joinparams'         => [
-                  'jointype'           => 'child'
-               ]
-            ]
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '164',
-         'table'              => 'glpi_computervirtualmachines',
-         'field'              => 'vcpu',
-         'name'               => __('Virtual machine processor number'),
-         'datatype'           => 'number',
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '165',
-         'table'              => 'glpi_computervirtualmachines',
-         'field'              => 'ram',
-         'name'               => __('Memory of virtual machines'),
-         'datatype'           => 'string',
-         'unit'               => 'Mio',
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab[] = [
-         'id'                 => '166',
-         'table'              => 'glpi_computervirtualmachines',
-         'field'              => 'uuid',
-         'name'               => __('Virtual machine UUID'),
-         'forcegroupby'       => true,
-         'massiveaction'      => false,
-         'joinparams'         => [
-            'jointype'           => 'child'
-         ]
-      ];
-
-      $tab = array_merge($tab, ComputerAntivirus::getSearchOptionsToAddNew());
+      $tab = array_merge($tab, Datacenter::rawSearchOptionsToAdd(get_class($this)));
 
       return $tab;
    }

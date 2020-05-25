@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -48,7 +44,7 @@ class Vlan extends CommonDropdown {
    public $can_be_translated = false;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       // Acronymous, no plural
       return __('VLAN');
    }
@@ -56,25 +52,25 @@ class Vlan extends CommonDropdown {
 
    function getAdditionalFields() {
 
-      return array(array('name'     => 'tag',
+      return [['name'     => 'tag',
                          'label'    => __('ID TAG'),
                          'type'     => '',
-                         'list'     => true));
+                         'list'     => true]];
    }
 
 
-   function displaySpecificTypeField($ID, $field=array()) {
+   function displaySpecificTypeField($ID, $field = []) {
 
       if ($field['name'] == 'tag') {
-         Dropdown::showNumber('tag', array('value' => $this->fields['tag'],
+         Dropdown::showNumber('tag', ['value' => $this->fields['tag'],
                                            'min'   => 1,
-                                           'max'   => (pow(2, 12) - 2)));
+                                           'max'   => (pow(2, 12) - 2)]);
       }
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',
@@ -91,20 +87,18 @@ class Vlan extends CommonDropdown {
 
 
    function cleanDBonPurge() {
-      global $DB;
 
-      $link = new NetworkPort_Vlan();
-      $link->cleanDBonItemDelete($this->getType(), $this->getID());
-
-      $link = new IPNetwork_Vlan();
-      $link->cleanDBonItemDelete($this->getType(), $this->getID());
-
-      return true;
+      $this->deleteChildrenAndRelationsFromDb(
+         [
+            IPNetwork_Vlan::class,
+            NetworkPort_Vlan::class,
+         ]
+      );
    }
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $itemtype
     * @param $base            HTMLTableBase object
@@ -113,8 +107,8 @@ class Vlan extends CommonDropdown {
     * @param $options   array
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column_name = __CLASS__;
 
@@ -129,15 +123,15 @@ class Vlan extends CommonDropdown {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $row             HTMLTableRow object (default NULL)
     * @param $item            CommonDBTM object (default NULL)
     * @param $father          HTMLTableCell object (default NULL)
     * @param $options   array
    **/
-   static function getHTMLTableCellsForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                            HTMLTableCell $father=NULL, array $options=array()) {
+   static function getHTMLTableCellsForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                            HTMLTableCell $father = null, array $options = []) {
       global $DB, $CFG_GLPI;
 
       $column_name = __CLASS__;
@@ -169,7 +163,7 @@ class Vlan extends CommonDropdown {
                                                   __('ID TAG'), $vlan->fields['tag'])."<br>".
                                           sprintf(__('%1$s: %2$s'),
                                                   __('Comments'), $vlan->fields['comment']),
-                                          array('display' => false));
+                                          ['display' => false]);
 
             $this_cell = $row->addCell($row->getHeaderByName($column_name), $content, $father);
          }

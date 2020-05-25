@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -47,14 +43,15 @@ class Phone extends CommonDBTM {
    // From CommonDBTM
    public $dohistory                   = true;
 
-   static protected $forward_entity_to = array('Infocom', 'NetworkPort', 'ReservationItem');
+   static protected $forward_entity_to = ['Infocom', 'NetworkPort', 'ReservationItem',
+                                          'Item_OperatingSystem'];
 
    static $rightname                   = 'phone';
    protected $usenotepad               = true;
 
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       //TRANS: Test of comment for translation (mark : //TRANS)
       return _n('Phone', 'Phones', $nb);
    }
@@ -63,17 +60,18 @@ class Phone extends CommonDBTM {
    /**
     * @see CommonDBTM::useDeletedToLockIfDynamic()
     *
-    * @since version 0.84
+    * @since 0.84
    **/
    function useDeletedToLockIfDynamic() {
       return false;
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addDefaultFormTab($ong);
+      $this->addStandardTab('Item_OperatingSystem', $ong, $options);
       $this->addStandardTab('Item_Devices', $ong, $options);
       $this->addStandardTab('Computer_Item', $ong, $options);
       $this->addStandardTab('NetworkPort', $ong, $options);
@@ -110,6 +108,9 @@ class Phone extends CommonDBTM {
 
       // Manage add from template
       if (isset($this->input["_oldID"])) {
+         // ADD OS
+         Item_OperatingSystem::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
+
          // ADD Devices
          Item_devices::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
 
@@ -136,19 +137,13 @@ class Phone extends CommonDBTM {
 
 
    function cleanDBonPurge() {
-      global $DB;
 
-      $ci = new Computer_Item();
-      $ci->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $ip = new Item_Problem();
-      $ip->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $ci = new Change_Item();
-      $ci->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $ip = new Item_Project();
-      $ip->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
+      $this->deleteChildrenAndRelationsFromDb(
+         [
+            Computer_Item::class,
+            Item_Project::class,
+         ]
+      );
 
       Item_Devices::cleanItemDeviceDBOnItemDelete($this->getType(), $this->fields['id'],
                                                   (!empty($this->input['keep_devices'])));
@@ -165,66 +160,70 @@ class Phone extends CommonDBTM {
     *
     * @return boolean item found
    **/
-   function showForm($ID, $options=array()) {
+   function showForm($ID, $options = []) {
       global $CFG_GLPI;
 
       $target       = $this->getFormURL();
       $withtemplate = $this->initForm($ID, $options);
       $this->showFormHeader($options);
 
+      $tplmark = $this->getAutofillMark('name', $options);
       echo "<tr class='tab_bg_1'>";
       //TRANS: %1$s is a string, %2$s a second one without spaces between them : to change for RTL
-      echo "<td>".sprintf(__('%1$s%2$s'), __('Name'),
-                          (isset($options['withtemplate']) && $options['withtemplate']?"*":"")).
+      echo "<td>".sprintf(__('%1$s%2$s'), __('Name'), $tplmark).
            "</td>";
       echo "<td>";
       $objectName = autoName($this->fields["name"], "name",
                              (isset($options['withtemplate']) && ($options['withtemplate'] == 2)),
                              $this->getType(), $this->fields["entities_id"]);
-      Html::autocompletionTextField($this, 'name', array('value' => $objectName));
+      Html::autocompletionTextField($this, 'name', ['value' => $objectName]);
       echo "</td>";
       echo "<td>".__('Status')."</td>";
       echo "<td>";
-      State::dropdown(array('value'     => $this->fields["states_id"],
-                            'entity'    => $this->fields["entities_id"],
-                            'condition' => "`is_visible_phone`='1'"));
+      State::dropdown([
+         'value'     => $this->fields["states_id"],
+         'entity'    => $this->fields["entities_id"],
+         'condition' => ['is_visible_phone' => 1]
+      ]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Location')."</td>";
       echo "<td>";
-      Location::dropdown(array('value'  => $this->fields["locations_id"],
-                               'entity' => $this->fields["entities_id"]));
+      Location::dropdown(['value'  => $this->fields["locations_id"],
+                               'entity' => $this->fields["entities_id"]]);
       echo "</td>";
       echo "<td>".__('Type')."</td>";
       echo "<td>";
-      PhoneType::dropdown(array('value' => $this->fields["phonetypes_id"]));
+      PhoneType::dropdown(['value' => $this->fields["phonetypes_id"]]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Technician in charge of the hardware')."</td>";
       echo "<td>";
-      User::dropdown(array('name'   => 'users_id_tech',
+      User::dropdown(['name'   => 'users_id_tech',
                            'value'  => $this->fields["users_id_tech"],
                            'right'  => 'own_ticket',
-                           'entity' => $this->fields["entities_id"]));
+                           'entity' => $this->fields["entities_id"]]);
       echo "</td>";
       echo "<td>".__('Manufacturer')."</td>";
       echo "<td>";
-      Manufacturer::dropdown(array('value' => $this->fields["manufacturers_id"]));
+      Manufacturer::dropdown(['value' => $this->fields["manufacturers_id"]]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Group in charge of the hardware')."</td>";
       echo "<td>";
-      Group::dropdown(array('name'      => 'groups_id_tech',
-                            'value'     => $this->fields['groups_id_tech'],
-                            'entity'    => $this->fields['entities_id'],
-                            'condition' => '`is_assign`'));
+      Group::dropdown([
+         'name'      => 'groups_id_tech',
+         'value'     => $this->fields['groups_id_tech'],
+         'entity'    => $this->fields['entities_id'],
+         'condition' => ['is_assign' => 1]
+      ]);
       echo "</td>";
       echo "<td>".__('Model')."</td>";
       echo "<td>";
-      PhoneModel::dropdown(array('value' => $this->fields["phonemodels_id"]));
+      PhoneModel::dropdown(['value' => $this->fields["phonemodels_id"]]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
@@ -241,40 +240,43 @@ class Phone extends CommonDBTM {
       echo "<td>".__('Alternate username')."</td><td>";
       Html::autocompletionTextField($this, "contact");
       echo "</td>";
-      echo "<td>".sprintf(__('%1$s%2$s'), __('Inventory number'),
-                          (isset($options['withtemplate']) && $options['withtemplate']?"*":"")).
+
+      $tplmark = $this->getAutofillMark('otherserial', $options);
+      echo "<td>".sprintf(__('%1$s%2$s'), __('Inventory number'), $tplmark).
            "</td>";
       echo "<td>";
       $objectName = autoName($this->fields["otherserial"], "otherserial",
                              (isset($options['withtemplate']) && ($options['withtemplate'] == 2)),
                              $this->getType(), $this->fields["entities_id"]);
-      Html::autocompletionTextField($this, 'otherserial', array('value' => $objectName));
+      Html::autocompletionTextField($this, 'otherserial', ['value' => $objectName]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('User')."</td>";
       echo "<td>";
-      User::dropdown(array('value'  => $this->fields["users_id"],
+      User::dropdown(['value'  => $this->fields["users_id"],
                            'entity' => $this->fields["entities_id"],
-                           'right'  => 'all'));
+                           'right'  => 'all']);
       echo "</td>";
       echo "<td>".__('Management type')."</td>";
       echo "<td>";
       Dropdown::showGlobalSwitch($this->fields["id"],
-                                 array('withtemplate' => $withtemplate,
+                                 ['withtemplate' => $withtemplate,
                                        'value'        => $this->fields["is_global"],
                                        'management_restrict'
                                                       => $CFG_GLPI["phones_management_restrict"],
-                                       'target'       => $target));
+                                       'target'       => $target]);
       echo "</td></tr>\n";
 
-      $rowspan        = 6;
+      $rowspan        = 5;
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Group')."</td>";
       echo "<td>";
-      Group::dropdown(array('value'     => $this->fields["groups_id"],
-                            'entity'    => $this->fields["entities_id"],
-                            'condition' => '`is_itemgroup`'));
+      Group::dropdown([
+         'value'     => $this->fields["groups_id"],
+         'entity'    => $this->fields["entities_id"],
+         'condition' => ['is_itemgroup' => 1]
+      ]);
       echo "</td>";
       echo "<td rowspan='$rowspan'>".__('Comments')."</td>";
       echo "<td rowspan='$rowspan'>
@@ -290,13 +292,7 @@ class Phone extends CommonDBTM {
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Power supply')."</td>";
       echo "<td>";
-      PhonePowerSupply::dropdown(array('value' => $this->fields["phonepowersupplies_id"]));
-      echo "</td></tr>\n";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>"._n('Firmware', 'Firmware', 1)."</td>";
-      echo "<td>";
-      Html::autocompletionTextField($this, "firmware");
+      PhonePowerSupply::dropdown(['value' => $this->fields["phonepowersupplies_id"]]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
@@ -338,17 +334,21 @@ class Phone extends CommonDBTM {
     * Return the linked items (in computers_items)
     *
     * @return an array of linked items  like array('Computer' => array(1,2), 'Printer' => array(5,6))
-    * @since version 0.84.4
+    * @since 0.84.4
    **/
    function getLinkedItems() {
       global $DB;
 
-      $query = "SELECT 'Computer', `computers_id`
-                FROM `glpi_computers_items`
-                WHERE `itemtype` = '".$this->getType()."'
-                      AND `items_id` = '" . $this->fields['id']."'";
-      $tab = array();
-      foreach ($DB->request($query) as $data) {
+      $iterator = $DB->request([
+         'SELECT' => 'computers_id',
+         'FROM'   => 'glpi_computers_items',
+         'WHERE'  => [
+            'itemtype'  => $this->getType(),
+            'items_id'  => $this->fields['id']
+         ]
+      ]);
+      $tab = [];
+      while ($data = $iterator->next()) {
          $tab['Computer'][$data['computers_id']] = $data['computers_id'];
       }
       return $tab;
@@ -358,12 +358,11 @@ class Phone extends CommonDBTM {
    /**
     * @see CommonDBTM::getSpecificMassiveActions()
    **/
-   function getSpecificMassiveActions($checkitem=NULL) {
+   function getSpecificMassiveActions($checkitem = null) {
 
       $actions = parent::getSpecificMassiveActions($checkitem);
       if (static::canUpdate()) {
          Computer_Item::getMassiveActionsForItemtype($actions, __CLASS__, 0, $checkitem);
-         MassiveAction::getAddTransferList($actions);
 
          $kb_item = new KnowbaseItem();
          $kb_item->getEmpty();
@@ -376,7 +375,7 @@ class Phone extends CommonDBTM {
    }
 
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
       $tab = [];
 
       $tab[] = [
@@ -402,7 +401,7 @@ class Phone extends CommonDBTM {
          'datatype'           => 'number'
       ];
 
-      $tab = array_merge($tab, Location::getSearchOptionsToAddNew());
+      $tab = array_merge($tab, Location::rawSearchOptionsToAdd());
 
       $tab[] = [
          'id'                 => '4',
@@ -426,7 +425,7 @@ class Phone extends CommonDBTM {
          'field'              => 'completename',
          'name'               => __('Status'),
          'datatype'           => 'dropdown',
-         'condition'          => '`is_visible_phone`'
+         'condition'          => ['is_visible_phone' => 1]
       ];
 
       $tab[] = [
@@ -483,7 +482,7 @@ class Phone extends CommonDBTM {
          'table'              => 'glpi_groups',
          'field'              => 'completename',
          'name'               => __('Group'),
-         'condition'          => '`is_itemgroup`',
+         'condition'          => ['is_itemgroup' => 1],
          'datatype'           => 'dropdown'
       ];
 
@@ -531,10 +530,22 @@ class Phone extends CommonDBTM {
 
       $tab[] = [
          'id'                 => '32',
-         'table'              => $this->getTable(),
-         'field'              => 'firmware',
-         'name'               => __('Firmware'),
-         'datatype'           => 'string'
+         'table'              => 'glpi_devicefirmwares',
+         'field'              => 'version',
+         'name'               => _n('Firmware', 'Firmware', 1),
+         'forcegroupby'       => true,
+         'usehaving'          => true,
+         'massiveaction'      => false,
+         'datatype'           => 'dropdown',
+         'joinparams'         => [
+            'beforejoin'         => [
+               'table'              => 'glpi_items_devicefirmwares',
+               'joinparams'         => [
+                  'jointype'           => 'itemtype_item',
+                  'specific_itemtype'  => 'Phone'
+               ]
+            ]
+         ]
       ];
 
       $tab[] = [
@@ -553,7 +564,7 @@ class Phone extends CommonDBTM {
          'field'              => 'completename',
          'linkfield'          => 'groups_id_tech',
          'name'               => __('Group in charge of the hardware'),
-         'condition'          => '`is_assign`',
+         'condition'          => ['is_assign' => 1],
          'datatype'           => 'dropdown'
       ];
 
@@ -600,9 +611,9 @@ class Phone extends CommonDBTM {
       ];
 
       // add objectlock search options
-      $tab = array_merge($tab, ObjectLock::getSearchOptionsToAddNew(get_class($this)));
+      $tab = array_merge($tab, ObjectLock::rawSearchOptionsToAdd(get_class($this)));
 
-      $tab = array_merge($tab, Notepad::getSearchOptionsToAddNew());
+      $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
 
       return $tab;
    }

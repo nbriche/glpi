@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,7 +37,7 @@ if (!defined('GLPI_ROOT')) {
 /**
  * class XHProf
  *
- * @since version 0.84
+ * @since 0.84
  *
  * Il you need to "profile" some part of code
  *
@@ -70,7 +66,7 @@ class XHProf {
    /**
     * @param $msg (default '')
    **/
-   function __construct($msg='') {
+   function __construct($msg = '') {
       $this->start($msg);
    }
 
@@ -83,7 +79,7 @@ class XHProf {
    /**
     * @param $msg (default '')
    **/
-   function start($msg='') {
+   function start($msg = '') {
 
       if (!self::$run
           && function_exists('xhprof_enable')) {

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -56,8 +52,7 @@ if (isset($_POST["add"])) {
       Event::log($_POST['softwares_id'], "software", 4, "inventory",
                  //TRANS: %s is the user login, %2$s is the version id
                  sprintf(__('%1$s adds the version %2$s'), $_SESSION["glpiname"], $newID));
-      Html::redirect($CFG_GLPI["root_doc"]."/front/software.form.php?id=".
-                     $version->fields['softwares_id']);
+      Html::redirect(Software::getFormURLWithID($version->fields['softwares_id']));
    }
    Html::back();
 
@@ -80,7 +75,7 @@ if (isset($_POST["add"])) {
 
 } else {
    Html::header(SoftwareVersion::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "assets", "software");
-   $version->display(array('id'           => $_GET["id"],
-                           'softwares_id' => $_GET["softwares_id"]));
+   $version->display(['id'           => $_GET["id"],
+                           'softwares_id' => $_GET["softwares_id"]]);
    Html::footer();
 }

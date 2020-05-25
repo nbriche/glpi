@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 include ('../inc/includes.php');
 
@@ -69,7 +65,6 @@ $cleantarget = preg_replace("/&/", "&amp;", $cleantarget);
 $next    = 0;
 $prev    = 0;
 $title   = "";
-$cond    = '';
 $parent  = 0;
 
 $showuserlink = 0;
@@ -81,7 +76,7 @@ switch ($_GET["type"]) {
    case "technicien" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Technician'),
                          $item->getAssignName($_GET["id"], 'User', $showuserlink));
       break;
@@ -89,7 +84,7 @@ switch ($_GET["type"]) {
    case "technicien_followup" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Technician'),
                          $item->getAssignName($_GET["id"], 'User', $showuserlink));
       break;
@@ -97,7 +92,7 @@ switch ($_GET["type"]) {
    case "suppliers_id_assign" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Supplier'),
                          $item->getAssignName($_GET["id"], 'Supplier', $showuserlink));
       break;
@@ -105,26 +100,25 @@ switch ($_GET["type"]) {
    case "user" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('User'), getUserName($_GET["id"], $showuserlink));
       break;
 
    case "users_id_recipient" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('User'), getUserName($_GET["id"], $showuserlink));
       break;
 
    case "itilcategories_tree" :
       $parent = (isset($_GET['champ']) ? $_GET['champ'] : 0);
-      $cond   = "(`id` = '$parent' OR `itilcategories_id` = '$parent')";
       // nobreak;
 
    case "itilcategories_id" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"],
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"],
                                 $parent);
       $title   = sprintf(__('%1$s: %2$s'), __('Category'),
                          Dropdown::getDropdownName("glpi_itilcategories", $_GET["id"]));
@@ -132,13 +126,12 @@ switch ($_GET["type"]) {
 
    case 'locations_tree' :
       $parent = (isset($_GET['champ']) ? $_GET['champ'] : 0);
-      $cond   = "(`id` = '$parent' OR `locations_id` = '$parent')";
       // nobreak;
 
    case 'locations_id' :
       $val1    = $_GET['id'];
       $val2    = '';
-      $values  = Stat::getItems($_GET['itemtype'], $_GET['date1'], $_GET['date2'], $_GET['type'],
+      $values  = Stat::getItems($_GET['itemtype'], $_POST['date1'], $_POST['date2'], $_GET['type'],
                                 $parent);
       $title   = sprintf(__('%1$s: %2$s'), __('Location'),
                          Dropdown::getDropdownName('glpi_locations', $_GET['id']));
@@ -147,21 +140,19 @@ switch ($_GET["type"]) {
    case "type" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Type'), Ticket::getTicketTypeName($_GET["id"]));
       break;
 
    case 'group_tree' :
    case 'groups_tree_assign' :
       $parent = (isset($_GET['champ']) ? $_GET['champ'] : 0);
-      $cond   = " (`id` = '$parent' OR `groups_id` = '$parent')
-                   AND ".(($_GET["type"] == 'group_tree') ? '`is_requester`' : '`is_assign`');
       // nobreak;
 
    case "group" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"],
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"],
                                 $parent);
       $title   = sprintf(__('%1$s: %2$s'), __('Group'),
                          Dropdown::getDropdownName("glpi_groups", $_GET["id"]));
@@ -170,7 +161,7 @@ switch ($_GET["type"]) {
    case "groups_id_assign" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Group'),
                          Dropdown::getDropdownName("glpi_groups", $_GET["id"]));
       break;
@@ -178,28 +169,28 @@ switch ($_GET["type"]) {
    case "priority" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Priority'), $item->getPriorityName($_GET["id"]));
       break;
 
    case "urgency" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Urgency'), $item->getUrgencyName($_GET["id"]));
       break;
 
    case "impact" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Impact'), $item->getImpactName($_GET["id"]));
       break;
 
    case "usertitles_id" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), _x('person', 'Title'),
                          Dropdown::getDropdownName("glpi_usertitles", $_GET["id"]));
       break;
@@ -207,7 +198,7 @@ switch ($_GET["type"]) {
    case "solutiontypes_id" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Solution type'),
                          Dropdown::getDropdownName("glpi_solutiontypes", $_GET["id"]));
       break;
@@ -215,7 +206,7 @@ switch ($_GET["type"]) {
    case "usercategories_id" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Category'),
                          Dropdown::getDropdownName("glpi_usercategories", $_GET["id"]));
       break;
@@ -223,7 +214,7 @@ switch ($_GET["type"]) {
    case "requesttypes_id" :
       $val1    = $_GET["id"];
       $val2    = "";
-      $values  = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"], $_GET["type"]);
+      $values  = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"], $_GET["type"]);
       $title   = sprintf(__('%1$s: %2$s'), __('Request source'),
                          Dropdown::getDropdownName("glpi_requesttypes", $_GET["id"]));
       break;
@@ -233,16 +224,20 @@ switch ($_GET["type"]) {
       $val2 = $_GET["champ"];
       if ($item = getItemForItemtype($_GET["champ"])) {
          $device_table = $item->getTable();
-         $values       = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"],
+         $values       = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"],
                                         $_GET["champ"]);
 
-         $query  = "SELECT `designation`
-                    FROM `".$device_table."`
-                    WHERE `id` = '".$_GET['id']."'";
-         $result = $DB->query($query);
+         $iterator = $DB->request([
+            'SELECT' => ['designation'],
+            'FROM'   => $device_table,
+            'WHERE'  => [
+               'id' => $_GET['id']
+            ]
+         ]);
+         $current = $iterator->next();
 
          $title  = sprintf(__('%1$s: %2$s'),
-                           $item->getTypeName(), $DB->result($result, 0, "designation"));
+                           $item->getTypeName(), $current['designation']);
       }
       break;
 
@@ -251,7 +246,7 @@ switch ($_GET["type"]) {
       $val2  = $_GET["champ"];
       if ($item = getItemForItemtype($_GET["champ"])) {
          $table  = $item->getTable();
-         $values = Stat::getItems($_GET["itemtype"], $_GET["date1"], $_GET["date2"],
+         $values = Stat::getItems($_GET["itemtype"], $_POST["date1"], $_POST["date2"],
                                   $_GET["champ"]);
          $title  = sprintf(__('%1$s: %2$s'),
                            $item->getTypeName(), Dropdown::getDropdownName($table, $_GET["id"]));
@@ -306,13 +301,13 @@ $target = preg_replace("/&/", "&amp;", $_SERVER["REQUEST_URI"]);
 echo "<form method='post' name='form' action='$target'><div class='center'>";
 echo "<table class='tab_cadre'>";
 echo "<tr class='tab_bg_2'><td class='right'>".__('Start date')."</td><td>";
-Html::showDateField("date1", array('value' => $_POST["date1"]));
+Html::showDateField("date1", ['value' => $_POST["date1"]]);
 echo "</td><td rowspan='2' class='center'>";
 echo "<input type='hidden' name='itemtype' value=\"".$_GET['itemtype']."\">";
 echo "<input type='submit' class='submit' value=\"".__s('Display report')."\"></td></tr>";
 
 echo "<tr class='tab_bg_2'><td class='right'>".__('End date')."</td><td>";
-Html::showDateField("date2", array('value' => $_POST["date2"]));
+Html::showDateField("date2", ['value' => $_POST["date2"]]);
 echo "</td></tr>";
 echo "</table></div>";
 
@@ -320,25 +315,19 @@ echo "</table></div>";
 Html::closeForm();
 
 
-$show_all = false;
-if (!isset($_POST['graph']) || (count($_POST['graph']) == 0)) {
-   $show_all = true;
-}
-
-
 ///////// Stats nombre intervention
 // Total des interventions
-$values['total']  = Stat::constructEntryValues($_GET['itemtype'], "inter_total", $_GET["date1"],
-                                               $_GET["date2"], $_GET["type"], $val1, $val2);
+$values['total']  = Stat::constructEntryValues($_GET['itemtype'], "inter_total", $_POST["date1"],
+                                               $_POST["date2"], $_GET["type"], $val1, $val2);
 // Total des interventions r??solues
-$values['solved'] = Stat::constructEntryValues($_GET['itemtype'], "inter_solved", $_GET["date1"],
-                                               $_GET["date2"], $_GET["type"], $val1, $val2);
+$values['solved'] = Stat::constructEntryValues($_GET['itemtype'], "inter_solved", $_POST["date1"],
+                                               $_POST["date2"], $_GET["type"], $val1, $val2);
 // Total des interventions closes
-$values['closed'] = Stat::constructEntryValues($_GET['itemtype'], "inter_closed", $_GET["date1"],
-                                               $_GET["date2"], $_GET["type"], $val1, $val2);
+$values['closed'] = Stat::constructEntryValues($_GET['itemtype'], "inter_closed", $_POST["date1"],
+                                               $_POST["date2"], $_GET["type"], $val1, $val2);
 // Total des interventions closes
 $values['late']   = Stat::constructEntryValues($_GET['itemtype'], "inter_solved_late",
-                                               $_GET["date1"], $_GET["date2"], $_GET["type"],
+                                               $_POST["date1"], $_POST["date2"], $_GET["type"],
                                                $val1, $val2);
 
 
@@ -364,7 +353,7 @@ $stat->displayLineGraph(
 $values = [];
 //Temps moyen de resolution d'intervention
 $values['avgsolved'] = Stat::constructEntryValues($_GET['itemtype'], "inter_avgsolvedtime",
-                                                   $_GET["date1"], $_GET["date2"],
+                                                   $_POST["date1"], $_POST["date2"],
                                                    $_GET["type"], $val1, $val2);
 // Pass to hour values
 foreach ($values['avgsolved'] as $key => &$val) {
@@ -372,7 +361,7 @@ foreach ($values['avgsolved'] as $key => &$val) {
 }
 //Temps moyen de cloture d'intervention
 $values['avgclosed'] = Stat::constructEntryValues($_GET['itemtype'], "inter_avgclosedtime",
-                                                   $_GET["date1"], $_GET["date2"],
+                                                   $_POST["date1"], $_POST["date2"],
                                                    $_GET["type"], $val1, $val2);
 // Pass to hour values
 foreach ($values['avgclosed'] as $key => &$val) {
@@ -380,7 +369,7 @@ foreach ($values['avgclosed'] as $key => &$val) {
 }
 //Temps moyen d'intervention reel
 $values['avgactiontime'] = Stat::constructEntryValues($_GET['itemtype'], "inter_avgactiontime",
-                                                       $_GET["date1"], $_GET["date2"],
+                                                       $_POST["date1"], $_POST["date2"],
                                                        $_GET["type"], $val1, $val2);
 // Pass to hour values
 foreach ($values['avgactiontime'] as $key => &$val) {
@@ -403,7 +392,7 @@ $series = [
 if ($_GET['itemtype'] == 'Ticket') {
    //Temps moyen de prise en compte de l'intervention
    $values['avgtaketime'] = Stat::constructEntryValues($_GET['itemtype'], "inter_avgtakeaccount",
-                                                        $_GET["date1"], $_GET["date2"],
+                                                        $_POST["date1"], $_POST["date2"],
                                                         $_GET["type"], $val1, $val2);
    // Pass to hour values
    foreach ($values['avgtaketime'] as $key => &$val) {
@@ -427,12 +416,12 @@ if ($_GET['itemtype'] == 'Ticket') {
    ///////// Satisfaction
    $values['opensatisfaction']   = Stat::constructEntryValues($_GET['itemtype'],
                                                               "inter_opensatisfaction",
-                                                              $_GET["date1"], $_GET["date2"],
+                                                              $_POST["date1"], $_POST["date2"],
                                                               $_GET["type"], $val1, $val2);
 
    $values['answersatisfaction'] = Stat::constructEntryValues($_GET['itemtype'],
                                                               "inter_answersatisfaction",
-                                                              $_GET["date1"], $_GET["date2"],
+                                                              $_POST["date1"], $_POST["date2"],
                                                               $_GET["type"], $val1, $val2);
 
    $stat->displayLineGraph(
@@ -451,7 +440,7 @@ if ($_GET['itemtype'] == 'Ticket') {
    $values = [];
    $values['avgsatisfaction'] = Stat::constructEntryValues($_GET['itemtype'],
                                                            "inter_avgsatisfaction",
-                                                           $_GET["date1"], $_GET["date2"],
+                                                           $_POST["date1"], $_POST["date2"],
                                                            $_GET["type"], $val1, $val2);
 
    $stat->displayLineGraph(

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* @since version 0.84
-*/
+/**
+ * @since 0.84
+ */
 
 include ('../inc/includes.php');
 
@@ -54,9 +53,9 @@ try {
 
 }
 
-echo "<div width='90%' class='center'><br>";
+echo "<div class='center massiveactions'>";
 Html::openMassiveActionsForm();
-$params = array('action' => '__VALUE__');
+$params = ['action' => '__VALUE__'];
 $input  = $ma->getInput();
 foreach ($input as $key => $val) {
    $params[$key] = $val;
@@ -67,13 +66,13 @@ $actions = $params['actions'];
 if (count($actions)) {
    if (isset($params['hidden']) && is_array($params['hidden'])) {
       foreach ($params['hidden'] as $key => $val) {
-         echo Html::hidden($key, array('value' => $val));
+         echo Html::hidden($key, ['value' => $val]);
       }
    }
    echo __('Action');
    echo "&nbsp;";
 
-   $actions = array('-1' => Dropdown::EMPTY_VALUE) + $actions;
+   $actions = ['-1' => Dropdown::EMPTY_VALUE] + $actions;
    $rand    = Dropdown::showFromArray('massiveaction', $actions);
 
    echo "<br><br>";

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,7 +37,7 @@ if (!defined('GLPI_ROOT')) {
 /**
  * Ticket Recurrent class
  *
- * @since version 0.83
+ * @since 0.83
 **/
 class TicketRecurrent extends CommonDropdown {
 
@@ -60,12 +56,12 @@ class TicketRecurrent extends CommonDropdown {
 
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return __('Recurrent tickets');
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($item->getType()) {
          case 'TicketRecurrent' :
@@ -80,9 +76,9 @@ class TicketRecurrent extends CommonDropdown {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
-      if (Session::haveRight('tickettemplate', READ)) {
+      if (Session::haveRight('itiltemplate', READ)) {
          switch ($item->getType()) {
             case 'TicketRecurrent' :
                $ong[1] = _n('Information', 'Information', Session::getPluralNumber());
@@ -93,9 +89,9 @@ class TicketRecurrent extends CommonDropdown {
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addDefaultFormTab($ong);
       $this->addStandardTab(__CLASS__, $ong, $options);
       $this->addStandardTab('Log', $ong, $options);
@@ -136,51 +132,51 @@ class TicketRecurrent extends CommonDropdown {
    **/
    function getAdditionalFields() {
 
-      return array(array('name'  => 'is_active',
+      return [['name'  => 'is_active',
                          'label' => __('Active'),
                          'type'  => 'bool',
-                         'list'  => false),
-                   array('name'  => 'tickettemplates_id',
+                         'list'  => false],
+                   ['name'  => 'tickettemplates_id',
                          'label' => _n('Ticket template', 'Ticket templates', 1),
                          'type'  => 'dropdownValue',
-                         'list'  => true),
-                   array('name'  => 'begin_date',
+                         'list'  => true],
+                   ['name'  => 'begin_date',
                          'label' => __('Start date'),
                          'type'  => 'datetime',
-                         'list'  => false),
-                   array('name'  => 'end_date',
+                         'list'  => false],
+                   ['name'  => 'end_date',
                          'label' => __('End date'),
                          'type'  => 'datetime',
-                         'list'  => false),
-                   array('name'  => 'periodicity',
+                         'list'  => false],
+                   ['name'  => 'periodicity',
                          'label' => __('Periodicity'),
                          'type'  => 'specific_timestamp',
                          'min'   => DAY_TIMESTAMP,
                          'step'  => DAY_TIMESTAMP,
-                         'max'   => 2*MONTH_TIMESTAMP),
-                   array('name'  => 'create_before',
+                         'max'   => 2*MONTH_TIMESTAMP],
+                   ['name'  => 'create_before',
                          'label' => __('Preliminary creation'),
                          'type'  => 'timestamp',
                          'max'   => 7*DAY_TIMESTAMP,
-                         'step'  => HOUR_TIMESTAMP),
-                   array('name'  => 'calendars_id',
+                         'step'  => HOUR_TIMESTAMP],
+                   ['name'  => 'calendars_id',
                          'label' => _n('Calendar', 'Calendars', 1),
                          'type'  => 'dropdownValue',
-                         'list'  => true),
-                  );
+                         'list'  => true],
+                  ];
    }
 
 
    /**
-    * @since version 0.83.1
+    * @since 0.83.1
     *
     * @see CommonDropdown::displaySpecificTypeField()
    **/
-   function displaySpecificTypeField($ID, $field=array()) {
+   function displaySpecificTypeField($ID, $field = []) {
 
       switch ($field['name']) {
          case 'periodicity' :
-            $possible_values = array();
+            $possible_values = [];
             for ($i=1; $i<24; $i++) {
                $possible_values[$i*HOUR_TIMESTAMP] = sprintf(_n('%d hour', '%d hours', $i), $i);
             }
@@ -192,27 +188,27 @@ class TicketRecurrent extends CommonDropdown {
                $possible_values[$i.'MONTH'] = sprintf(_n('%d month', '%d months', $i), $i);
             }
 
-            for ($i=1; $i<5; $i++) {
+            for ($i=1; $i<11; $i++) {
                $possible_values[$i.'YEAR'] = sprintf(_n('%d year', '%d years', $i), $i);
             }
 
             Dropdown::showFromArray($field['name'], $possible_values,
-                                    array('value' => $this->fields[$field['name']]));
+                                    ['value' => $this->fields[$field['name']]]);
             break;
       }
    }
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field
     * @param $values
     * @param $options   array
    **/
-   static function getSpecificValueToDisplay($field, $values, array $options=array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
 
       switch ($field) {
@@ -230,8 +226,8 @@ class TicketRecurrent extends CommonDropdown {
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',
@@ -311,91 +307,115 @@ class TicketRecurrent extends CommonDropdown {
 
 
    /**
-    * Compute next creation date of a ticket
+    * Compute next creation date of a ticket.
     *
-    * New parameter in  version 0.84 : $calendars_id
+    * @param string         $begin_date     Begin date of the recurrent ticket in 'Y-m-d H:i:s' format.
+    * @param string         $end_date       End date of the recurrent ticket in 'Y-m-d H:i:s' format,
+    *                                       or 'NULL' or empty value.
+    * @param string|integer $periodicity    Periodicity of creation, could be:
+    *                                        - an integer corresponding to seconds,
+    *                                        - a string using "/([0-9]+)(MONTH|YEAR)/" pattern.
+    * @param integer        $create_before  Anticipated creation delay in seconds.
+    * @param integer|null   $calendars_id   ID of the calendar to use to restrict creation to working hours,
+    *                                       or 0 / null for no calendar.
     *
-    * @param $begin_date      datetime    Begin date of the recurrent ticket
-    * @param $end_date        datetime    End date of the recurrent ticket
-    * @param $periodicity     timestamp   Periodicity of creation
-    * @param $create_before   timestamp   Create before specific timestamp
-    * @param $calendars_id    integer     ID of the calendar to used
+    * @return string  Next creation date in 'Y-m-d H:i:s' format.
     *
-    * @return datetime next creation date
-   **/
+    * @since 0.84 $calendars_id parameter added
+    */
    function computeNextCreationDate($begin_date, $end_date, $periodicity, $create_before,
                                     $calendars_id) {
 
-      if (empty($begin_date) || ($begin_date == 'NULL')) {
-         return 'NULL';
-      }
-      if (!empty($end_date) && ($end_date <> 'NULL')) {
-         if (strtotime($end_date) < time()) {
-            return 'NULL';
-         }
-      }
-      $check = true;
-      if (preg_match('/([0-9]+)MONTH/', $periodicity)
-          || preg_match('/([0-9]+)YEAR/', $periodicity)) {
-         $check = false;
-      }
+      $now = time();
+      $periodicity_pattern = '/([0-9]+)(MONTH|YEAR)/';
 
-      if ($check
-          && ($create_before > $periodicity)) {
-         Session::addMessageAfterRedirect(__('Invalid frequency. It must be greater than the preliminary creation.'),
-                                          false, ERROR);
+      if (false === DateTime::createFromFormat('Y-m-d H:i:s', $begin_date)) {
+         // Invalid begin date.
          return 'NULL';
       }
 
-      if ($periodicity <> 0) {
-         // Standard time computation
-         $timestart  = strtotime($begin_date) - $create_before;
-         $now        = time();
-         if ($now > $timestart) {
-            $value = $periodicity;
-            $step  = "second";
-            if (preg_match('/([0-9]+)MONTH/', $periodicity, $matches)) {
-               $value = $matches[1];
-               $step  = 'MONTH';
-            } else if (preg_match('/([0-9]+)YEAR/', $periodicity, $matches)) {
-               $value = $matches[1];
-               $step  = 'YEAR';
-            } else {
-               if (($value%DAY_TIMESTAMP)==0) {
-                  $value = $value/DAY_TIMESTAMP;
-                  $step  = "DAY";
-               } else {
-                  $value = $value/HOUR_TIMESTAMP;
-                  $step  = "HOUR";
-               }
-            }
+      $has_end_date = false !== DateTime::createFromFormat('Y-m-d H:i:s', $end_date);
+      if ($has_end_date && strtotime($end_date) < $now) {
+         // End date is in past.
+         return 'NULL';
+      }
 
-            while ($timestart < $now) {
-               $timestart = strtotime("+ $value $step", $timestart);
+      if (!is_int($periodicity) && !preg_match('/^\d+$/', $periodicity)
+          && !preg_match($periodicity_pattern, $periodicity)) {
+         // Invalid periodicity.
+         return 'NULL';
+      }
+
+      // Compute periodicity values
+      $periodicity_as_interval = null;
+      $periodicity_in_seconds = $periodicity;
+      $matches = [];
+      if (preg_match($periodicity_pattern, $periodicity, $matches)) {
+         $periodicity_as_interval = "{$matches[1]} {$matches[2]}";
+         $periodicity_in_seconds  = $matches[1]
+            * MONTH_TIMESTAMP
+            * ('YEAR' === $matches[2] ? 12 : 1);
+      } else if ($periodicity % DAY_TIMESTAMP == 0) {
+         $periodicity_as_interval = ($periodicity / DAY_TIMESTAMP) . ' DAY';
+      } else {
+         $periodicity_as_interval = ($periodicity / HOUR_TIMESTAMP) . ' HOUR';
+      }
+
+      // Check that anticipated creation delay is greater than periodicity.
+      if ($create_before > $periodicity_in_seconds) {
+         Session::addMessageAfterRedirect(
+            __('Invalid frequency. It must be greater than the preliminary creation.'),
+            false,
+            ERROR
+         );
+         return 'NULL';
+      }
+
+      // First occurence of creation
+      $calendar = new Calendar();
+      if ($calendars_id && $calendar->getFromDB($calendars_id) && $calendar->hasAWorkingDay()) {
+         // Base computation on calendar if calendar is defined
+         $occurence_date = $calendar->computeEndDate(
+            $begin_date,
+            1, // 1 second delay for first occurence as calendar method does not handle 0 delay
+            0,
+            $periodicity_in_seconds >= DAY_TIMESTAMP
+         );
+         $occurence_time = strtotime($occurence_date) - 1;
+         $creation_time  = $occurence_time - $create_before;
+
+         while ($creation_time < $now) {
+            $occurence_date = $calendar->computeEndDate(
+               date('Y-m-d H:i:s', $occurence_time),
+               $periodicity_in_seconds,
+               0,
+               $periodicity_in_seconds >= DAY_TIMESTAMP
+            );
+            $occurence_time = strtotime($occurence_date);
+            $creation_time  = $occurence_time - $create_before;
+
+            // Stop if end date reached
+            if ($has_end_date && $occurence_time > strtotime($end_date)) {
+               return 'NULL';
             }
-         }
-         // Time start over end date
-         if (!empty($end_date) && ($end_date <> 'NULL')) {
-            if ($timestart > strtotime($end_date)) {
+         };
+      } else {
+         $occurence_time = strtotime($begin_date);
+         $creation_time  = $occurence_time - $create_before;
+
+         // Add steps while creation time is in past
+         while ($creation_time < $now) {
+            $creation_time  = strtotime("+ $periodicity_as_interval", $creation_time);
+            $occurence_time = $creation_time + $create_before;
+
+            // Stop if end date reached
+            if ($has_end_date && $occurence_time > strtotime($end_date)) {
                return 'NULL';
             }
          }
-
-         $calendar = new Calendar();
-         if ($calendars_id
-             && $calendar->getFromDB($calendars_id)) {
-            $durations = $calendar->getDurationsCache();
-            if (array_sum($durations) > 0) { // working days exists
-               while (!$calendar->isAWorkingDay($timestart)) {
-                  $timestart = strtotime("+ 1 day", $timestart);
-               }
-            }
-         }
-
-         return date("Y-m-d H:i:s", $timestart);
       }
 
-      return 'NULL';
+      return date("Y-m-d H:i:s", $creation_time);
    }
 
 
@@ -410,9 +430,9 @@ class TicketRecurrent extends CommonDropdown {
 
       switch ($name) {
          case 'ticketrecurrent' :
-            return array('description' => self::getTypeName(Session::getPluralNumber()));
+            return ['description' => self::getTypeName(Session::getPluralNumber())];
       }
-      return array();
+      return [];
    }
 
 
@@ -428,14 +448,19 @@ class TicketRecurrent extends CommonDropdown {
 
       $tot = 0;
 
-      $query = "SELECT *
-                FROM `glpi_ticketrecurrents`
-                WHERE `glpi_ticketrecurrents`.`next_creation_date` < NOW()
-                      AND `glpi_ticketrecurrents`.`is_active` = 1
-                      AND (`glpi_ticketrecurrents`.`end_date` IS NULL
-                           OR `glpi_ticketrecurrents`.`end_date` > NOW())";
+      $iterator = $DB->request([
+         'FROM'   => 'glpi_ticketrecurrents',
+         'WHERE'  => [
+            'next_creation_date' => ['<', new \QueryExpression('NOW()')],
+            'is_active'          => 1,
+            'OR'                 => [
+               ['end_date' => null],
+               ['end_date' => ['>', new \QueryExpression('NOW()')]]
+            ]
+         ]
+      ]);
 
-      foreach ($DB->request($query) as $data) {
+      while ($data = $iterator->next()) {
          if (self::createTicket($data)) {
             $tot++;
          } else {
@@ -446,7 +471,7 @@ class TicketRecurrent extends CommonDropdown {
       }
 
       $task->setVolume($tot);
-      return ($tot > 0);
+      return ($tot > 0 ? 1 : 0);
    }
 
 
@@ -466,7 +491,7 @@ class TicketRecurrent extends CommonDropdown {
       if ($tt->getFromDB($data['tickettemplates_id'])) {
          // Get default values for ticket
          $input = Ticket::getDefaultValues($data['entities_id']);
-         // Apply tickettemplates predefined values
+         // Apply itiltemplates predefined values
          $ttp        = new TicketTemplatePredefinedField();
          $predefined = $ttp->getPredefinedFields($data['tickettemplates_id'], true);
 
@@ -482,17 +507,23 @@ class TicketRecurrent extends CommonDropdown {
             $input['date'] = Html::computeGenericDateTimeSearch($predefined['date'], false,
                                                                 $createtime);
          }
-         // Compute due_date if predefined based on create date
-         if (isset($predefined['due_date'])) {
-            $input['due_date'] = Html::computeGenericDateTimeSearch($predefined['due_date'], false,
+         // Compute time_to_resolve if predefined based on create date
+         if (isset($predefined['time_to_resolve'])) {
+            $input['time_to_resolve'] = Html::computeGenericDateTimeSearch($predefined['time_to_resolve'], false,
                                                                     $createtime);
+         }
+
+         // Compute internal_time_to_resolve if predefined based on create date
+         if (isset($predefined['internal_time_to_resolve'])) {
+            $input['internal_time_to_resolve'] = Html::computeGenericDateTimeSearch($predefined['internal_time_to_resolve'], false,
+                                                                           $createtime);
          }
          // Set entity
          $input['entities_id'] = $data['entities_id'];
          $input['_auto_import'] = true;
 
          $ticket = new Ticket();
-         $input  = Toolbox::addslashes_deep($input);
+         $input  = $input;
          if ($tid = $ticket->add($input)) {
             $msg = sprintf(__('Ticket %d successfully created'), $tid);
             $result = true;
@@ -504,13 +535,13 @@ class TicketRecurrent extends CommonDropdown {
       }
       $changes[0] = 0;
       $changes[1] = '';
-      $changes[2] = addslashes($msg);
+      $changes[2] = $msg;
       Log::history($data['id'], __CLASS__, $changes, '', Log::HISTORY_LOG_SIMPLE_MESSAGE);
 
       // Compute next creation date
       $tr = new self();
       if ($tr->getFromDB($data['id'])) {
-         $input                       = array();
+         $input                       = [];
          $input['id']                 = $data['id'];
          $input['next_creation_date'] = $tr->computeNextCreationDate($data['begin_date'],
                                                                      $data['end_date'],

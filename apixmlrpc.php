@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,19 +30,20 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* @since version 9.1
-*/
+/**
+ * @since 9.1
+ */
 
 
+define('GLPI_ROOT', __DIR__);
 define('DO_NOT_CHECK_HTTP_REFERER', 1);
 
-include ('./inc/includes.php');
+include_once (GLPI_ROOT . "/inc/based_config.php");
+include_once(GLPI_ROOT . '/inc/db.function.php');
+
+// Load kernel and expose container in global var
+global $CONTAINER;
+$CONTAINER = (new Glpi\Kernel())->getContainer();
 
 $api = new APIXmlrpc;
-if ($CFG_GLPI['enable_api']) {
-   $api->call();
-} else {
-   Html::displayErrorAndDie(__("API disabled"), true);
-}
+$api->call();

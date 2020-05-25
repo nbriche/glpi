@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -62,12 +58,16 @@ class Entity_KnowbaseItem extends CommonDBRelation {
    static function getEntities($knowbaseitems_id) {
       global $DB;
 
-      $ent   = array();
-      $query = "SELECT `glpi_entities_knowbaseitems`.*
-                FROM `glpi_entities_knowbaseitems`
-                WHERE `knowbaseitems_id` = '$knowbaseitems_id'";
+      $ent   = [];
 
-      foreach ($DB->request($query) as $data) {
+      $iterator = $DB->request([
+         'FROM'   => self::getTable(),
+         'WHERE'  => [
+            'knowbaseitems_id' => $knowbaseitems_id
+         ]
+      ]);
+
+      while ($data = $iterator->next()) {
          $ent[$data['entities_id']][] = $data;
       }
       return $ent;

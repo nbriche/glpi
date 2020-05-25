@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -63,11 +59,13 @@ class NetworkPort_NetworkPort extends CommonDBRelation {
    **/
    function getFromDBForNetworkPort($ID) {
 
-      return $this->getFromDBByQuery("WHERE `".$this->getTable()."`.`networkports_id_1` = '$ID'
-                                            OR `".$this->getTable()."`.`networkports_id_2` = '$ID'");
+      return $this->getFromDBByCrit([
+         'OR'  => [
+            $this->getTable() . '.networkports_id_1'  => $ID,
+            $this->getTable() . '.networkports_id_2'  => $ID
+         ]
+      ]);
    }
-
-
 
 
    /**

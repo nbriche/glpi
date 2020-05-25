@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief show choices for network reports
-*/
+/**
+ * Show choices for network reports
+ */
 
 include ('../inc/includes.php');
 
@@ -54,7 +54,7 @@ echo "<form name='form' method='post' action='report.location.list.php'>";
 echo "<table class='tab_cadre' width='500'>";
 echo "<tr class='tab_bg_1'><td width='120'>".__('By location')."</td>";
 echo "<td>";
-Location::dropdown(array('entity' => $_SESSION["glpiactive_entity"]));
+Location::dropdown(['entity' => $_SESSION["glpiactive_entity"]]);
 echo "</td><td class='center' width='120'>";
 echo "<input type='submit' value=\"".__s('Display report')."\" class='submit'>";
 echo "</td></tr>";
@@ -65,7 +65,7 @@ echo "<form name='form2' method='post' action='report.switch.list.php'>";
 echo "<table class='tab_cadre' width='500'>";
 echo "<tr class='tab_bg_1'><td width='120'>".__('By hardware')."</td>";
 echo "<td>";
-NetworkEquipment::dropdown(array('name' => 'switch'));
+NetworkEquipment::dropdown(['name' => 'switch']);
 echo "</td><td class='center' width='120'>";
 echo "<input type='submit' value=\"".__s('Display report')."\" class='submit'>";
 echo "</td></tr>";

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ("../inc/includes.php");
 
 if (!isset($_GET["id"])) {
@@ -58,6 +54,6 @@ if (isset($_POST["add"])) {
 
 } else {
    Html::header(APIClient::getTypeName(1), $_SERVER['PHP_SELF'], "config", "config", "apiclient");
-   $client->display(array('id' => $_GET["id"]));
+   $client->display(['id' => $_GET["id"]]);
    Html::footer();
 }

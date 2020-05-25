@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -70,27 +67,22 @@ class RuleTicket extends Rule {
    }
 
 
-   function maxActionsCount() {
-      return count($this->getActions());
-   }
-
-
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
    static function getConditionsArray() {
 
-      return array(static::ONADD                   => __('Add'),
+      return [static::ONADD                   => __('Add'),
                    static::ONUPDATE                => __('Update'),
                    static::ONADD|static::ONUPDATE  => sprintf(__('%1$s / %2$s'), __('Add'),
-                                                              __('Update')));
+                                                              __('Update'))];
    }
 
 
    /**
     * display title for action form
     *
-    * @since version 0.84.3
+    * @since 0.84.3
    **/
    function getTitleAction() {
 
@@ -99,7 +91,7 @@ class RuleTicket extends Rule {
       if (isset($this->actions)) {
          foreach ($this->actions as $key => $val) {
             if (isset($val->fields['field'])) {
-               if (in_array($val->fields['field'], array('impact', 'urgency'))) {
+               if (in_array($val->fields['field'], ['impact', 'urgency'])) {
                   $showwarning = true;
                }
             }
@@ -108,7 +100,7 @@ class RuleTicket extends Rule {
       if ($showwarning) {
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr class='tab_bg_2'><td>".
-               __('Urgency or impact used in actions, think to add Prioriy: recompute action if needed.').
+               __('Urgency or impact used in actions, think to add Priority: recompute action if needed.').
                "</td></tr>\n";
          echo "</table><br>";
       }
@@ -147,25 +139,22 @@ class RuleTicket extends Rule {
    }
 
 
-   /**
-    * @param $output
-    * @param $params
-   **/
-   function executeActions($output,$params) {
+   function executeActions($output, $params, array $input = []) {
 
       if (count($this->actions)) {
          foreach ($this->actions as $action) {
             switch ($action->fields["action_type"]) {
                case "send" :
+                  //recall & recall_ola
                   $ticket = new Ticket();
                   if ($ticket->getFromDB($output['id'])) {
-                     NotificationEvent::raiseEvent('recall', $ticket);
+                     NotificationEvent::raiseEvent($action->fields['field'], $ticket);
                   }
                   break;
 
                case "add_validation" :
                   if (isset($output['_add_validation']) && !is_array($output['_add_validation'])) {
-                     $output['_add_validation'] = array($output['_add_validation']);
+                     $output['_add_validation'] = [$output['_add_validation']];
                   }
                   switch ($action->fields['field']) {
                      case 'users_id_validate_requester_supervisor' :
@@ -184,6 +173,10 @@ class RuleTicket extends Rule {
                         $output['_add_validation'][] = $action->fields["value"];
                         break;
 
+                     case 'responsible_id_validate':
+                        $output['_add_validation'][] = 'requester_responsible';
+                        break;
+
                      case 'validation_percent' :
                         $output[$action->fields["field"]] = $action->fields["value"];
                         break;
@@ -197,15 +190,30 @@ class RuleTicket extends Rule {
                case "assign" :
                   $output[$action->fields["field"]] = $action->fields["value"];
 
+                  // Special case of status
+                  if ($action->fields["field"] === 'status') {
+                     // Add a flag to remember that status was forced by rule
+                     $output['_do_not_compute_status'] = true;
+                  }
+
                   // Special case of users_id_requester
                   if ($action->fields["field"] === '_users_id_requester') {
                      // Add groups of requester
                      if (!isset($output['_groups_id_of_requester'])) {
-                        $output['_groups_id_of_requester'] = array();
+                        $output['_groups_id_of_requester'] = [];
                      }
                      foreach (Group_User::getUserGroups($action->fields["value"]) as $g) {
                         $output['_groups_id_of_requester'][$g['id']] = $g['id'];
                      }
+                  }
+
+                  // Special case of slas_id_ttr & slas_id_tto & olas_id_ttr & olas_id_tto
+                  if ($action->fields["field"] === 'slas_id_ttr'
+                      || $action->fields["field"] === 'slas_id_tto'
+                      ||$action->fields["field"] === 'olas_id_ttr'
+                      || $action->fields["field"] === 'olas_id_tto') {
+                     $output['_'.$action->fields["field"]] = $action->fields["value"];
+
                   }
                   break;
 
@@ -224,7 +232,7 @@ class RuleTicket extends Rule {
                   if ($action->fields["field"] === '_users_id_requester') {
                      // Add groups of requester
                      if (!isset($output['_groups_id_of_requester'])) {
-                        $output['_groups_id_of_requester'] = array();
+                        $output['_groups_id_of_requester'] = [];
                      }
                      foreach (Group_User::getUserGroups($action->fields["value"]) as $g) {
                         $output['_groups_id_of_requester'][$g['id']] = $g['id'];
@@ -258,6 +266,13 @@ class RuleTicket extends Rule {
                   $output['priority'] = Ticket::computePriority($urgency, $impact);
                   break;
 
+               case 'do_not_compute' :
+                  if ($action->fields['field'] == 'takeintoaccount_delay_stat'
+                      && $action->fields['value'] == 1) {
+                     $output['_do_not_compute_takeintoaccount'] = true;
+                  }
+                  break;
+
                case "affectbyip" :
                case "affectbyfqdn" :
                case "affectbymac" :
@@ -288,10 +303,10 @@ class RuleTicket extends Rule {
                         break;
 
                      default:
-                        $result = array();
+                        $result = [];
                   }
                   if (!empty($result)) {
-                     $output["items_id"] = array();
+                     $output["items_id"] = [];
                      $output["items_id"][$result["itemtype"]][] = $result["id"];
                   }
                   break;
@@ -314,7 +329,7 @@ class RuleTicket extends Rule {
 
    function getCriterias() {
 
-      static $criterias = array();
+      static $criterias = [];
 
       if (count($criterias)) {
          return $criterias;
@@ -332,9 +347,15 @@ class RuleTicket extends Rule {
 
       $criterias['itilcategories_id']['table']              = 'glpi_itilcategories';
       $criterias['itilcategories_id']['field']              = 'name';
-      $criterias['itilcategories_id']['name']               = __('Category');
+      $criterias['itilcategories_id']['name']               = __('Category')." - ".__('Name');
       $criterias['itilcategories_id']['linkfield']          = 'itilcategories_id';
       $criterias['itilcategories_id']['type']               = 'dropdown';
+
+      $criterias['itilcategories_id_cn']['table']              = 'glpi_itilcategories';
+      $criterias['itilcategories_id_cn']['field']              = 'completename';
+      $criterias['itilcategories_id_cn']['name']               = __('Category').' - '.__('Complete name');
+      $criterias['itilcategories_id_cn']['linkfield']          = 'itilcategories_id';
+      $criterias['itilcategories_id_cn']['type']               = 'dropdown';
 
       $criterias['type']['table']                           = 'glpi_tickets';
       $criterias['type']['field']                           = 'type';
@@ -373,6 +394,12 @@ class RuleTicket extends Rule {
       $criterias['items_groups']['linkfield']               = 'items_groups';
       $criterias['items_groups']['type']                    = 'dropdown';
 
+      $criterias['items_states']['table']                   = 'glpi_states';
+      $criterias['items_states']['field']                   = 'completename';
+      $criterias['items_states']['name']                    = __('Item state');
+      $criterias['items_states']['linkfield']               = 'items_states';
+      $criterias['items_states']['type']                    = 'dropdown';
+
       $criterias['locations_id']['table']                   = 'glpi_locations';
       $criterias['locations_id']['field']                   = 'completename';
       $criterias['locations_id']['name']                    = __('Ticket location');
@@ -396,7 +423,7 @@ class RuleTicket extends Rule {
       $criterias['_groups_id_assign']['name']               = __('Technician group');
       $criterias['_groups_id_assign']['linkfield']          = '_groups_id_assign';
       $criterias['_groups_id_assign']['type']               = 'dropdown';
-      $criterias['_groups_id_assign']['condition']          = '`is_assign`';
+      $criterias['_groups_id_assign']['condition']          = ['is_assign' => 1];
 
       $criterias['_suppliers_id_assign']['table']           = 'glpi_suppliers';
       $criterias['_suppliers_id_assign']['field']           = 'name';
@@ -434,6 +461,12 @@ class RuleTicket extends Rule {
       $criterias['entities_id']['linkfield']                = 'entities_id';
       $criterias['entities_id']['type']                     = 'dropdown';
 
+      $criterias['profiles_id']['table']                    = 'glpi_profiles';
+      $criterias['profiles_id']['field']                    = 'name';
+      $criterias['profiles_id']['name']                     = __('Default profile');
+      $criterias['profiles_id']['linkfield']                = 'profiles_id';
+      $criterias['profiles_id']['type']                     = 'dropdown';
+
       $criterias['urgency']['name']                         = __('Urgency');
       $criterias['urgency']['type']                         = 'dropdown_urgency';
 
@@ -442,6 +475,9 @@ class RuleTicket extends Rule {
 
       $criterias['priority']['name']                        = __('Priority');
       $criterias['priority']['type']                        = 'dropdown_priority';
+
+      $criterias['status']['name']                          = __('Status');
+      $criterias['status']['type']                          = 'dropdown_status';
 
       $criterias['_mailgate']['table']                      = 'glpi_mailcollectors';
       $criterias['_mailgate']['field']                      = 'name';
@@ -453,21 +489,45 @@ class RuleTicket extends Rule {
       $criterias['_x-priority']['table']                    = '';
       $criterias['_x-priority']['type']                     = 'text';
 
-      $criterias['slts_ttr_id']['table']                    = 'glpi_slts';
-      $criterias['slts_ttr_id']['field']                    = 'name';
-      $criterias['slts_ttr_id']['name']                     = sprintf(__('%1$s %2$s'), __('SLT'),
+      $criterias['slas_id_ttr']['table']                    = 'glpi_slas';
+      $criterias['slas_id_ttr']['field']                    = 'name';
+      $criterias['slas_id_ttr']['name']                     = sprintf(__('%1$s %2$s'), __('SLA'),
                                                                       __('Time to resolve'));
-      $criterias['slts_ttr_id']['linkfield']                = 'slts_ttr_id';
-      $criterias['slts_ttr_id']['type']                     = 'dropdown';
-      $criterias['slts_ttr_id']['condition']                = "`glpi_slts`.`type` = '".SLT::TTR."'";
+      $criterias['slas_id_ttr']['linkfield']                = 'slas_id_ttr';
+      $criterias['slas_id_ttr']['type']                     = 'dropdown';
+      $criterias['slas_id_ttr']['condition']                = ['glpi_slas.type' => SLM::TTR];
 
-      $criterias['slts_tto_id']['table']                    = 'glpi_slts';
-      $criterias['slts_tto_id']['field']                    = 'name';
-      $criterias['slts_tto_id']['name']                     = sprintf(__('%1$s %2$s'), __('SLT'),
+      $criterias['slas_id_tto']['table']                    = 'glpi_slas';
+      $criterias['slas_id_tto']['field']                    = 'name';
+      $criterias['slas_id_tto']['name']                     = sprintf(__('%1$s %2$s'), __('SLA'),
                                                                       __('Time to own'));
-      $criterias['slts_tto_id']['linkfield']                = 'slts_tto_id';
-      $criterias['slts_tto_id']['type']                     = 'dropdown';
-      $criterias['slts_tto_id']['condition']                = "`glpi_slts`.`type` = '".SLT::TTO."'";
+      $criterias['slas_id_tto']['linkfield']                = 'slas_id_tto';
+      $criterias['slas_id_tto']['type']                     = 'dropdown';
+      $criterias['slas_id_tto']['condition']                = ['glpi_slas.type' => SLM::TTO];
+
+      $criterias['olas_id_ttr']['table']                    = 'glpi_olas';
+      $criterias['olas_id_ttr']['field']                    = 'name';
+      $criterias['olas_id_ttr']['name']                     = sprintf(__('%1$s %2$s'), __('OLA'),
+                                                                      __('Time to resolve'));
+      $criterias['olas_id_ttr']['linkfield']                = 'olas_id_ttr';
+      $criterias['olas_id_ttr']['type']                     = 'dropdown';
+      $criterias['olas_id_ttr']['condition']                = ['glpi_olas.type' => SLM::TTR];
+
+      $criterias['olas_id_tto']['table']                    = 'glpi_olas';
+      $criterias['olas_id_tto']['field']                    = 'name';
+      $criterias['olas_id_tto']['name']                     = sprintf(__('%1$s %2$s'), __('OLA'),
+                                                                      __('Time to own'));
+      $criterias['olas_id_tto']['linkfield']                = 'olas_id_tto';
+      $criterias['olas_id_tto']['type']                     = 'dropdown';
+      $criterias['olas_id_tto']['condition']                = ['glpi_olas.type' => SLM::TTO];
+
+      $criterias['_date_creation_calendars_id'] = [
+         'name'            => __("Creation date is a working hour in calendar"),
+         'table'           => Calendar::getTable(),
+         'field'           => 'name',
+         'linkfield'       => '_date_creation_calendars_id',
+         'type'            => 'dropdown',
+      ];
 
       return $criterias;
    }
@@ -475,7 +535,7 @@ class RuleTicket extends Rule {
 
    function getActions() {
 
-      $actions                                              = array();
+      $actions                                              = [];
 
       $actions['itilcategories_id']['name']                 = __('Category');
       $actions['itilcategories_id']['type']                 = 'dropdown';
@@ -487,57 +547,59 @@ class RuleTicket extends Rule {
 
       $actions['_users_id_requester']['name']               = __('Requester');
       $actions['_users_id_requester']['type']               = 'dropdown_users';
-      $actions['_users_id_requester']['force_actions']      = array('assign', 'append');
-      $actions['_users_id_requester']['permitseveral']      = array('append');
+      $actions['_users_id_requester']['force_actions']      = ['assign', 'append'];
+      $actions['_users_id_requester']['permitseveral']      = ['append'];
       $actions['_users_id_requester']['appendto']           = '_additional_requesters';
-      $actions['_users_id_requester']['appendtoarray']      = array('use_notification' => 1);
+      $actions['_users_id_requester']['appendtoarray']      = ['use_notification' => 1];
       $actions['_users_id_requester']['appendtoarrayfield'] = 'users_id';
 
       $actions['_groups_id_requester']['name']              = __('Requester group');
       $actions['_groups_id_requester']['type']              = 'dropdown';
       $actions['_groups_id_requester']['table']             = 'glpi_groups';
-      $actions['_groups_id_requester']['condition']         = '`is_requester`';
-      $actions['_groups_id_requester']['force_actions']     = array('assign', 'append', 'fromitem');
-      $actions['_groups_id_requester']['permitseveral']     = array('append');
+      $actions['_groups_id_requester']['condition']         = ['is_requester' => 1];
+      $actions['_groups_id_requester']['force_actions']     = ['assign', 'append', 'fromitem'];
+      $actions['_groups_id_requester']['permitseveral']     = ['append'];
       $actions['_groups_id_requester']['appendto']          = '_additional_groups_requesters';
 
       $actions['_users_id_assign']['name']                  = __('Technician');
       $actions['_users_id_assign']['type']                  = 'dropdown_assign';
-      $actions['_users_id_assign']['force_actions']         = array('assign', 'append');
-      $actions['_users_id_assign']['permitseveral']         = array('append');
+      $actions['_users_id_assign']['force_actions']         = ['assign', 'append'];
+      $actions['_users_id_assign']['permitseveral']         = ['append'];
       $actions['_users_id_assign']['appendto']              = '_additional_assigns';
-      $actions['_users_id_assign']['appendtoarray']         = array('use_notification' => 1);
+      $actions['_users_id_assign']['appendtoarray']         = ['use_notification' => 1];
       $actions['_users_id_assign']['appendtoarrayfield']    = 'users_id';
 
       $actions['_groups_id_assign']['table']                = 'glpi_groups';
       $actions['_groups_id_assign']['name']                 = __('Technician group');
       $actions['_groups_id_assign']['type']                 = 'dropdown';
-      $actions['_groups_id_assign']['condition']            = '`is_assign`';
-      $actions['_groups_id_assign']['force_actions']        = array('assign', 'append');
-      $actions['_groups_id_assign']['permitseveral']        = array('append');
+      $actions['_groups_id_assign']['condition']            = ['is_assign' => 1];
+      $actions['_groups_id_assign']['force_actions']        = ['assign', 'append'];
+      $actions['_groups_id_assign']['permitseveral']        = ['append'];
       $actions['_groups_id_assign']['appendto']             = '_additional_groups_assigns';
 
       $actions['_suppliers_id_assign']['table']             = 'glpi_suppliers';
       $actions['_suppliers_id_assign']['name']              = __('Assigned to a supplier');
       $actions['_suppliers_id_assign']['type']              = 'dropdown';
-      $actions['_suppliers_id_assign']['force_actions']     = array('assign', 'append');
-      $actions['_suppliers_id_assign']['permitseveral']     = array('append');
+      $actions['_suppliers_id_assign']['force_actions']     = ['assign', 'append'];
+      $actions['_suppliers_id_assign']['permitseveral']     = ['append'];
       $actions['_suppliers_id_assign']['appendto']          = '_additional_suppliers_assigns';
+      $actions['_suppliers_id_assign']['appendtoarray']     = ['use_notification' => 1];
+      $actions['_suppliers_id_assign']['appendtoarrayfield']  = 'suppliers_id';
 
       $actions['_users_id_observer']['name']                = __('Watcher');
       $actions['_users_id_observer']['type']                = 'dropdown_users';
-      $actions['_users_id_observer']['force_actions']       = array('assign', 'append');
-      $actions['_users_id_observer']['permitseveral']       = array('append');
+      $actions['_users_id_observer']['force_actions']       = ['assign', 'append'];
+      $actions['_users_id_observer']['permitseveral']       = ['append'];
       $actions['_users_id_observer']['appendto']            = '_additional_observers';
-      $actions['_users_id_observer']['appendtoarray']       = array('use_notification' => 1);
+      $actions['_users_id_observer']['appendtoarray']       = ['use_notification' => 1];
       $actions['_users_id_observer']['appendtoarrayfield']  = 'users_id';
 
       $actions['_groups_id_observer']['table']              = 'glpi_groups';
       $actions['_groups_id_observer']['name']               = __('Watcher group');
       $actions['_groups_id_observer']['type']               = 'dropdown';
-      $actions['_groups_id_observer']['condition']          = '`is_requester`';
-      $actions['_groups_id_observer']['force_actions']      = array('assign', 'append');
-      $actions['_groups_id_observer']['permitseveral']      = array('append');
+      $actions['_groups_id_observer']['condition']          = ['is_watcher' => 1];
+      $actions['_groups_id_observer']['force_actions']      = ['assign', 'append'];
+      $actions['_groups_id_observer']['permitseveral']      = ['append'];
       $actions['_groups_id_observer']['appendto']           = '_additional_groups_observers';
 
       $actions['urgency']['name']                           = __('Urgency');
@@ -548,43 +610,65 @@ class RuleTicket extends Rule {
 
       $actions['priority']['name']                          = __('Priority');
       $actions['priority']['type']                          = 'dropdown_priority';
-      $actions['priority']['force_actions']                 = array('assign', 'compute');
+      $actions['priority']['force_actions']                 = ['assign', 'compute'];
 
       $actions['status']['name']                            = __('Status');
       $actions['status']['type']                            = 'dropdown_status';
 
       $actions['affectobject']['name']                      = _n('Associated element', 'Associated elements', Session::getPluralNumber());
       $actions['affectobject']['type']                      = 'text';
-      $actions['affectobject']['force_actions']             = array('affectbyip', 'affectbyfqdn',
-                                                                    'affectbymac');
+      $actions['affectobject']['force_actions']             = ['affectbyip', 'affectbyfqdn',
+                                                                    'affectbymac'];
 
-      $actions['slts_ttr_id']['table']                      = 'glpi_slts';
-      $actions['slts_ttr_id']['field']                      = 'name';
-      $actions['slts_ttr_id']['name']                       = sprintf(__('%1$s %2$s'), __('SLT'),
+      $actions['slas_id_ttr']['table']                      = 'glpi_slas';
+      $actions['slas_id_ttr']['field']                      = 'name';
+      $actions['slas_id_ttr']['name']                       = sprintf(__('%1$s %2$s'), __('SLA'),
                                                                       __('Time to resolve'));
-      $actions['slts_ttr_id']['linkfield']                  = 'slts_ttr_id';
-      $actions['slts_ttr_id']['type']                       = 'dropdown';
-      $actions['slts_ttr_id']['condition']                  = "`glpi_slts`.`type` = '".SLT::TTR."'";
+      $actions['slas_id_ttr']['linkfield']                  = 'slas_id_ttr';
+      $actions['slas_id_ttr']['type']                       = 'dropdown';
+      $actions['slas_id_ttr']['condition']                  = ['glpi_slas.type' => SLM::TTR];
 
-      $actions['slts_tto_id']['table']                      = 'glpi_slts';
-      $actions['slts_tto_id']['field']                      = 'name';
-      $actions['slts_tto_id']['name']                       = sprintf(__('%1$s %2$s'), __('SLT'),
+      $actions['slas_id_tto']['table']                      = 'glpi_slas';
+      $actions['slas_id_tto']['field']                      = 'name';
+      $actions['slas_id_tto']['name']                       = sprintf(__('%1$s %2$s'), __('SLA'),
                                                                       __('Time to own'));
-      $actions['slts_tto_id']['linkfield']                  = 'slts_tto_id';
-      $actions['slts_tto_id']['type']                       = 'dropdown';
-      $actions['slts_tto_id']['condition']                  = "`glpi_slts`.`type` = '".SLT::TTO."'";
+      $actions['slas_id_tto']['linkfield']                  = 'slas_id_tto';
+      $actions['slas_id_tto']['type']                       = 'dropdown';
+      $actions['slas_id_tto']['condition']                  = ['glpi_slas.type' => SLM::TTO];
+
+      $actions['olas_id_ttr']['table']                      = 'glpi_olas';
+      $actions['olas_id_ttr']['field']                      = 'name';
+      $actions['olas_id_ttr']['name']                       = sprintf(__('%1$s %2$s'), __('OLA'),
+                                                                      __('Time to resolve'));
+      $actions['olas_id_ttr']['linkfield']                  = 'olas_id_ttr';
+      $actions['olas_id_ttr']['type']                       = 'dropdown';
+      $actions['olas_id_ttr']['condition']                  = ['glpi_olas.type' => SLM::TTR];
+
+      $actions['olas_id_tto']['table']                      = 'glpi_olas';
+      $actions['olas_id_tto']['field']                      = 'name';
+      $actions['olas_id_tto']['name']                       = sprintf(__('%1$s %2$s'), __('OLA'),
+                                                                      __('Time to own'));
+      $actions['olas_id_tto']['linkfield']                  = 'olas_id_tto';
+      $actions['olas_id_tto']['type']                       = 'dropdown';
+      $actions['olas_id_tto']['condition']                  = ['glpi_olas.type' => SLM::TTO];
 
       $actions['users_id_validate']['name']                 = sprintf(__('%1$s - %2$s'),
                                                                       __('Send an approval request'),
                                                                       __('User'));
       $actions['users_id_validate']['type']                 = 'dropdown_users_validate';
-      $actions['users_id_validate']['force_actions']        = array('add_validation');
+      $actions['users_id_validate']['force_actions']        = ['add_validation'];
+
+      $actions['responsible_id_validate']['name']                 = sprintf(__('%1$s - %2$s'),
+                                                                      __('Send an approval request'),
+                                                                      __('Responsible of the requester'));
+      $actions['responsible_id_validate']['type']                 = 'yesno';
+      $actions['responsible_id_validate']['force_actions']        = ['add_validation'];
 
       $actions['groups_id_validate']['name']                = sprintf(__('%1$s - %2$s'),
                                                                          __('Send an approval request'),
                                                                          __('Group'));
       $actions['groups_id_validate']['type']                = 'dropdown_groups_validate';
-      $actions['groups_id_validate']['force_actions']       = array('add_validation');
+      $actions['groups_id_validate']['force_actions']       = ['add_validation'];
 
       $actions['validation_percent']['name']                = sprintf(__('%1$s - %2$s'),
                                                                       __('Send an approval request'),
@@ -596,39 +680,43 @@ class RuleTicket extends Rule {
       $actions['users_id_validate_requester_supervisor']['type']
                                              = 'yesno';
       $actions['users_id_validate_requester_supervisor']['force_actions']
-                                             = array('add_validation');
+                                             = ['add_validation'];
 
       $actions['users_id_validate_assign_supervisor']['name']
                                              = __('Approval request to technician group manager');
       $actions['users_id_validate_assign_supervisor']['type']
                                              = 'yesno';
       $actions['users_id_validate_assign_supervisor']['force_actions']
-                                             = array('add_validation');
+                                             = ['add_validation'];
 
       $actions['locations_id']['name']                      = __('Location');
       $actions['locations_id']['type']                      = 'dropdown';
       $actions['locations_id']['table']                     = 'glpi_locations';
-      $actions['locations_id']['force_actions']             = array('assign', 'fromuser', 'fromitem');
+      $actions['locations_id']['force_actions']             = ['assign', 'fromuser', 'fromitem'];
 
       $actions['requesttypes_id']['name']                   = __('Request source');
       $actions['requesttypes_id']['type']                   = 'dropdown';
       $actions['requesttypes_id']['table']                  = 'glpi_requesttypes';
+
+      $actions['takeintoaccount_delay_stat']['name']          = __('Take into account delay');
+      $actions['takeintoaccount_delay_stat']['type']          = 'yesno';
+      $actions['takeintoaccount_delay_stat']['force_actions'] = ['do_not_compute'];
 
       return $actions;
    }
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see commonDBTM::getRights()
    **/
-   function getRights($interface='central') {
+   function getRights($interface = 'central') {
 
       $values = parent::getRights();
       //TRANS: short for : Business rules for ticket (entity parent)
-      $values[self::PARENT] = array('short' => __('Parent business'),
-                                    'long'  => __('Business rules for ticket (entity parent)'));
+      $values[self::PARENT] = ['short' => __('Parent business'),
+                                    'long'  => __('Business rules for ticket (entity parent)')];
 
       return $values;
    }

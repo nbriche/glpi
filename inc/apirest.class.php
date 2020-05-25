@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -31,7 +31,7 @@
  */
 
 /**
- * @since version 9.1
+ * @since 9.1
  */
 
 class APIRest extends API {
@@ -51,10 +51,27 @@ class APIRest extends API {
     *
     * @see CommonGLPI::GetTypeName()
     */
-   public static function getTypeName($nb=0) {
+   public static function getTypeName($nb = 0) {
       return __('Rest API');
    }
 
+   /**
+    * Upload and validate files from request and append to $this->parameters['input']
+    *
+    * @return void
+    */
+   public function manageUploadedFiles() {
+      foreach (array_keys($_FILES) as $filename) {
+         $upload_result
+            = GLPIUploadHandler::uploadFiles(['name'           => $filename,
+                                              'print_response' => false]);
+         foreach ($upload_result as $uresult) {
+            $this->parameters['input']->_filename[] = $uresult[0]->name;
+            $this->parameters['input']->_prefix_filename[] = $uresult[0]->prefix;
+         }
+         $this->parameters['upload_result'][] = $upload_result;
+      }
+   }
 
    /**
     * Parse url and http body to retrieve :
@@ -72,7 +89,7 @@ class APIRest extends API {
       //parse http request and find parts
       $this->request_uri  = $_SERVER['REQUEST_URI'];
       $this->verb         = $_SERVER['REQUEST_METHOD'];
-      $path_info          = str_replace("api/", "", trim($_SERVER['PATH_INFO'], '/'));
+      $path_info          = (isset($_SERVER['PATH_INFO'])) ? str_replace("api/", "", trim($_SERVER['PATH_INFO'], '/')) : '';
       $this->url_elements = explode('/', $path_info);
 
       // retrieve requested resource
@@ -99,6 +116,8 @@ class APIRest extends API {
 
       // retrieve session (if exist)
       $this->retrieveSession();
+      $this->initApi();
+      $this->manageUploadedFiles();
 
       // retrieve param who permit session writing
       if (isset($this->parameters['session_write'])) {
@@ -174,7 +193,7 @@ class APIRest extends API {
          $response =  $this->searchItems($itemtype, $params);
 
          //add pagination headers
-         $additionalheaders                  = array();
+         $additionalheaders                  = [];
          $additionalheaders["Accept-Range"]  = $itemtype." ".Toolbox::get_max_input_vars();
          if ($response['totalcount'] > 0) {
             $additionalheaders["Content-Range"] = $response['content-range'];
@@ -189,17 +208,24 @@ class APIRest extends API {
 
          return $this->returnResponse($response, $code, $additionalheaders);
 
+      } else if ($resource === "lostPassword") {
+         if ($this->verb != 'PUT' && $this->verb != 'PATCH') {
+            // forbid password reset when HTTP verb is not PUT or PATCH
+            return $this->returnError(__("Only HTTP verb PUT is allowed"));
+         }
+         return $this->returnResponse($this->lostPassword($this->parameters));
+
       } else {
          // commonDBTM manipulation
          $itemtype          = $this->getItemtype(0);
          $id                = $this->getId();
-         $additionalheaders = array();
+         $additionalheaders = [];
          $code              = 200;
          switch ($this->verb) {
             default:
             case "GET" : // retrieve item(s)
-               if (($id > 0)
-                   || (($id == 0) && ($itemtype == "Entity"))) {
+               if ($id > 0
+                   || ($id !== false && $id == 0 && $itemtype == "Entity")) {
                   $response = $this->getItem($itemtype, $id, $this->parameters);
                   if (isset($response['date_mod'])) {
                      $datemod = strtotime($response['date_mod']);
@@ -214,14 +240,18 @@ class APIRest extends API {
                   $range = [0, $_SESSION['glpilist_limit']];
                   if (isset($this->parameters['range'])) {
                      $range = explode("-", $this->parameters['range']);
-                     // fix end range
-                     if ($range[1] > $totalcount - 1) {
-                        $range[1] = $totalcount - 1;
-                     }
-                     if ($range[1] - $range[0] + 1 < $totalcount) {
-                         $code = 206; // partial content
-                     }
                   }
+
+                  // fix end range
+                  if ($range[1] > $totalcount - 1) {
+                     $range[1] = $totalcount - 1;
+                  }
+
+                  // trigger partial content return code
+                  if ($range[1] - $range[0] + 1 < $totalcount) {
+                        $code = 206; // partial content
+                  }
+
                   $additionalheaders["Accept-Range"]  = $itemtype." ".Toolbox::get_max_input_vars();
                   if ($totalcount > 0) {
                      $additionalheaders["Content-Range"] = implode('-', $range)."/".$totalcount;
@@ -234,14 +264,14 @@ class APIRest extends API {
                $code     = 201;
                if (isset($response['id'])) {
                   // add a location targetting created element
-                  $additionalheaders['location'] = self::$api_url.$itemtype."/".$response['id'];
+                  $additionalheaders['location'] = self::$api_url."/$itemtype/".$response['id'];
                } else {
                   // add a link header targetting created elements
                   $additionalheaders['link'] = "";
                   foreach ($response as $created_item) {
                      if ($created_item['id']) {
-                        $additionalheaders['link'] .= self::$api_url.$itemtype.
-                                                     "/".$created_item['id'].",";
+                        $additionalheaders['link'] .= self::$api_url."/$itemtype/".
+                                                     $created_item['id'].",";
                      }
                   }
                   // remove last comma
@@ -250,6 +280,7 @@ class APIRest extends API {
                break;
 
             case "PUT" : // update item(s)
+            case "PATCH" : // update item(s)
                if (!isset($this->parameters['input'])) {
                   $this->messageBadArrayError();
                }
@@ -290,7 +321,7 @@ class APIRest extends API {
     *
     * @return boolean
     */
-   private function getItemtype($index=0, $recursive=true, $all_assets= false) {
+   private function getItemtype($index = 0, $recursive = true, $all_assets = false) {
 
       if (isset($this->url_elements[$index])) {
          if ((class_exists($this->url_elements[$index])
@@ -353,7 +384,7 @@ class APIRest extends API {
     */
    public function parseIncomingParams($is_inline_doc = false) {
 
-      $parameters = array();
+      $parameters = [];
 
       // first of all, pull the GET vars
       if (isset($_SERVER['QUERY_STRING'])) {
@@ -410,13 +441,11 @@ class APIRest extends API {
 
          // move files into _tmp folder
          $parameters['upload_result'] = [];
-         foreach ($_FILES as $filename => $files) {
-            $parameters['upload_result'][]
-               = GLPIUploadHandler::uploadFiles(['name'           => $filename,
-                                                 'print_response' => false]);
-         }
+         $parameters['input']->_filename = [];
+         $parameters['input']->_prefix_filename = [];
 
       } else if (strpos($content_type, "application/x-www-form-urlencoded") !== false) {
+         /** @var array $postvars */
          parse_str($body, $postvars);
          foreach ($postvars as $field => $value) {
             $parameters[$field] = $value;
@@ -428,10 +457,17 @@ class APIRest extends API {
       }
 
       // retrieve HTTP headers
-      $headers = array();
+      $headers = [];
       if (function_exists('getallheaders')) {
          //apache specific
          $headers = getallheaders();
+         if (false !== $headers && count($headers) > 0) {
+            $fixedHeaders = [];
+            foreach ($headers as $key => $value) {
+               $fixedHeaders[ucwords(strtolower($key), '-')] = $value;
+            }
+            $headers = $fixedHeaders;
+         }
       } else {
          // other servers
          foreach ($_SERVER as $server_key => $server_value) {
@@ -469,23 +505,23 @@ class APIRest extends API {
          $parameters['app_token'] = $headers['App-Token'];
       }
 
+      // check boolean parameters
+      foreach ($parameters as $key => &$parameter) {
+         if ($parameter === "true") {
+            $parameter = true;
+         }
+         if ($parameter === "false") {
+            $parameter = false;
+         }
+      }
+
       $this->parameters = $parameters;
 
       return "";
    }
 
 
-   /**
-    * Generic function to send a message and an http code to client
-    *
-    * @param string  $response          message or array of data to send
-    * @param integer $httpcode          http code (default 200)
-    *                                   (see: https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)
-    * @param array   $additionalheaders headers to send with http response (must be an array(key => value))
-    *
-    * @return void
-    */
-   public function returnResponse($response, $httpcode=200, $additionalheaders=array()) {
+   public function returnResponse($response, $httpcode = 200, $additionalheaders = []) {
 
       if (empty($httpcode)) {
          $httpcode = 200;

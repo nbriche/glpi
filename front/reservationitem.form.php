@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,16 +30,12 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
 
 Session::checkCentralAccess();
-Session::checkRightsOr('reservation', array(CREATE, UPDATE, DELETE, PURGE));
+Session::checkRightsOr('reservation', [CREATE, UPDATE, DELETE, PURGE]);
 
 if (!isset($_GET["id"])) {
    $_GET["id"] = '';
@@ -73,9 +69,9 @@ if (isset($_POST["add"])) {
               sprintf(__('%s purges an item'), $_SESSION["glpiname"]));
    Html::back();
 
-} else if (isset($_POST["backToStock"])) {
+} else if (isset($_POST["restore"])) {
    $ri->check($_POST["id"], PURGE);
-   $ri->backToStock($_POST);
+   $ri->restore($_POST);
 
    Event::log($_POST['id'], "reservationitem", 4, "inventory",
               //TRANS: %s is the user login

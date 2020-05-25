@@ -4,7 +4,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -32,10 +32,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 // COMPUTER ONLY UNDEF CATEGORIES
@@ -50,9 +46,9 @@ $query = "SELECT `id`, `softwarecategories_id`
 
 if ($result=$DB->query($query)) {
    if ($DB->numrows($result)>0) {
-      while ($data=$DB->fetch_array($result)) {
+      while ($data=$DB->fetchArray($result)) {
          if (!$ONLY_UNDEFINED || $data['softwarecategories_id']==0) {
-            $params = array();
+            $params = [];
 
             //Get software name and manufacturer
             $soft->getFromDB($data['id']);

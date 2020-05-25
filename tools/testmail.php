@@ -1,9 +1,8 @@
 <?php
-
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -31,9 +30,10 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
+if (PHP_SAPI != 'cli') {
+   echo "This script must be run from command line";
+   exit();
+}
 
 if (isset($_SERVER['argc'])) {
    for ($i=1; $i<$_SERVER['argc']; $i++) {
@@ -42,7 +42,7 @@ if (isset($_SERVER['argc'])) {
       $_GET[$it[0]] = (isset($it[1]) ? $it[1] : true);
    }
 }
-$NEEDED_ITEMS = array("mailgate", "mailing");
+$NEEDED_ITEMS = ["mailgate", "mailing"];
 
 include ('../inc/includes.php');
 
@@ -76,7 +76,7 @@ echo "From : $from\n";
 echo "To : $dest\n";
 echo "Date : $dat\n";
 
-$mmail = new NotificationMail();
+$mmail = new NotificationMailing();
 $mmail->From=$from;
 $mmail->FromName="GLPI test";
 $mmail->isHTML(true);

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 // Direct access to file
 if (strpos($_SERVER['PHP_SELF'], "rulecriteria.php")) {
    include ('../inc/includes.php');
@@ -57,11 +53,11 @@ if (isset($_POST["sub_type"]) && ($rule = getItemForItemtype($_POST["sub_type"])
       if (isset($criterias[$_POST["criteria"]]['allow_condition'])) {
          $allow_condition = $criterias[$_POST["criteria"]]['allow_condition'];
       } else {
-         $allow_condition = array();
+         $allow_condition = [];
       }
 
-      $condparam = array('criterion'        => $_POST["criteria"],
-                         'allow_conditions' => $allow_condition);
+      $condparam = ['criterion'        => $_POST["criteria"],
+                         'allow_conditions' => $allow_condition];
       if (isset($_POST['condition'])) {
          $condparam['value'] = $_POST['condition'];
       }
@@ -71,16 +67,16 @@ if (isset($_POST["sub_type"]) && ($rule = getItemForItemtype($_POST["sub_type"])
       echo "<span id='condition_span$randcrit'>\n";
       echo "</span>\n";
 
-      $paramscriteria = array('condition' => '__VALUE__',
+      $paramscriteria = ['condition' => '__VALUE__',
                               'criteria'  => $_POST["criteria"],
-                              'sub_type'  => $_POST["sub_type"]);
+                              'sub_type'  => $_POST["sub_type"]];
 
       Ajax::updateItemOnSelectEvent("dropdown_condition$randcrit", "condition_span$randcrit",
                                     $CFG_GLPI["root_doc"]."/ajax/rulecriteriavalue.php",
                                     $paramscriteria);
 
       if (isset($_POST['pattern'])) {
-         $paramscriteria['value'] = stripslashes($_POST['pattern']);
+         $paramscriteria['value'] = $_POST['pattern'];
       }
 
       Ajax::updateItem("condition_span$randcrit",

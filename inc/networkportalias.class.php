@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -44,7 +40,7 @@ if (!defined('GLPI_ROOT')) {
 class NetworkPortAlias extends NetworkPortInstantiation {
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return __('Alias port');
    }
 
@@ -89,14 +85,14 @@ class NetworkPortAlias extends NetworkPortInstantiation {
     * @see NetworkPortInstantiation::getInstantiationHTMLTableHeaders
    **/
    function getInstantiationHTMLTableHeaders(HTMLTableGroup $group, HTMLTableSuperHeader $super,
-                                             HTMLTableSuperHeader $internet_super=NULL,
-                                             HTMLTableHeader $father=NULL,
-                                             array $options=array()) {
+                                             HTMLTableSuperHeader $internet_super = null,
+                                             HTMLTableHeader $father = null,
+                                             array $options = []) {
 
       $group->addHeader('Origin', __('Origin port'), $super);
 
       parent::getInstantiationHTMLTableHeaders($group, $super, $internet_super, $father, $options);
-      return NULL;
+      return null;
    }
 
 
@@ -104,13 +100,13 @@ class NetworkPortAlias extends NetworkPortInstantiation {
     * @see NetworkPortInstantiation::getInstantiationHTMLTable()
    **/
    function getInstantiationHTMLTable(NetworkPort $netport, HTMLTableRow $row,
-                                      HTMLTableCell $father=NULL, array $options=array()) {
+                                      HTMLTableCell $father = null, array $options = []) {
 
       $row->addCell($row->getHeaderByName('Instantiation', 'Origin'),
                     $this->getInstantiationNetworkPortHTMLTable());
 
       parent::getInstantiationHTMLTable($netport, $row, $father, $options);
-      return NULL;
+      return null;
 
    }
 }

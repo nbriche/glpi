@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* @since version 0.85
-*/
+/**
+ * @since 0.85
+ */
 
 // Direct access to file
 if (strpos($_SERVER['PHP_SELF'], "getDropdownNumber.php")) {
@@ -45,90 +44,4 @@ if (strpos($_SERVER['PHP_SELF'], "getDropdownNumber.php")) {
 }
 
 Session::checkLoginUser();
-
-$used = array();
-
-if (isset($_POST['used'])) {
-   $used = $_POST['used'];
-}
-
-if (!isset($_POST['value'])) {
-   $_POST['value'] = 0;
-}
-
-$one_item = -1;
-if (isset($_POST['_one_id'])) {
-   $one_item = $_POST['_one_id'];
-}
-
-if (!isset($_POST['page'])) {
-   $_POST['page']       = 1;
-   $_POST['page_limit'] = $CFG_GLPI['dropdown_max'];
-}
-
-if (isset($_POST['toadd'])) {
-   $toadd = $_POST['toadd'];
-} else {
-   $toadd = array();
-}
-
-$datas = array();
-// Count real items returned
-$count = 0;
-
-if ($_POST['page'] == 1) {
-   if (count($toadd)) {
-      foreach ($toadd as $key => $val) {
-         if (($one_item < 0) || ($one_item == $key)) {
-            array_push($datas, array('id'   => $key,
-                                     'text' => strval(stripslashes($val))));
-         }
-      }
-   }
-}
-
-$values = array();
-if (!empty($_POST['searchText'])) {
-   for ($i=$_POST['min']; $i<=$_POST['max']; $i+=$_POST['step']) {
-      if (strstr($i, $_POST['searchText'])) {
-         $values[$i] = $i;
-      }
-   }
-} else {
-   for ($i=$_POST['min']; $i<=$_POST['max']; $i+=$_POST['step']) {
-      $values[$i] = $i;
-   }
-}
-
-if ($one_item < 0 && count($values)) {
-   $start  = ($_POST['page']-1)*$_POST['page_limit'];
-   $tosend = array_splice($values, $start, $_POST['page_limit']);
-   foreach ($tosend as $i) {
-      $txt = $i;
-      if (isset($_POST['unit'])) {
-         $txt = Dropdown::getValueWithUnit($i, $_POST['unit']);
-      }
-      array_push($datas, array('id'   => $i,
-                               'text' => strval($txt)));
-      $count++;
-   }
-
-} else {
-   if (!isset($toadd[$one_item])) {
-      if (isset($_POST['unit'])) {
-         $txt = Dropdown::getValueWithUnit($one_item, $_POST['unit']);
-      }
-      array_push($datas, array('id'   => $one_item,
-                               'text' => strval(stripslashes($txt))));
-      $count++;
-   }
-}
-
-if (($one_item >= 0)
-    && isset($datas[0])) {
-   echo json_encode($datas[0]);
-} else {
-   $ret['results'] = $datas;
-   $ret['count']   = $count;
-   echo json_encode($ret);
-}
+echo Dropdown::getDropdownNumber($_POST);

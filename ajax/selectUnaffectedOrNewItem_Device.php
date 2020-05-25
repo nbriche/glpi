@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* @since version 0.85
-*/
+/**
+ * @since 0.85
+ */
 
 include ('../inc/includes.php');
 
@@ -49,23 +48,32 @@ if ($_POST['items_id']
    $linktype   = $devicetype::getItem_DeviceType();
 
    if (count($linktype::getSpecificities())) {
-      $name_field = "CONCAT_WS(' - ', `".implode('`, `',
-                                                 array_keys($linktype::getSpecificities()))."`)";
+      $keys = array_keys($linktype::getSpecificities());
+      array_walk($keys, function (&$val) use ($DB) { return $DB->quoteName($val); });
+      $name_field = new QueryExpression(
+         "CONCAT_WS(' - ', " . implode(', ', $keys) . ")"
+         . "AS ".$DB->quoteName("name")
+      );
    } else {
-      $name_field = "`id`";
+      $name_field = 'id AS name';
    }
-   $query = "SELECT `id`, $name_field AS name
-             FROM `".$linktype::getTable()."`
-             WHERE `".$devicetype::getForeignKeyField()."` = '".$_POST['items_id']."'
-                    AND `itemtype` = ''";
-   $result = $DB->request($query);
+   $result = $DB->request(
+      [
+         'SELECT' => ['id', $name_field],
+         'FROM'   => $linktype::getTable(),
+         'WHERE'  => [
+            $devicetype::getForeignKeyField() => $_POST['items_id'],
+            'itemtype'                        => '',
+         ]
+      ]
+   );
    echo "<table width='100%'><tr><td>" . __('Choose an existing device') . "</td><td rowspan='2'>" .
         __('and/or') . "</td><td>" . __('Add new devices') . '</td></tr>';
    echo "<tr><td>";
-   if ($result->numrows() == 0) {
+   if ($result->count() == 0) {
       echo __('No unaffected device !');
    } else {
-      $devices = array();
+      $devices = [];
       foreach ($result as $row) {
          $name = $row['name'];
          if (empty($name)) {
@@ -74,10 +82,10 @@ if ($_POST['items_id']
          $devices[$row['id']] = $name;
 
       }
-      dropdown::showFromArray($linktype::getForeignKeyField(), $devices, array('multiple' => true));
+      dropdown::showFromArray($linktype::getForeignKeyField(), $devices, ['multiple' => true]);
    }
    echo "</td><td>";
-   Dropdown::showNumber('new_devices', array('min'   => 0, 'max'   => 10));
+   Dropdown::showNumber('new_devices', ['min'   => 0, 'max'   => 10]);
    echo "</td></tr></table>";
 
 }

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,15 +30,12 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 /**
- * @since version 0.84
+ * @since 0.84
 **/
 class SsoVariable extends CommonDropdown {
 
@@ -47,7 +44,7 @@ class SsoVariable extends CommonDropdown {
    public $can_be_translated = false;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
 
       return _n('Field storage of the login in the HTTP request',
                 'Fields storage of the login in the HTTP request', $nb);
@@ -60,10 +57,50 @@ class SsoVariable extends CommonDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
    static function canPurge() {
       return static::canUpdate();
    }
 
+
+   function cleanRelationData() {
+
+      parent::cleanRelationData();
+
+      if ($this->isUsedInAuth()) {
+         $newval = (isset($this->input['_replace_by']) ? $this->input['_replace_by'] : 0);
+
+         Config::setConfigurationValues(
+            'core',
+            [
+               'ssovariables_id' => $newval,
+            ]
+         );
+      }
+   }
+
+
+   function isUsed() {
+
+      if (parent::isUsed()) {
+         return true;
+      }
+
+      return $this->isUsedInAuth();
+   }
+
+
+   /**
+    * Check if variable is used in auth process.
+    *
+    * @return boolean
+    */
+   private function isUsedInAuth() {
+
+      $config_values = Config::getConfigurationValues('core', ['ssovariables_id']);
+
+      return array_key_exists('ssovariables_id', $config_values)
+         && $config_values['ssovariables_id'] == $this->fields['id'];
+   }
 }

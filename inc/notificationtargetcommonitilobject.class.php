@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,15 +30,23 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 abstract class NotificationTargetCommonITILObject extends NotificationTarget {
+
+   public $private_profiles = [];
+
+   public $html_tags        = [
+      '##change.solution.description##',
+      '##followup.description##',
+      '##linkedticket.content##',
+      '##problem.solution.description##',
+      '##ticket.content##',
+      '##ticket.description##',
+      '##ticket.solution.description##'
+   ];
 
    /**
     * @param $entity          (default '')
@@ -46,12 +54,54 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
     * @param $object          (default null)
     * @param $options   array
    **/
-   function __construct($entity='', $event='', $object=null, $options=array()) {
+   function __construct($entity = '', $event = '', $object = null, $options = []) {
 
       parent::__construct($entity, $event, $object, $options);
 
-      // For compatibility
-      $this->options['sendprivate'] = true;
+      if (isset($options['followup_id'])) {
+         $this->options['sendprivate'] = $options['is_private'];
+      }
+
+      if (isset($options['task_id'])) {
+         $this->options['sendprivate'] = $options['is_private'];
+      }
+
+   }
+
+
+   function validateSendTo($event, array $infos, $notify_me = false) {
+
+      // Check global ones for notification to myself
+      if (!parent::validateSendTo($event, $infos, $notify_me)) {
+         return false;
+      }
+
+      // Private object and no right to see private items : do not send
+      if ($this->isPrivate()
+          && (!isset($infos['additionnaloption']['show_private'])
+              || !$infos['additionnaloption']['show_private'])) {
+         return false;
+      }
+
+      return true;
+   }
+
+   /**
+    * Get notification subject prefix
+    *
+    * @param $event Event name (default '')
+    *
+    * @return string
+    **/
+   function getSubjectPrefix($event = '') {
+
+      $perso_tag = trim(Entity::getUsedConfig('notification_subject_tag', $this->getEntity(),
+                                              '', ''));
+
+      if (empty($perso_tag)) {
+         $perso_tag = 'GLPI';
+      }
+      return sprintf("[$perso_tag #%07d] ", $this->obj->getField('id'));
    }
 
    /**
@@ -63,13 +113,21 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
    **/
    function getEvents() {
 
-      $events = array('requester_user'    => __('New user in requesters'),
-                      'requester_group'   => __('New group in requesters'),
-                      'observer_user'     => __('New user in observers'),
-                      'observer_group'    => __('New group in observers'),
-                      'assign_user'       => __('New user in assignees'),
-                      'assign_group'      => __('New group in assignees'),
-                      'assign_supplier'   => __('New supplier in assignees'));
+      $events = [
+         'requester_user'    => __('New user in requesters'),
+         'requester_group'   => __('New group in requesters'),
+         'observer_user'     => __('New user in observers'),
+         'observer_group'    => __('New group in observers'),
+         'assign_user'       => __('New user in assignees'),
+         'assign_group'      => __('New group in assignees'),
+         'assign_supplier'   => __('New supplier in assignees'),
+         'add_task'          => __('New task'),
+         'update_task'       => __('Update of a task'),
+         'delete_task'       => __('Deletion of a task'),
+         'add_followup'      => __("New followup"),
+         'update_followup'   => __('Update of a followup'),
+         'delete_followup'   => __('Deletion of a followup'),
+      ];
 
       asort($events);
       return $events;
@@ -79,25 +137,37 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
    /**
     * Add linked users to the notified users list
     *
-    * @param $type type of linked users
-   **/
-   function getLinkedUserByType($type) {
+    * @param integer $type type of linked users
+    *
+    * @return void
+    */
+   function addLinkedUserByType($type) {
       global $DB, $CFG_GLPI;
 
       $userlinktable = getTableForItemType($this->obj->userlinkclass);
       $fkfield       = $this->obj->getForeignKeyField();
 
       //Look for the user by his id
-      $query =        $this->getDistinctUserSql().",
-                      `$userlinktable`.`use_notification` AS notif,
-                      `$userlinktable`.`alternative_email` AS altemail
-               FROM `$userlinktable`
-               LEFT JOIN `glpi_users` ON (`$userlinktable`.`users_id` = `glpi_users`.`id`)".
-               $this->getProfileJoinSql()."
-               WHERE `$userlinktable`.`$fkfield` = '".$this->obj->fields["id"]."'
-                     AND `$userlinktable`.`type` = '$type'";
+      $criteria = ['LEFT JOIN' => [
+         User::getTable() => [
+            'ON' => [
+               $userlinktable    => 'users_id',
+               User::getTable()  => 'id'
+            ]
+         ]
+      ]] + $this->getDistinctUserCriteria() + $this->getProfileJoinCriteria();
+      $criteria['FROM'] = $userlinktable;
+      $criteria['FIELDS'] = array_merge(
+         $criteria['FIELDS'], [
+            "$userlinktable.use_notification AS notif",
+            "$userlinktable.alternative_email AS altemail"
+         ]
+      );
+      $criteria['WHERE']["$userlinktable.$fkfield"] = $this->obj->fields['id'];
+      $criteria['WHERE']["$userlinktable.type"] = $type;
 
-      foreach ($DB->request($query) as $data) {
+      $iterator = $DB->request($criteria);
+      while ($data = $iterator->next()) {
          //Add the user email and language in the notified users list
          if ($data['notif']) {
             $author_email = UserEmail::getDefaultForUser($data['users_id']);
@@ -106,7 +176,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
 
             if (!empty($data['altemail'])
                 && ($data['altemail'] != $author_email)
-                && NotificationMail::isUserAddressValid($data['altemail'])) {
+                && NotificationMailing::isUserAddressValid($data['altemail'])) {
                $author_email = $data['altemail'];
             }
             if (empty($author_lang)) {
@@ -115,24 +185,38 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
             if (empty($author_id)) {
                $author_id = -1;
             }
-            $this->addToAddressesList(array('email'    => $author_email,
-                                            'language' => $author_lang,
-                                            'users_id' => $author_id));
+
+            $user = [
+               'language' => $author_lang,
+               'users_id' => $author_id
+            ];
+            if ($this->isMailMode()) {
+               $user['email'] = $author_email;
+            }
+            $this->addToRecipientsList($user);
          }
       }
 
       // Anonymous user
-      $query = "SELECT `alternative_email`
-                FROM `$userlinktable`
-                WHERE `$userlinktable`.`$fkfield` = '".$this->obj->fields["id"]."'
-                      AND `$userlinktable`.`users_id` = 0
-                      AND `$userlinktable`.`use_notification` = 1
-                      AND `$userlinktable`.`type` = '$type'";
-      foreach ($DB->request($query) as $data) {
-         if (NotificationMail::isUserAddressValid($data['alternative_email'])) {
-            $this->addToAddressesList(array('email'    => $data['alternative_email'],
-                                            'language' => $CFG_GLPI["language"],
-                                            'users_id' => -1));
+      $iterator = $DB->request([
+         'SELECT' => 'alternative_email',
+         'FROM'   => $userlinktable,
+         'WHERE'  => [
+            $fkfield             => $this->obj->fields['id'],
+            'users_id'           => 0,
+            'use_notification'   => 1,
+            'type'               => $type
+         ]
+      ]);
+      while ($data = $iterator->next()) {
+         if ($this->isMailMode()) {
+            if (NotificationMailing::isUserAddressValid($data['alternative_email'])) {
+               $this->addToRecipientsList([
+                  'email'    => $data['alternative_email'],
+                  'language' => $CFG_GLPI["language"],
+                  'users_id' => -1
+               ]);
+            }
          }
       }
    }
@@ -141,23 +225,29 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
    /**
     * Add linked group to the notified user list
     *
-    * @param $type type of linked groups
-   **/
-   function getLinkedGroupByType($type) {
+    * @param integer $type type of linked groups
+    *
+    * @return void
+    */
+   function addLinkedGroupByType($type) {
       global $DB;
 
       $grouplinktable = getTableForItemType($this->obj->grouplinkclass);
       $fkfield        = $this->obj->getForeignKeyField();
 
       //Look for the user by his id
-      $query = "SELECT `groups_id`
-                FROM `$grouplinktable`
-                WHERE `$grouplinktable`.`$fkfield` = '".$this->obj->fields["id"]."'
-                      AND `$grouplinktable`.`type` = '$type'";
+      $iterator = $DB->request([
+         'SELECT' => 'groups_id',
+         'FROM'   => $grouplinktable,
+         'WHERE'  => [
+            $fkfield => $this->obj->fields['id'],
+            'type'   => $type
+         ]
+      ]);
 
-      foreach ($DB->request($query) as $data) {
+      while ($data = $iterator->next()) {
          //Add the group in the notified users list
-         $this->getAddressesByGroup(0, $data['groups_id']);
+         $this->addForGroup(0, $data['groups_id']);
       }
    }
 
@@ -166,24 +256,30 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
    /**
     * Add linked group without supervisor to the notified user list
     *
-    * @since version 0.84.1
+    * @since 0.84.1
     *
-    * @param $type type of linked groups
-   **/
-   function getLinkedGroupWithoutSupervisorByType($type) {
+    * @param integer $type type of linked groups
+    *
+    * @return void
+    */
+   function addLinkedGroupWithoutSupervisorByType($type) {
       global $DB;
 
       $grouplinktable = getTableForItemType($this->obj->grouplinkclass);
       $fkfield        = $this->obj->getForeignKeyField();
 
-      $query = "SELECT `groups_id`
-                FROM `$grouplinktable`
-                WHERE `$grouplinktable`.`$fkfield` = '".$this->obj->fields["id"]."'
-                      AND `$grouplinktable`.`type` = '$type'";
+      $iterator = $DB->request([
+         'SELECT' => 'groups_id',
+         'FROM'   => $grouplinktable,
+         'WHERE'  => [
+            $fkfield => $this->obj->fields['id'],
+            'type'   => $type
+         ]
+      ]);
 
-      foreach ($DB->request($query) as $data) {
+      while ($data = $iterator->next()) {
          //Add the group in the notified users list
-         $this->getAddressesByGroup(2, $data['groups_id']);
+         $this->addForGroup(2, $data['groups_id']);
       }
    }
 
@@ -191,22 +287,28 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
    /**
     * Add linked group supervisor to the notified user list
     *
-    * @param $type type of linked groups
-   **/
-   function getLinkedGroupSupervisorByType($type) {
+    * @param integer $type type of linked groups
+    *
+    * @return void
+    */
+   function addLinkedGroupSupervisorByType($type) {
       global $DB;
 
       $grouplinktable = getTableForItemType($this->obj->grouplinkclass);
       $fkfield        = $this->obj->getForeignKeyField();
 
-      $query = "SELECT `groups_id`
-                FROM `$grouplinktable`
-                WHERE `$grouplinktable`.`$fkfield` = '".$this->obj->fields["id"]."'
-                      AND `$grouplinktable`.`type` = '$type'";
+      $iterator = $DB->request([
+         'SELECT' => 'groups_id',
+         'FROM'   => $grouplinktable,
+         'WHERE'  => [
+            $fkfield => $this->obj->fields['id'],
+            'type'   => $type
+         ]
+      ]);
 
-      foreach ($DB->request($query) as $data) {
+      while ($data = $iterator->next()) {
          //Add the group in the notified users list
-         $this->getAddressesByGroup(1, $data['groups_id']);
+         $this->addForGroup(1, $data['groups_id']);
       }
    }
 
@@ -214,12 +316,17 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
    /**
     * Get the email of the item's user : Overloaded manual address used
    **/
-   function getItemAuthorAddress() {
-      $this->getLinkedUserByType(CommonITILActor::REQUESTER);
+   function addItemAuthor() {
+      $this->addLinkedUserByType(CommonITILActor::REQUESTER);
    }
 
 
-   function getOldAssignTechnicianAddress() {
+   /**
+    * Add previous technician in charge (before reassign)
+    *
+    * @return void
+    */
+   function addOldAssignTechnician() {
       global $CFG_GLPI;
 
       if (isset($this->options['_old_user'])
@@ -235,7 +342,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
 
          if (!empty($this->options['_old_user']['alternative_email'])
              && ($this->options['_old_user']['alternative_email'] != $author_email)
-             && NotificationMail::isUserAddressValid($this->options['_old_user']['alternative_email'])) {
+             && NotificationMailing::isUserAddressValid($this->options['_old_user']['alternative_email'])) {
 
             $author_email = $this->options['_old_user']['alternative_email'];
          }
@@ -245,223 +352,381 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
          if (empty($author_id)) {
             $author_id = -1;
          }
-         $this->addToAddressesList(array('email'    => $author_email,
-                                         'language' => $author_lang,
-                                         'users_id' => $author_id));
+
+         $user = [
+            'language' => $author_lang,
+            'users_id' => $author_id
+         ];
+         if ($this->isMailMode()) {
+            $user['email'] = $author_email;
+         }
+         $this->addToRecipientsList($user);
       }
    }
 
 
    /**
-    * Get recipient
-   **/
-   function getRecipientAddress() {
-      return $this->getUserByField("users_id_recipient");
+    * Add recipient
+    *
+    * @return void
+    */
+   function addRecipientAddress() {
+      return $this->addUserByField("users_id_recipient");
    }
 
 
    /**
     * Get supplier related to the ITIL object
     *
-    * @param $sendprivate  (false by default)
-   **/
-   function getSupplierAddress($sendprivate=false) {
+    * @param boolean $sendprivate (false by default)
+    *
+    * @return void
+    */
+   function addSupplier($sendprivate = false) {
       global $DB;
 
       if (!$sendprivate
-          && $this->obj->countSuppliers(CommonITILActor::ASSIGN)) {
+         && $this->obj->countSuppliers(CommonITILActor::ASSIGN)
+         && $this->isMailMode()) {
 
          $supplierlinktable = getTableForItemType($this->obj->supplierlinkclass);
          $fkfield           = $this->obj->getForeignKeyField();
 
-         $query = "SELECT DISTINCT `glpi_suppliers`.`email` AS email,
-                                   `glpi_suppliers`.`name` AS name
-                   FROM `$supplierlinktable`
-                   LEFT JOIN `glpi_suppliers`
-                     ON (`$supplierlinktable`.`suppliers_id` = `glpi_suppliers`.`id`)
-                   WHERE `$supplierlinktable`.`$fkfield` = '".$this->obj->getID()."'";
+         $iterator = $DB->request([
+            'SELECT'          => [
+               'glpi_suppliers.email AS email',
+               'glpi_suppliers.name AS name'
+            ],
+            'DISTINCT'        => true,
+            'FROM'            => $supplierlinktable,
+            'LEFT JOIN'       => [
+               'glpi_suppliers'  => [
+                  'ON' => [
+                     $supplierlinktable   => 'suppliers_id',
+                     'glpi_suppliers'     => 'id'
+                  ]
+               ]
+            ],
+            'WHERE'           => [
+               "$supplierlinktable.$fkfield" => $this->obj->getID()
+            ]
+         ]);
 
-         foreach ($DB->request($query) as $data) {
-            $this->addToAddressesList($data);
+         while ($data = $iterator->next()) {
+            $this->addToRecipientsList($data);
          }
       }
    }
 
 
    /**
-    * Get approuver related to the ITIL object validation
+    * Add approver related to the ITIL object validation
     *
     * @param $options array
-   **/
-   function getValidationApproverAddress($options=array()) {
+    *
+    * @return void
+    */
+   function addValidationApprover($options = []) {
       global $DB;
 
       if (isset($options['validation_id'])) {
          $validationtable = getTableForItemType($this->obj->getType().'Validation');
 
-         $query = $this->getDistinctUserSql()."
-                  FROM `$validationtable`
-                  LEFT JOIN `glpi_users`
-                        ON (`glpi_users`.`id` = `$validationtable`.`users_id_validate`)".
-                  $this->getProfileJoinSql()."
-                  WHERE `$validationtable`.`id` = '".$options['validation_id']."'";
+         $criteria = ['LEFT JOIN' => [
+            User::getTable() => [
+               'ON' => [
+                  $validationtable  => 'users_id_validate',
+                  User::getTable()  => 'id'
+               ]
+            ]
+         ]] + $this->getDistinctUserCriteria() + $this->getProfileJoinCriteria();
+         $criteria['FROM'] = $validationtable;
+         $criteria['WHERE']["$validationtable.id"] = $options['validation_id'];
 
-         foreach ($DB->request($query) as $data) {
-            $this->addToAddressesList($data);
+         $iterator = $DB->request($criteria);
+         while ($data = $iterator->next()) {
+            $this->addToRecipientsList($data);
          }
       }
    }
 
    /**
-    * Get requester related to the ITIL object validation
+    * Add requester related to the ITIL object validation
     *
-    * @param $options array
+    * @param array $options Options
+    *
+    * @return void
    **/
-   function getValidationRequesterAddress($options=array()) {
+   function addValidationRequester($options = []) {
       global $DB;
 
       if (isset($options['validation_id'])) {
          $validationtable = getTableForItemType($this->obj->getType().'Validation');
 
-         $query = $this->getDistinctUserSql()."
-                  FROM `$validationtable`
-                  LEFT JOIN `glpi_users`
-                        ON (`glpi_users`.`id` = `$validationtable`.`users_id`)".
-                  $this->getProfileJoinSql()."
-                  WHERE `$validationtable`.`id` = '".$options['validation_id']."'";
+         $criteria = ['LEFT JOIN' => [
+            User::getTable() => [
+               'ON' => [
+                  $validationtable  => 'users_id',
+                  User::getTable()  => 'id'
+               ]
+            ]
+         ]] + $this->getDistinctUserCriteria() + $this->getProfileJoinCriteria();
+         $criteria['FROM'] = $validationtable;
+         $criteria['WHERE']["$validationtable.id"] = $options['validation_id'];
 
-         foreach ($DB->request($query) as $data) {
-            $this->addToAddressesList($data);
+         $iterator = $DB->request($criteria);
+         while ($data = $iterator->next()) {
+            $this->addToRecipientsList($data);
          }
       }
    }
 
 
    /**
-    * Get author related to the followup
+    * Add author related to the followup
     *
-    * @param $options array
-   **/
-   function getFollowupAuthor($options=array()) {
+    * @param array $options Options
+    *
+    * @return void
+    */
+   function addFollowupAuthor($options = []) {
       global $DB;
 
       if (isset($options['followup_id'])) {
          $followuptable = getTableForItemType($this->obj->getType().'Followup');
 
-         $query = $this->getDistinctUserSql()."
-                  FROM `$followuptable`
-                  INNER JOIN `glpi_users`
-                        ON (`glpi_users`.`id` = `$followuptable`.`users_id`)".
-                  $this->getProfileJoinSql()."
-                  WHERE `$followuptable`.`id` = '".$options['followup_id']."'";
+         $criteria = array_merge_recursive(
+            ['INNER JOIN' => [
+               User::getTable() => [
+                  'ON' => [
+                     $followuptable    => 'users_id',
+                     User::getTable()  => 'id'
+                  ]
+               ]
+            ]],
+            $this->getDistinctUserCriteria() + $this->getProfileJoinCriteria()
+         );
+         $criteria['FROM'] = $followuptable;
+         $criteria['WHERE']["$followuptable.id"] = $options['followup_id'];
 
-         foreach ($DB->request($query) as $data) {
-            $this->addToAddressesList($data);
+         $iterator = $DB->request($criteria);
+         while ($data = $iterator->next()) {
+            $this->addToRecipientsList($data);
          }
       }
    }
 
 
    /**
-    * Get author related to the task
+    * Add task author
     *
-    * @param $options array
-   **/
-   function getTaskAuthor($options=array()) {
+    * @param array $options Options
+    *
+    * @return void
+    */
+   function addTaskAuthor($options = []) {
       global $DB;
 
-            // In case of delete task pass user id
+      // In case of delete task pass user id
       if (isset($options['task_users_id'])) {
-         $query = $this->getDistinctUserSql()."
-                  FROM `glpi_users` ".
-                  $this->getProfileJoinSql()."
-                  WHERE `glpi_users`.`id` = '".$options['task_users_id']."'";
+         $criteria = $this->getDistinctUserCriteria() + $this->getProfileJoinCriteria();
+         $criteria['FROM'] = User::getTable();
+         $criteria['WHERE'][User::getTable() . '.id'] = $options['task_users_id'];
 
-         foreach ($DB->request($query) as $data) {
-            $this->addToAddressesList($data);
+         $iterator = $DB->request($criteria);
+         while ($data = $iterator->next()) {
+            $this->addToRecipientsList($data);
          }
       } else if (isset($options['task_id'])) {
          $tasktable = getTableForItemType($this->obj->getType().'Task');
 
-         $query = $this->getDistinctUserSql()."
-                  FROM `$tasktable`
-                  INNER JOIN `glpi_users` ON (`glpi_users`.`id` = `$tasktable`.`users_id`)".
-                  $this->getProfileJoinSql()."
-                  WHERE `$tasktable`.`id` = '".$options['task_id']."'";
+         $criteria = array_merge_recursive(
+            ['INNER JOIN' => [
+               User::getTable() => [
+                  'ON' => [
+                     $tasktable        => 'users_id',
+                     User::getTable()  => 'id'
+                  ]
+               ]
+            ]],
+            $this->getDistinctUserCriteria() + $this->getProfileJoinCriteria()
+         );
+         $criteria['FROM'] = $tasktable;
+         $criteria['WHERE']["$tasktable.id"] = $options['task_id'];
 
-         foreach ($DB->request($query) as $data) {
-            $this->addToAddressesList($data);
+         $iterator = $DB->request($criteria);
+         while ($data = $iterator->next()) {
+            $this->addToRecipientsList($data);
          }
       }
    }
 
 
    /**
-    * Get author related to the task
+    * Add user assigned to task
     *
-    * @param $options array
-   **/
-   function getTaskAssignUser($options=array()) {
+    * @param array $options Options
+    *
+    * @return void
+    */
+   function addTaskAssignUser($options = []) {
       global $DB;
 
       // In case of delete task pass user id
       if (isset($options['task_users_id_tech'])) {
-         $query = $this->getDistinctUserSql()."
-                  FROM `glpi_users` ".
-                  $this->getProfileJoinSql()."
-                  WHERE `glpi_users`.`id` = '".$options['task_users_id_tech']."'";
+         $criteria = $this->getDistinctUserCriteria() + $this->getProfileJoinCriteria();
+         $criteria['FROM'] = User::getTable();
+         $criteria['WHERE'][User::getTable() . '.id'] = $options['task_users_id_tech'];
 
-         foreach ($DB->request($query) as $data) {
-            $this->addToAddressesList($data);
+         $iterator = $DB->request($criteria);
+         while ($data = $iterator->next()) {
+            $this->addToRecipientsList($data);
          }
       } else if (isset($options['task_id'])) {
          $tasktable = getTableForItemType($this->obj->getType().'Task');
 
-         $query = $this->getDistinctUserSql()."
-                  FROM `$tasktable`
-                  INNER JOIN `glpi_users`
-                        ON (`glpi_users`.`id` = `$tasktable`.`users_id_tech`)".
-                  $this->getProfileJoinSql()."
-                  WHERE `$tasktable`.`id` = '".$options['task_id']."'";
+         $criteria = array_merge_recursive(
+            ['INNER JOIN' => [
+               User::getTable() => [
+                  'ON' => [
+                     $tasktable        => 'users_id_tech',
+                     User::getTable()  => 'id'
+                  ]
+               ]
+            ]],
+            $this->getDistinctUserCriteria() + $this->getProfileJoinCriteria()
+         );
+         $criteria['FROM'] = $tasktable;
+         $criteria['WHERE']["$tasktable.id"] = $options['task_id'];
 
-         foreach ($DB->request($query) as $data) {
-            $this->addToAddressesList($data);
+         $iterator = $DB->request($criteria);
+         while ($data = $iterator->next()) {
+            $this->addToRecipientsList($data);
          }
       }
    }
 
 
    /**
-    * Get group assigned to the task
+    * Add group assigned to the task
     *
-    * @since version 9.1
+    * @since 9.1
     *
-    * @param $options array
-    **/
-   function getTaskAssignGroup($options=array()) {
+    * @param array $options Options
+    *
+    * @return void
+    */
+   function addTaskAssignGroup($options = []) {
       global $DB;
 
       // In case of delete task pass user id
       if (isset($options['task_groups_id_tech'])) {
-         $this->getAddressesByGroup(0, $options['task_groups_id_tech']);
+         $this->addForGroup(0, $options['task_groups_id_tech']);
 
       } else if (isset($options['task_id'])) {
          $tasktable = getTableForItemType($this->obj->getType().'Task');
-         foreach ($DB->request(array($tasktable, 'glpi_groups'),
-                               "`glpi_groups`.`id` = `$tasktable`.`groups_id_tech`
-                                AND `$tasktable`.`id` = '".$options['task_id']."'") as $data) {
-            $this->getAddressesByGroup(0, $data['groups_id_tech']);
+         $iterator = $DB->request([
+            'FROM'   => $tasktable,
+            'INNER JOIN'   => [
+               'glpi_groups'  => [
+                  'ON'  => [
+                     'glpi_groups'  => 'id',
+                     $tasktable     => 'groups_id_tech'
+                  ]
+               ]
+            ],
+            'WHERE'        => ["$tasktable.id" => $options['task_id']]
+         ]);
+         while ($data = $iterator->next()) {
+            $this->addForGroup(0, $data['groups_id_tech']);
          }
       }
    }
 
 
+   function addAdditionnalInfosForTarget() {
+      global $DB;
+
+      $iterator = $DB->request([
+         'SELECT' => ['profiles_id'],
+         'FROM'   => 'glpi_profilerights',
+         'WHERE'  => [
+            'name'   => 'followup',
+            'rights' => ['&', ITILFollowup::SEEPRIVATE]
+         ]
+      ]);
+
+      while ($data = $iterator->next()) {
+         $this->private_profiles[$data['profiles_id']] = $data['profiles_id'];
+      }
+   }
+
+
+   function addAdditionnalUserInfo(array $data) {
+      global $DB;
+
+      if (!isset($data['users_id'])) {
+         return ['show_private' => 0];
+      }
+
+      $result = $DB->request([
+         'COUNT'  => 'cpt',
+         'FROM'   => 'glpi_profiles_users',
+         'WHERE'  => [
+            'users_id'     => $data['users_id'],
+            'profiles_id'  => $this->private_profiles
+         ] + getEntitiesRestrictCriteria('glpi_profiles_users', 'entities_id', $this->getEntity(), true)
+      ])->next();
+
+      if ($result['cpt']) {
+         return ['show_private' => 1];
+      }
+      return ['show_private' => 0];
+   }
+
+
+   public function getProfileJoinCriteria() {
+      $criteria = parent::getProfileJoinCriteria();
+
+      if ($this->isPrivate()) {
+         $criteria['INNER JOIN'][Profile::getTable()] = [
+            'ON' => [
+               Profile::getTable()        => 'id',
+               Profile_User::getTable()   => 'profiles_id'
+            ]
+         ];
+         $criteria['INNER JOIN'][ProfileRight::getTable()] = [
+            'ON' => [
+               ProfileRight::getTable()   => 'profiles_id',
+               Profile::getTable()        => 'id'
+            ]
+         ];
+         $criteria['WHERE'][ProfileRight::getTable() . '.name'] = 'followup';
+         $criteria['WHERE'][ProfileRight::getTable() . '.rights'] = ['&', ITILFollowup::SEEPRIVATE];
+         $criteria['WHERE'][Profile::getTable() . '.interface'] = 'central';
+      }
+      return $criteria;
+   }
+
+
+
+   function isPrivate() {
+
+      if (isset($this->options['sendprivate']) && ($this->options['sendprivate'] == 1)) {
+         return true;
+      }
+      return false;
+   }
+
+
    /**
-    * Get additionnals targets for ITIL objects
+    * Add additionnals targets for ITIL objects
     *
-    * @param $event  (default '')
+    * @param string $event specif event to get additional targets (default '')
+    *
+    * @return void
    **/
-   function getAdditionalTargets($event='') {
+   function addAdditionalTargets($event = '') {
 
       if ($event=='update') {
          $this->addTarget(Notification::OLD_TECH_IN_CHARGE,
@@ -519,10 +784,12 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
    /**
     * Get specifics targets for ITIL objects
     *
-    * @param $data      array
-    * @param $options   array
+    * @param array $data    Data
+    * @param array $options Options
+    *
+    * @return void
    **/
-   function getSpecificTargets($data, $options) {
+   function addSpecificTargets($data, $options) {
 
       //Look for all targets whose type is Notification::ITEM_USER
       switch ($data['type']) {
@@ -530,100 +797,100 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
 
             switch ($data['items_id']) {
                case Notification::ASSIGN_TECH :
-                  $this->getLinkedUserByType(CommonITILActor::ASSIGN);
+                  $this->addLinkedUserByType(CommonITILActor::ASSIGN);
                   break;
 
                //Send to the supervisor of group in charge of the ITIL object
                case Notification::SUPERVISOR_ASSIGN_GROUP :
-                  $this->getLinkedGroupSupervisorByType(CommonITILActor::ASSIGN);
+                  $this->addLinkedGroupSupervisorByType(CommonITILActor::ASSIGN);
                   break;
 
                //Notification to the group in charge of the ITIL object without supervisor
                case Notification::ASSIGN_GROUP_WITHOUT_SUPERVISOR :
-                  $this->getLinkedGroupWithoutSupervisorByType(CommonITILActor::ASSIGN);
+                  $this->addLinkedGroupWithoutSupervisorByType(CommonITILActor::ASSIGN);
                   break;
 
                //Send to the user who's got the issue
                case Notification::RECIPIENT :
-                  $this->getRecipientAddress();
+                  $this->addRecipientAddress();
                   break;
 
                //Send to the supervisor of the requester's group
                case Notification::SUPERVISOR_REQUESTER_GROUP :
-                  $this->getLinkedGroupSupervisorByType(CommonITILActor::REQUESTER);
+                  $this->addLinkedGroupSupervisorByType(CommonITILActor::REQUESTER);
                   break;
 
                //Send to the technician previously in charge of the ITIL object (before reassignation)
                case Notification::OLD_TECH_IN_CHARGE :
-                  $this->getOldAssignTechnicianAddress();
+                  $this->addOldAssignTechnician();
                   break;
 
                //Assign to a supplier
                case Notification::SUPPLIER :
-                  $this->getSupplierAddress($this->options['sendprivate']);
+                  $this->addSupplier($this->isPrivate());
                   break;
 
                case Notification::REQUESTER_GROUP :
-                  $this->getLinkedGroupByType(CommonITILActor::REQUESTER);
+                  $this->addLinkedGroupByType(CommonITILActor::REQUESTER);
                   break;
 
                //Notification to the requester group without supervisor
                case Notification::REQUESTER_GROUP_WITHOUT_SUPERVISOR :
-                  $this->getLinkedGroupWithoutSupervisorByType(CommonITILActor::REQUESTER);
+                  $this->addLinkedGroupWithoutSupervisorByType(CommonITILActor::REQUESTER);
                   break;
 
                case Notification::ASSIGN_GROUP :
-                  $this->getLinkedGroupByType(CommonITILActor::ASSIGN);
+                  $this->addLinkedGroupByType(CommonITILActor::ASSIGN);
                   break;
 
                //Send to the ITIL object validation approver
                case Notification::VALIDATION_APPROVER :
-                  $this->getValidationApproverAddress($options);
+                  $this->addValidationApprover($options);
                   break;
 
                //Send to the ITIL object validation requester
                case Notification::VALIDATION_REQUESTER :
-                  $this->getValidationRequesterAddress($options);
+                  $this->addValidationRequester($options);
                   break;
 
                //Send to the ITIL object followup author
                case Notification::FOLLOWUP_AUTHOR :
-                  $this->getFollowupAuthor($options);
+                  $this->addFollowupAuthor($options);
                   break;
 
                //Send to the ITIL object followup author
                case Notification::TASK_AUTHOR :
-                  $this->getTaskAuthor($options);
+                  $this->addTaskAuthor($options);
                   break;
 
                //Send to the ITIL object followup author
                case Notification::TASK_ASSIGN_TECH :
-                  $this->getTaskAssignUser($options);
+                  $this->addTaskAssignUser($options);
                   break;
 
                //Send to the ITIL object task group assigned
                case Notification::TASK_ASSIGN_GROUP :
-                  $this->getTaskAssignGroup($options);
+                  $this->addTaskAssignGroup($options);
                   break;
 
                //Notification to the ITIL object's observer group
                case Notification::OBSERVER_GROUP :
-                  $this->getLinkedGroupByType(CommonITILActor::OBSERVER);
+                  $this->addLinkedGroupByType(CommonITILActor::OBSERVER);
                   break;
 
                //Notification to the ITIL object's observer user
                case Notification::OBSERVER :
-                  $this->getLinkedUserByType(CommonITILActor::OBSERVER);
+                  $this->addLinkedUserByType(CommonITILActor::OBSERVER);
                   break;
 
                //Notification to the supervisor of the ITIL object's observer group
                case Notification::SUPERVISOR_OBSERVER_GROUP :
-                  $this->getLinkedGroupSupervisorByType(CommonITILActor::OBSERVER);
+                  $this->addLinkedGroupSupervisorByType(CommonITILActor::OBSERVER);
                   break;
 
                //Notification to the observer group without supervisor
                case Notification::OBSERVER_GROUP_WITHOUT_SUPERVISOR :
-                  $this->getLinkedGroupWithoutSupervisorByType(CommonITILActor::OBSERVER);
+                  $this->addLinkedGroupWithoutSupervisorByType(CommonITILActor::OBSERVER);
                   break;
 
             }
@@ -631,37 +898,31 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
    }
 
 
-   /**
-    * Get all data needed for template processing
-    *
-    * @param $event
-    * @param $options array
-   **/
-   function getDatasForTemplate($event, $options=array()) {
+   function addDataForTemplate($event, $options = []) {
       global $CFG_GLPI;
 
       $events    = $this->getAllEvents();
       $objettype = strtolower($this->obj->getType());
 
-      // Get datas from ITIL objects
+      // Get data from ITIL objects
       if ($event != 'alertnotclosed') {
-         $this->datas = $this->getDatasForObject($this->obj, $options);
+         $this->data = $this->getDataForObject($this->obj, $options);
 
       } else {
          if (isset($options['entities_id'])
              && isset($options['items'])) {
             $entity = new Entity();
             if ($entity->getFromDB($options['entities_id'])) {
-               $this->datas["##$objettype.entity##"]      = $entity->getField('completename');
-               $this->datas["##$objettype.shortentity##"] = $entity->getField('name');
+               $this->data["##$objettype.entity##"]      = $entity->getField('completename');
+               $this->data["##$objettype.shortentity##"] = $entity->getField('name');
             }
             if ($item = getItemForItemtype($objettype)) {
                $objettypes = Toolbox::strtolower(getPlural($objettype));
-               $items      = array();
+               $items      = [];
                foreach ($options['items'] as $object) {
                   $item->getFromDB($object['id']);
-                  $tmp = $this->getDatasForObject($item, $options, true);
-                  $this->datas[$objettypes][] = $tmp;
+                  $tmp = $this->getDataForObject($item, $options, true);
+                  $this->data[$objettypes][] = $tmp;
                }
             }
          }
@@ -669,19 +930,19 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
 
       if (($event == 'validation')
           && isset($options['validation_status'])) {
-         $this->datas["##$objettype.action##"]
+         $this->data["##$objettype.action##"]
                      //TRANS: %s id of the approval's state
                      = sprintf(__('%1$s - %2$s'), __('Approval'),
                                TicketValidation::getStatus($options['validation_status']));
       } else {
-         $this->datas["##$objettype.action##"] = $events[$event];
+         $this->data["##$objettype.action##"] = $events[$event];
       }
 
       $this->getTags();
 
       foreach ($this->tag_descriptions[parent::TAG_LANGUAGE] as $tag => $values) {
-         if (!isset($this->datas[$tag])) {
-            $this->datas[$tag] = $values['label'];
+         if (!isset($this->data[$tag])) {
+            $this->data[$tag] = $values['label'];
          }
       }
 
@@ -689,79 +950,73 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
 
 
    /**
-    * @param $item            CommonDBTM object
-    * @param $options   array
-    * @param $simple          (false by default)
+    * Get data from an item
+    *
+    * @param CommonDBTM $item    Object instance
+    * @param array      $options Options
+    * @param boolean    $simple  (false by default)
+    *
+    * @return array
    **/
-   function getDatasForObject(CommonDBTM $item, array $options, $simple=false) {
+   function getDataForObject(CommonDBTM $item, array $options, $simple = false) {
       global $CFG_GLPI, $DB;
 
       $objettype = strtolower($item->getType());
 
-      $datas["##$objettype.title##"]        = $item->getField('name');
-      $datas["##$objettype.content##"]      = $item->getField('content');
-      $datas["##$objettype.description##"]  = $item->getField('content');
-      $datas["##$objettype.id##"]           = sprintf("%07d", $item->getField("id"));
+      $data["##$objettype.title##"]        = $item->getField('name');
+      $data["##$objettype.content##"]      = $item->getField('content');
+      $data["##$objettype.description##"]  = $item->getField('content');
+      $data["##$objettype.id##"]           = sprintf("%07d", $item->getField("id"));
 
-      if ($_SESSION['glpiticket_timeline'] == 1) {
-         $datas["##$objettype.url##"]
-                           = $this->formatURL($options['additionnaloption']['usertype'],
-                                              $objettype."_".$item->getField("id")."_".
-                                                         $item->getType().'$1');
-      } else {
-         $datas["##$objettype.url##"]
-                           = $this->formatURL($options['additionnaloption']['usertype'],
-                                              $objettype."_".$item->getField("id"));
-      }
+      $data["##$objettype.url##"]
+                        = $this->formatURL($options['additionnaloption']['usertype'],
+                                           $objettype."_".$item->getField("id"));
 
-      $tab = '$2';
-      if ($_SESSION['glpiticket_timeline'] == 1) {
-         $tab = '$1';
-      }
-      $datas["##$objettype.urlapprove##"]
+      $tab = '$1';
+      $data["##$objettype.urlapprove##"]
                            = $this->formatURL($options['additionnaloption']['usertype'],
                                               $objettype."_".$item->getField("id")."_".
                                                         $item->getType().$tab);
 
       $entity = new Entity();
       if ($entity->getFromDB($this->getEntity())) {
-         $datas["##$objettype.entity##"]          = $entity->getField('completename');
-         $datas["##$objettype.shortentity##"]     = $entity->getField('name');
-         $datas["##$objettype.entity.phone##"]    = $entity->getField('phonenumber');
-         $datas["##$objettype.entity.fax##"]      = $entity->getField('fax');
-         $datas["##$objettype.entity.website##"]  = $entity->getField('website');
-         $datas["##$objettype.entity.email##"]    = $entity->getField('email');
-         $datas["##$objettype.entity.address##"]  = $entity->getField('address');
-         $datas["##$objettype.entity.postcode##"] = $entity->getField('postcode');
-         $datas["##$objettype.entity.town##"]     = $entity->getField('town');
-         $datas["##$objettype.entity.state##"]    = $entity->getField('state');
-         $datas["##$objettype.entity.country##"]  = $entity->getField('country');
+         $data["##$objettype.entity##"]          = $entity->getField('completename');
+         $data["##$objettype.shortentity##"]     = $entity->getField('name');
+         $data["##$objettype.entity.phone##"]    = $entity->getField('phonenumber');
+         $data["##$objettype.entity.fax##"]      = $entity->getField('fax');
+         $data["##$objettype.entity.website##"]  = $entity->getField('website');
+         $data["##$objettype.entity.email##"]    = $entity->getField('email');
+         $data["##$objettype.entity.address##"]  = $entity->getField('address');
+         $data["##$objettype.entity.postcode##"] = $entity->getField('postcode');
+         $data["##$objettype.entity.town##"]     = $entity->getField('town');
+         $data["##$objettype.entity.state##"]    = $entity->getField('state');
+         $data["##$objettype.entity.country##"]  = $entity->getField('country');
       }
 
-      $datas["##$objettype.storestatus##"]  = $item->getField('status');
-      $datas["##$objettype.status##"]       = $item->getStatus($item->getField('status'));
+      $data["##$objettype.storestatus##"]  = $item->getField('status');
+      $data["##$objettype.status##"]       = $item->getStatus($item->getField('status'));
 
-      $datas["##$objettype.urgency##"]      = $item->getUrgencyName($item->getField('urgency'));
-      $datas["##$objettype.impact##"]       = $item->getImpactName($item->getField('impact'));
-      $datas["##$objettype.priority##"]     = $item->getPriorityName($item->getField('priority'));
-      $datas["##$objettype.time##"]         = $item->getActionTime($item->getField('actiontime'));
+      $data["##$objettype.urgency##"]      = $item->getUrgencyName($item->getField('urgency'));
+      $data["##$objettype.impact##"]       = $item->getImpactName($item->getField('impact'));
+      $data["##$objettype.priority##"]     = $item->getPriorityName($item->getField('priority'));
+      $data["##$objettype.time##"]         = $item->getActionTime($item->getField('actiontime'));
 
-      $datas["##$objettype.creationdate##"] = Html::convDateTime($item->getField('date'));
-      $datas["##$objettype.closedate##"]    = Html::convDateTime($item->getField('closedate'));
-      $datas["##$objettype.solvedate##"]    = Html::convDateTime($item->getField('solvedate'));
-      $datas["##$objettype.duedate##"]      = Html::convDateTime($item->getField('due_date'));
+      $data["##$objettype.creationdate##"] = Html::convDateTime($item->getField('date'));
+      $data["##$objettype.closedate##"]    = Html::convDateTime($item->getField('closedate'));
+      $data["##$objettype.solvedate##"]    = Html::convDateTime($item->getField('solvedate'));
+      $data["##$objettype.duedate##"]      = Html::convDateTime($item->getField('time_to_resolve'));
 
-      $datas["##$objettype.category##"] = '';
+      $data["##$objettype.category##"] = '';
       if ($item->getField('itilcategories_id')) {
-         $datas["##$objettype.category##"]
+         $data["##$objettype.category##"]
                               = Dropdown::getDropdownName('glpi_itilcategories',
                                                           $item->getField('itilcategories_id'));
       }
 
-      $datas["##$objettype.authors##"] = '';
-      $datas['authors']                = array();
+      $data["##$objettype.authors##"] = '';
+      $data['authors']                = [];
       if ($item->countUsers(CommonITILActor::REQUESTER)) {
-         $users = array();
+         $users = [];
          foreach ($item->getUsers(CommonITILActor::REQUESTER) as $tmpusr) {
             $uid = $tmpusr['users_id'];
             $user_tmp = new User();
@@ -769,7 +1024,7 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                 && $user_tmp->getFromDB($uid)) {
                $users[] = $user_tmp->getName();
 
-               $tmp = array();
+               $tmp = [];
                $tmp['##author.id##']   = $uid;
                $tmp['##author.name##'] = $user_tmp->getName();
 
@@ -801,17 +1056,17 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                $tmp['##author.mobile##'] = $user_tmp->getField('mobile');
                $tmp['##author.phone##']  = $user_tmp->getField('phone');
                $tmp['##author.phone2##'] = $user_tmp->getField('phone2');
-               $datas['authors'][]       = $tmp;
+               $data['authors'][]       = $tmp;
             } else {
                // Anonymous users only in xxx.authors, not in authors
                $users[] = $tmpusr['alternative_email'];
             }
          }
-         $datas["##$objettype.authors##"] = implode(', ', $users);
+         $data["##$objettype.authors##"] = implode(', ', $users);
       }
 
-      $datas["##$objettype.suppliers##"] = '';
-      $datas['suppliers']              = [];
+      $data["##$objettype.suppliers##"] = '';
+      $data['suppliers']              = [];
       if ($item->countSuppliers(CommonITILActor::ASSIGN)) {
          $suppliers = [];
          foreach ($item->getSuppliers(CommonITILActor::ASSIGN) as $tmpspplier) {
@@ -843,29 +1098,29 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                                                  $supplier->getField('suppliertypes_id'));
                }
 
-               $datas['suppliers'][] = $tmp;
+               $data['suppliers'][] = $tmp;
             }
          }
-         $datas["##$objettype.suppliers##"] = implode(', ', $suppliers);
+         $data["##$objettype.suppliers##"] = implode(', ', $suppliers);
       }
 
-      $datas["##$objettype.openbyuser##"] = '';
+      $data["##$objettype.openbyuser##"] = '';
       if ($item->getField('users_id_recipient')) {
          $user_tmp = new User();
          $user_tmp->getFromDB($item->getField('users_id_recipient'));
-         $datas["##$objettype.openbyuser##"] = $user_tmp->getName();
+         $data["##$objettype.openbyuser##"] = $user_tmp->getName();
       }
 
-      $datas["##$objettype.lastupdater##"] = '';
+      $data["##$objettype.lastupdater##"] = '';
       if ($item->getField('users_id_lastupdater')) {
          $user_tmp = new User();
          $user_tmp->getFromDB($item->getField('users_id_lastupdater'));
-         $datas["##$objettype.lastupdater##"] = $user_tmp->getName();
+         $data["##$objettype.lastupdater##"] = $user_tmp->getName();
       }
 
-      $datas["##$objettype.assigntousers##"] = '';
+      $data["##$objettype.assigntousers##"] = '';
       if ($item->countUsers(CommonITILActor::ASSIGN)) {
-         $users = array();
+         $users = [];
          foreach ($item->getUsers(CommonITILActor::ASSIGN) as $tmp) {
             $uid      = $tmp['users_id'];
             $user_tmp = new User();
@@ -873,12 +1128,12 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                $users[$uid] = $user_tmp->getName();
             }
          }
-         $datas["##$objettype.assigntousers##"] = implode(', ', $users);
+         $data["##$objettype.assigntousers##"] = implode(', ', $users);
       }
 
-      $datas["##$objettype.assigntosupplier##"] = '';
+      $data["##$objettype.assigntosupplier##"] = '';
       if ($item->countSuppliers(CommonITILActor::ASSIGN)) {
-         $suppliers = array();
+         $suppliers = [];
          foreach ($item->getSuppliers(CommonITILActor::ASSIGN) as $tmp) {
             $uid           = $tmp['suppliers_id'];
             $supplier_tmp  = new Supplier();
@@ -886,32 +1141,32 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                $suppliers[$uid] = $supplier_tmp->getName();
             }
          }
-         $datas["##$objettype.assigntosupplier##"] = implode(', ', $suppliers);
+         $data["##$objettype.assigntosupplier##"] = implode(', ', $suppliers);
       }
 
-      $datas["##$objettype.groups##"] = '';
+      $data["##$objettype.groups##"] = '';
       if ($item->countGroups(CommonITILActor::REQUESTER)) {
-         $groups = array();
+         $groups = [];
          foreach ($item->getGroups(CommonITILActor::REQUESTER) as $tmp) {
             $gid          = $tmp['groups_id'];
             $groups[$gid] = Dropdown::getDropdownName('glpi_groups', $gid);
          }
-         $datas["##$objettype.groups##"] = implode(', ', $groups);
+         $data["##$objettype.groups##"] = implode(', ', $groups);
       }
 
-      $datas["##$objettype.observergroups##"] = '';
+      $data["##$objettype.observergroups##"] = '';
       if ($item->countGroups(CommonITILActor::OBSERVER)) {
-         $groups = array();
+         $groups = [];
          foreach ($item->getGroups(CommonITILActor::OBSERVER) as $tmp) {
             $gid          = $tmp['groups_id'];
             $groups[$gid] = Dropdown::getDropdownName('glpi_groups', $gid);
          }
-         $datas["##$objettype.observergroups##"] = implode(', ', $groups);
+         $data["##$objettype.observergroups##"] = implode(', ', $groups);
       }
 
-      $datas["##$objettype.observerusers##"] = '';
+      $data["##$objettype.observerusers##"] = '';
       if ($item->countUsers(CommonITILActor::OBSERVER)) {
-         $users = array();
+         $users = [];
          foreach ($item->getUsers(CommonITILActor::OBSERVER) as $tmp) {
             $uid      = $tmp['users_id'];
             $user_tmp = new User();
@@ -922,121 +1177,177 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                $users[] = $tmp['alternative_email'];
             }
          }
-         $datas["##$objettype.observerusers##"] = implode(', ', $users);
+         $data["##$objettype.observerusers##"] = implode(', ', $users);
       }
 
-      $datas["##$objettype.assigntogroups##"] = '';
+      $data["##$objettype.assigntogroups##"] = '';
       if ($item->countGroups(CommonITILActor::ASSIGN)) {
-         $groups = array();
+         $groups = [];
          foreach ($item->getGroups(CommonITILActor::ASSIGN) as $tmp) {
             $gid          = $tmp['groups_id'];
             $groups[$gid] = Dropdown::getDropdownName('glpi_groups', $gid);
          }
-         $datas["##$objettype.assigntogroups##"] = implode(', ', $groups);
+         $data["##$objettype.assigntogroups##"] = implode(', ', $groups);
       }
 
-      $datas["##$objettype.solution.type##"]='';
-      if ($item->getField('solutiontypes_id')) {
-         $datas["##$objettype.solution.type##"]
-                              = Dropdown::getDropdownName('glpi_solutiontypes',
-                                                          $item->getField('solutiontypes_id'));
-      }
+      $data["##$objettype.solution.type##"] = '';
+      $data["##$objettype.solution.description##"] = '';
 
-      $datas["##$objettype.solution.description##"]
-                     = Toolbox::unclean_cross_side_scripting_deep($item->getField('solution'));
+      $itilsolution = new ITILSolution();
+      $solution = $itilsolution->getFromDBByRequest([
+         'WHERE'  => [
+            'itemtype'  => $objettype,
+            'items_id'  => $item->fields['id']
+         ],
+         'ORDER'  => 'date_creation DESC',
+         'LIMIT'  => 1
+      ]);
+
+      if ($solution) {
+         if ($itilsolution->getField('solutiontypes_id')) {
+            $data["##$objettype.solution.type##"] = Dropdown::getDropdownName(
+               'glpi_solutiontypes',
+               $itilsolution->getField('solutiontypes_id')
+            );
+         }
+
+         $data["##$objettype.solution.description##"] = $itilsolution->getField('content');
+      }
 
       // Complex mode
       if (!$simple) {
-         $datas['log'] = array();
-         // Use list_limit_max or load the full history ?
-         foreach (Log::getHistoryData($item, 0, $CFG_GLPI['list_limit_max']) as $data) {
-            $tmp                               = array();
-            $tmp["##$objettype.log.date##"]    = $data['date_mod'];
-            $tmp["##$objettype.log.user##"]    = $data['user_name'];
-            $tmp["##$objettype.log.field##"]   = $data['field'];
-            $tmp["##$objettype.log.content##"] = $data['change'];
-            $datas['log'][]                    = $tmp;
+         $followup_restrict = [];
+         $followup_restrict['items_id'] = $item->getField('id');
+         if (!isset($options['additionnaloption']['show_private'])
+             || !$options['additionnaloption']['show_private']) {
+            $followup_restrict['is_private'] = 0;
+         }
+         $followup_restrict['itemtype'] = $objettype;
+
+         //Followup infos
+         $followups          = getAllDataFromTable(
+            'glpi_itilfollowups', [
+               'WHERE'  => $followup_restrict,
+               'ORDER'  => ['date_mod DESC', 'id ASC']
+            ]
+         );
+         $data['followups'] = [];
+         foreach ($followups as $followup) {
+            $tmp                             = [];
+            $tmp['##followup.isprivate##']   = Dropdown::getYesNo($followup['is_private']);
+            $tmp['##followup.author##']      = Html::clean(getUserName($followup['users_id']));
+            $tmp['##followup.requesttype##'] = Dropdown::getDropdownName('glpi_requesttypes',
+                                                                         $followup['requesttypes_id']);
+            $tmp['##followup.date##']        = Html::convDateTime($followup['date']);
+            $tmp['##followup.description##'] = $followup['content'];
+
+            $data['followups'][] = $tmp;
          }
 
-         $datas["##$objettype.numberoflogs##"] = count($datas['log']);
+         $data["##$objettype.numberoffollowups##"] = count($data['followups']);
+
+         $data['log'] = [];
+         // Use list_limit_max or load the full history ?
+         foreach (Log::getHistoryData($item, 0, $CFG_GLPI['list_limit_max']) as $log) {
+            $tmp                               = [];
+            $tmp["##$objettype.log.date##"]    = $log['date_mod'];
+            $tmp["##$objettype.log.user##"]    = $log['user_name'];
+            $tmp["##$objettype.log.field##"]   = $log['field'];
+            $tmp["##$objettype.log.content##"] = $log['change'];
+            $data['log'][]                    = $tmp;
+         }
+
+         $data["##$objettype.numberoflogs##"] = count($data['log']);
 
          // Get unresolved items
-         $restrict = "`".$item->getTable()."`.`status`
-                        NOT IN ('".implode("', '", array_merge($item->getSolvedStatusArray(),
-                                                               $item->getClosedStatusArray())
-                                          )."'
-                               )";
+         $restrict = [
+            'NOT' => [
+               $item->getTable() . '.status' => array_merge(
+                  $item->getSolvedStatusArray(),
+                  $item->getClosedStatusArray()
+               )
+            ]
+         ];
 
          if ($item->maybeDeleted()) {
-            $restrict .= " AND `".$item->getTable()."`.`is_deleted` = '0' ";
+            $restrict[$item->getTable() . '.is_deleted'] = 0;
          }
 
-         $datas["##$objettype.numberofunresolved##"]
+         $data["##$objettype.numberofunresolved##"]
                = countElementsInTableForEntity($item->getTable(), $this->getEntity(), $restrict);
 
          // Document
-         $query = "SELECT `glpi_documents`.*
-                   FROM `glpi_documents`
-                   LEFT JOIN `glpi_documents_items`
-                     ON (`glpi_documents`.`id` = `glpi_documents_items`.`documents_id`)
-                   WHERE `glpi_documents_items`.`itemtype` =  '".$item->getType()."'
-                         AND `glpi_documents_items`.`items_id` = '".$item->getField('id')."'";
+         $iterator = $DB->request([
+            'SELECT'    => 'glpi_documents.*',
+            'FROM'      => 'glpi_documents',
+            'LEFT JOIN' => [
+               'glpi_documents_items'  => [
+                  'ON' => [
+                     'glpi_documents_items'  => 'documents_id',
+                     'glpi_documents'        => 'id'
+                  ]
+               ]
+            ],
+            'WHERE'     => [
+               'glpi_documents_items.itemtype'  => $item->getType(),
+               'glpi_documents_items.items_id'  => $item->fields['id']
+            ]
+         ]);
 
-         $datas["documents"] = array();
+         $data["documents"] = [];
          $addtodownloadurl   = '';
          if ($item->getType() == 'Ticket') {
             $addtodownloadurl = "%2526tickets_id=".$item->fields['id'];
          }
-         if ($result = $DB->query($query)) {
-            while ($data = $DB->fetch_assoc($result)) {
-               $tmp                      = array();
-               $tmp['##document.id##']   = $data['id'];
-               $tmp['##document.name##'] = $data['name'];
-               $tmp['##document.weblink##']
-                                         = $data['link'];
+         while ($row = $iterator->next()) {
+            $tmp                      = [];
+            $tmp['##document.id##']   = $row['id'];
+            $tmp['##document.name##'] = $row['name'];
+            $tmp['##document.weblink##']
+                                       = $row['link'];
 
-               $tmp['##document.url##']  = $this->formatURL($options['additionnaloption']['usertype'],
-                                                            "document_".$data['id']);
-               $downloadurl              = "/front/document.send.php?docid=".$data['id'];
+            $tmp['##document.url##']  = $this->formatURL($options['additionnaloption']['usertype'],
+                                                         "document_".$row['id']);
+            $downloadurl              = "/front/document.send.php?docid=".$row['id'];
 
-               $tmp['##document.downloadurl##']
-                                         = $this->formatURL($options['additionnaloption']['usertype'],
-                                                            $downloadurl.$addtodownloadurl);
-               $tmp['##document.heading##']
-                                         = Dropdown::getDropdownName('glpi_documentcategories',
-                                                                     $data['documentcategories_id']);
+            $tmp['##document.downloadurl##']
+                                       = $this->formatURL($options['additionnaloption']['usertype'],
+                                                         $downloadurl.$addtodownloadurl);
+            $tmp['##document.heading##']
+                                       = Dropdown::getDropdownName('glpi_documentcategories',
+                                                                  $row['documentcategories_id']);
 
-               $tmp['##document.filename##']
-                                         = $data['filename'];
+            $tmp['##document.filename##']
+                                       = $row['filename'];
 
-               $datas['documents'][]     = $tmp;
-            }
+            $data['documents'][]     = $tmp;
          }
 
-         $datas["##$objettype.urldocument##"]
+         $data["##$objettype.urldocument##"]
                         = $this->formatURL($options['additionnaloption']['usertype'],
                                            $objettype."_".$item->getField("id").'_Document_Item$1');
 
-         $datas["##$objettype.numberofdocuments##"]
-                        = count($datas['documents']);
+         $data["##$objettype.numberofdocuments##"]
+                        = count($data['documents']);
 
          //costs infos
          $costtype = $item->getType().'Cost';
          $costs    = $costtype::getCostsSummary($costtype, $item->getField("id"));
 
-         $datas["##$objettype.costfixed##"]    = $costs['costfixed'];
-         $datas["##$objettype.costmaterial##"] = $costs['costmaterial'];
-         $datas["##$objettype.costtime##"]     = $costs['costtime'];
-         $datas["##$objettype.totalcost##"]    = $costs['totalcost'];
+         $data["##$objettype.costfixed##"]    = $costs['costfixed'];
+         $data["##$objettype.costmaterial##"] = $costs['costmaterial'];
+         $data["##$objettype.costtime##"]     = $costs['costtime'];
+         $data["##$objettype.totalcost##"]    = $costs['totalcost'];
 
-         $restrict  = "`".$item->getForeignKeyField()."`='".$item->getField('id')."'";
-
-         $restrict .= " ORDER BY `begin_date` DESC, `id` ASC";
-
-         $costs          = getAllDatasFromTable(getTableForItemType($costtype), $restrict);
-         $datas['costs'] = array();
+         $costs          = getAllDataFromTable(
+            getTableForItemType($costtype), [
+               'WHERE'  => [$item->getForeignKeyField() => $item->getField('id')],
+               'ORDER'  => ['begin_date DESC', 'id ASC']
+            ]
+         );
+         $data['costs'] = [];
          foreach ($costs as $cost) {
-            $tmp = array();
+            $tmp = [];
             $tmp['##cost.name##']         = $cost['name'];
             $tmp['##cost.comment##']      = $cost['comment'];
             $tmp['##cost.datebegin##']    = Html::convDate($cost['begin_date']);
@@ -1051,25 +1362,29 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                                                                              $cost['cost_material']);
             $tmp['##cost.budget##']       = Dropdown::getDropdownName('glpi_budgets',
                                                                       $cost['budgets_id']);
-            $datas['costs'][]             = $tmp;
+            $data['costs'][]             = $tmp;
          }
-         $datas["##$objettype.numberofcosts##"] = count($datas['costs']);
+         $data["##$objettype.numberofcosts##"] = count($data['costs']);
 
          //Task infos
          $tasktype = $item->getType().'Task';
          $taskobj  = new $tasktype();
-         $restrict = "`".$item->getForeignKeyField()."`='".$item->getField('id')."'";
+         $restrict = [$item->getForeignKeyField() => $item->getField('id')];
          if ($taskobj->maybePrivate()
              && (!isset($options['additionnaloption']['show_private'])
-                 || !$options['additionnaloption']['show_private'])) {
-            $restrict .= " AND `is_private` = '0'";
+             || !$options['additionnaloption']['show_private'])) {
+            $restrict['is_private'] = 0;
          }
-         $restrict .= " ORDER BY `date_mod` DESC, `id` ASC";
 
-         $tasks          = getAllDatasFromTable($taskobj->getTable(), $restrict);
-         $datas['tasks'] = array();
+         $tasks          = getAllDataFromTable(
+            $taskobj->getTable(), [
+               'WHERE'  => $restrict,
+               'ORDER'  => ['date_mod DESC', 'id ASC']
+            ]
+         );
+         $data['tasks'] = [];
          foreach ($tasks as $task) {
-            $tmp                          = array();
+            $tmp                          = [];
             $tmp['##task.id##']           = $task['id'];
             if ($taskobj->maybePrivate()) {
                $tmp['##task.isprivate##'] = Dropdown::getYesNo($task['is_private']);
@@ -1098,12 +1413,12 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                $tmp['##task.end##']       = Html::convDateTime($task['end']);
             }
 
-            $datas['tasks'][]             = $tmp;
+            $data['tasks'][]             = $tmp;
          }
 
-         $datas["##$objettype.numberoftasks##"] = count($datas['tasks']);
+         $data["##$objettype.numberoftasks##"] = count($data['tasks']);
       }
-      return $datas;
+      return $data;
    }
 
    function getTags() {
@@ -1112,12 +1427,12 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
       $objettype = strtolower($itemtype);
 
       //Locales
-      $tags = array($objettype.'.id'                    => __('ID'),
+      $tags = [$objettype.'.id'                    => __('ID'),
                     $objettype.'.title'                 => __('Title'),
                     $objettype.'.url'                   => __('URL'),
                     $objettype.'.category'              => __('Category'),
                     $objettype.'.content'               => __('Description'),
-                    $objettype.'.description'           => sprintf(__('%1$s: %2$s'), __('Ticket'),
+                    $objettype.'.description'           => sprintf(__('%1$s: %2$s'), $this->obj->getTypeName(1),
                                                                    __('Description')),
                     $objettype.'.status'                => __('Status'),
                     $objettype.'.urgency'               => __('Urgency'),
@@ -1164,6 +1479,12 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                     $objettype.'.solution.description'  => _n('Solution', 'Solutions', 1),
                     $objettype.'.observerusers'         => _n('Watcher', 'Watchers', Session::getPluralNumber()),
                     $objettype.'.action'                => _n('Event', 'Events', 1),
+                    'followup.date'                     => __('Opening date'),
+                    'followup.isprivate'                => __('Private'),
+                    'followup.author'                   => __('Writer'),
+                    'followup.description'              => __('Description'),
+                    'followup.requesttype'              => __('Request source'),
+                    $objettype.'.numberoffollowups'     => _x('quantity', 'Number of followups'),
                     $objettype.'.numberofunresolved'    => __('Number of unresolved items'),
                     $objettype.'.numberofdocuments'     => _x('quantity', 'Number of documents'),
                     $objettype.'.costtime'              => __('Time cost'),
@@ -1223,47 +1544,48 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                                                                    __('Entity'), _x('location', 'State')),
                     $objettype.'.entity.country'        => sprintf(__('%1$s (%2$s)'),
                                                                    __('Entity'), __('Country')),
-                   );
+                   ];
 
       foreach ($tags as $tag => $label) {
-         $this->addTagToList(array('tag'    => $tag,
+         $this->addTagToList(['tag'    => $tag,
                                    'label'  => $label,
                                    'value'  => true,
-                                   'events' => parent::TAG_FOR_ALL_EVENTS));
+                                   'events' => parent::TAG_FOR_ALL_EVENTS]);
       }
 
       //Foreach global tags
-      $tags = array('log'       => __('Historical'),
+      $tags = ['log'       => __('Historical'),
+                    'followups' => _n('Followup', 'Followups', Session::getPluralNumber()),
                     'tasks'     => _n('Task', 'Tasks', Session::getPluralNumber()),
                     'costs'     => _n('Cost', 'Costs', Session::getPluralNumber()),
                     'authors'   => _n('Requester', 'Requesters', Session::getPluralNumber()),
-                    'suppliers' => _n('Supplier', 'Suppliers', Session::getPluralNumber()));
+                    'suppliers' => _n('Supplier', 'Suppliers', Session::getPluralNumber())];
 
       foreach ($tags as $tag => $label) {
-         $this->addTagToList(array('tag'     => $tag,
+         $this->addTagToList(['tag'     => $tag,
                                    'label'   => $label,
                                    'value'   => false,
-                                   'foreach' => true));
+                                   'foreach' => true]);
       }
 
       //Tags with just lang
-      $tags = array($objettype.'.days'               => _n('Day', 'Days', Session::getPluralNumber()),
+      $tags = [$objettype.'.days'               => _n('Day', 'Days', Session::getPluralNumber()),
                     $objettype.'.attribution'        => __('Assigned to'),
                     $objettype.'.entity'             => __('Entity'),
                     $objettype.'.nocategoryassigned' => __('No defined category'),
                     $objettype.'.log'                => __('Historical'),
                     $objettype.'.tasks'              => _n('Task', 'Tasks', Session::getPluralNumber()),
-                    $objettype.'.costs'              => _n('Cost', 'Costs', Session::getPluralNumber()));
+                    $objettype.'.costs'              => _n('Cost', 'Costs', Session::getPluralNumber())];
 
       foreach ($tags as $tag => $label) {
-         $this->addTagToList(array('tag'   => $tag,
+         $this->addTagToList(['tag'   => $tag,
                                    'label' => $label,
                                    'value' => false,
-                                   'lang'  => true));
+                                   'lang'  => true]);
       }
 
       //Tags without lang
-      $tags = array($objettype.'.urlapprove'     => __('Web link to approval the solution'),
+      $tags = [$objettype.'.urlapprove'     => __('Web link to approval the solution'),
                     $objettype.'.entity'         => sprintf(__('%1$s (%2$s)'),
                                                             __('Entity'), __('Complete name')),
                     $objettype.'.shortentity'    => sprintf(__('%1$s (%2$s)'),
@@ -1289,36 +1611,36 @@ abstract class NotificationTargetCommonITILObject extends NotificationTarget {
                     'document.filename'          => sprintf(__('%1$s: %2$s'), __('Document'),
                                                             __('File')),
                     'document.weblink'           => sprintf(__('%1$s: %2$s'), __('Document'),
-                                                            __('Web Link')),
+                                                            __('Web link')),
                     'document.name'              => sprintf(__('%1$s: %2$s'), __('Document'),
                                                             __('Name')),
                      $objettype.'.urldocument'   => sprintf(__('%1$s: %2$s'),
                                                             _n('Document', 'Documents', Session::getPluralNumber()),
-                                                            __('URL')));
+                                                            __('URL'))];
 
       foreach ($tags as $tag => $label) {
-         $this->addTagToList(array('tag'   => $tag,
+         $this->addTagToList(['tag'   => $tag,
                                    'label' => $label,
                                    'value' => true,
-                                   'lang'  => false));
+                                   'lang'  => false]);
       }
 
       //Tickets with a fixed set of values
       $status         = $this->obj->getAllStatusArray(false);
-      $allowed_ticket = array();
+      $allowed_ticket = [];
       foreach ($status as $key => $value) {
          $allowed_ticket[] = $key;
       }
 
-      $tags = array($objettype.'.storestatus' => array('text'     => __('Status value in database'),
+      $tags = [$objettype.'.storestatus' => ['text'     => __('Status value in database'),
                                                        'allowed_values'
-                                                                  => $allowed_ticket));
+                                                                  => $allowed_ticket]];
       foreach ($tags as $tag => $label) {
-         $this->addTagToList(array('tag'            => $tag,
+         $this->addTagToList(['tag'            => $tag,
                                    'label'          => $label['text'],
                                    'value'          => true,
                                    'lang'           => false,
-                                   'allowed_values' => $label['allowed_values']));
+                                   'allowed_values' => $label['allowed_values']]);
       }
    }
 }

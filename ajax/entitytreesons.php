@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,103 +30,93 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 $AJAX_INCLUDE = 1;
 
 include ("../inc/includes.php");
 
-header("Content-Type: text/html; charset=UTF-8");
+header("Content-Type: application/json; charset=UTF-8");
 Html::header_nocache();
 
 Session::checkLoginUser();
 
 if (isset($_GET['node'])) {
-
-   if ($_SESSION['glpiactiveprofile']['interface']=='helpdesk') {
-      $target = "helpdesk.public.php";
-   } else {
-      $target = "central.php";
-   }
-
-   $nodes = array();
+   $nodes = [];
 
    // Get ancestors of current entity
    $ancestors = getAncestorsOf('glpi_entities', $_SESSION['glpiactive_entity']);
 
    // Root node
    if ($_GET['node'] == -1) {
-      $pos = 0;
-
       foreach ($_SESSION['glpiactiveprofile']['entities'] as $entity) {
-         $path                         = array();
          $ID                           = $entity['id'];
          $is_recursive                 = $entity['is_recursive'];
 
-         $path['data']['title']        = Dropdown::getDropdownName("glpi_entities", $ID);
-         $path['attr']['id']           = 'ent'.$ID;
-         $path['data']['attr']['href'] = $CFG_GLPI["root_doc"]."/front/$target?active_entity=".$ID;
+         $path = [
+            // append r for root nodes, id are uniques in jstree.
+            // so, in case of presence of this id in subtree of other nodes,
+            // it will be removed from root nodes
+            'id'   => $ID.'r',
+            'text' => Dropdown::getDropdownName("glpi_entities", $ID)
+         ];
 
          if ($is_recursive) {
-            $query2 = "SELECT count(*)
-                       FROM `glpi_entities`
-                       WHERE `entities_id` = '$ID'";
-            $result2 = $DB->query($query2);
-            if ($DB->result($result2, 0, 0) > 0) {
-               $path['data']['title'] .= "&nbsp;<a title=\"".__s('Show all')."\" href='".
-                                                 $CFG_GLPI["root_doc"]."/front/".$target.
-                                                 "?active_entity=".$ID."&amp;is_recursive=1'>".
-                                         "<img alt=\"".__s('Show all')."\" src='".
-                                           $CFG_GLPI["root_doc"]."/pics/entity_all.png'></a>";
+            $path['children'] = true;
+            $result2 = $DB->request([
+               'FROM'   => 'glpi_entities',
+               'COUNT'  => 'cpt',
+               'WHERE'  => ['entities_id' => $ID]
+            ]);
+            $result2 = $result2->next();
+            if ($result2['cpt'] > 0) {
+               //apend a i tag (one of shortest tags) to have the is_recursive link
+               $path['text'].= '<i/>';
                if (isset($ancestors[$ID])) {
-                  $path['state'] = 'open';
-               } else {
-                  $path['state'] = 'closed';
+                  $path['state']['opened'] = 'true';
                }
             }
          }
          $nodes[] = $path;
       }
    } else { // standard node
-      $node_id = str_replace('ent', '', $_GET['node']);
-      $query   = "SELECT *
-                  FROM `glpi_entities`
-                  WHERE `entities_id` = '$node_id'
-                  ORDER BY `name`";
+      $node_id = $_GET['node'];
+      $iterator = $DB->request([
+         'SELECT' => [
+            'ent.id',
+            'ent.name',
+            'ent.sons_cache',
+            'COUNT'  => 'sub_entities.id AS nb_subs'
+         ],
+         'FROM'   => 'glpi_entities as ent',
+         'LEFT JOIN' => [
+            'glpi_entities AS sub_entities'  => [
+               'ON'  => [
+                  'sub_entities' => 'entities_id',
+                  'ent'          => 'id'
+               ]
+            ]
+         ],
+         'WHERE'     => ['ent.entities_id' => $node_id],
+         'GROUPBY'   => ['ent.id', 'ent.name', 'ent.sons_cache'],
+         'ORDERBY'   => 'name'
+      ]);
 
-      if ($result = $DB->query($query)) {
-         if ($DB->numrows($result)) {
-            while ($row = $DB->fetch_assoc($result)) {
-               $path = array();
-               $path['data']['title']        = $row['name'];
-               $path['attr']['id']           = 'ent'.$row['id'];
-               $path['data']['attr']['href'] = $CFG_GLPI["root_doc"]."/front/$target?active_entity=".
-                                                $row['id'];
+      while ($row = $iterator->next()) {
+         $path = [
+            'id'   => $row['id'],
+            'text' => $row['name']
+         ];
 
-               $query2 = "SELECT count(*)
-                          FROM `glpi_entities`
-                          WHERE `entities_id` = '".$row['id']."'";
-               $result2 = $DB->query($query2);
-               if ($DB->result($result2, 0, 0) > 0) {
-                  $path['data']['title'] .= "&nbsp;<a title=\"".__s('Show all')."\" href='".
-                                                    $CFG_GLPI["root_doc"]."/front/".$target.
-                                                    "?active_entity=".$row['id']."&amp;is_recursive=1'>".
-                                            "<img alt=\"".__s('Show all')."\" src='".
-                                              $CFG_GLPI["root_doc"]."/pics/entity_all.png'></a>";
+         if ($row['nb_subs'] > 0) {
+            //apend a i tag (one of shortest tags) to have the is_recursive link
+            $path['text'].= '<i/>';
+            $path['children'] = true;
 
-                  if (isset($ancestors[$row['id']])) {
-                     $path['state'] = 'open';
-                  } else {
-                     $path['state'] = 'closed';
-                  }
-               }
-               $nodes[] = $path;
+            if (isset($ancestors[$row['id']])) {
+               $path['state']['opened'] = 'true';
             }
          }
+         $nodes[] = $path;
       }
-
    }
    echo json_encode($nodes);
 }

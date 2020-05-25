@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 $AJAX_INCLUDE = 1;
 include ('../inc/includes.php');
 
@@ -46,15 +42,17 @@ Session::checkLoginUser();
 if (isset($_POST["table"])
     && isset($_POST["value"])) {
    // Security
-   if (!TableExists($_POST['table'])) {
+   if (!$DB->tableExists($_POST['table'])) {
       exit();
    }
 
    switch ($_POST["table"]) {
       case "glpi_users" :
          if ($_POST['value'] == 0) {
-            $tmpname['link']    = $CFG_GLPI['root_doc']."/front/user.php";
-            $tmpname['comment'] = "";
+            $tmpname = [
+               'link'    => $CFG_GLPI['root_doc']."/front/user.php",
+               'comment' => "",
+            ];
          } else {
             $tmpname = getUserName($_POST["value"], 2);
          }
@@ -70,12 +68,14 @@ if (isset($_POST["table"])
       default :
          if ($_POST["value"] > 0) {
             $tmpname = Dropdown::getDropdownName($_POST["table"], $_POST["value"], 1);
-            echo $tmpname["comment"];
+            if (is_array($tmpname) && isset($tmpname["comment"])) {
+                echo $tmpname["comment"];
+            }
             if (isset($_POST['withlink'])) {
+               $itemtype = getItemTypeForTable($_POST["table"]);
                echo "<script type='text/javascript' >\n";
                echo Html::jsGetElementbyID($_POST['withlink']).".
-                    attr('href', '".Toolbox::getItemTypeFormURL(getItemTypeForTable($_POST["table"])).
-                    "?id=".$_POST["value"]."');";
+                    attr('href', '".$itemtype::getFormURLWithID($_POST["value"])."');";
                echo "</script>\n";
             }
          }

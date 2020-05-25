@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 // Include plugin if it is a plugin table
 if (!strstr($_GET['itemtype'], "Plugin")) {
    $AJAX_INCLUDE = 1;
@@ -58,50 +54,42 @@ if (!isset($item->fields[$_GET['field']]) || !$item->canView()) {
 
 // Security : blacklist fields
 if (in_array($table.'.'.$_GET['field'],
-             array('glpi_authldaps.rootdn', 'glpi_authldaps.rootdn_passwd',
-                   'glpi_configs.value', 'glpi_mailcollectors.login',
-                   'glpi_mailcollectors.passwd', 'glpi_users.name', 'glpi_users.password'))) {
+             ['glpi_authldaps.rootdn', 'glpi_authldaps.rootdn_passwd',
+              'glpi_configs.value', 'glpi_mailcollectors.login',
+              'glpi_mailcollectors.passwd', 'glpi_users.name', 'glpi_users.password'])) {
    exit();
 }
 
-
-$entity = "";
+$entity = [];
 if (isset($_GET['entity_restrict']) && $_GET['entity_restrict']>=0) {
    if ($item->isEntityAssign()) {
-      $entity = " AND `entities_id` = '".$_GET['entity_restrict']."' ";
+      $entity['entities_id'] = $_GET['entity_restrict'];
    }
 }
 
 if (isset($_GET['user_restrict']) && $_GET['user_restrict']>0) {
-   $entity = " AND `users_id` = '".$_GET['user_restrict']."' ";
+   $entity['users_id'] = $_GET['user_restrict'];
 }
 
-$query = "SELECT COUNT(`".$_GET['field']."`)
-          FROM `$table`
-          WHERE `".$_GET['field']."` LIKE '".$_GET['term']."%'
-                AND `".$_GET['field']."` <> '".$_GET['term']."'
-                $entity ";
-$result = $DB->query($query);
-$totnum = $DB->result($result, 0, 0);
+$iterator = $DB->request([
+   'SELECT'          => $_GET['field'],
+   'DISTINCT'        => true,
+   'FROM'            => $table,
+   'WHERE'           => [
+      [$_GET['field'] => ['LIKE', $_GET['term'] . '%']],
+      [$_GET['field'] => ['<>', $_GET['term']]]
+   ] + $entity,
+   'ORDER'           => $_GET['field']
+]);
 
-$query = "SELECT DISTINCT `".$_GET['field']."` AS VAL
-          FROM `$table`
-          WHERE `".$_GET['field']."` LIKE '".$_GET['term']."%'
-                AND `".$_GET['field']."` <> '".$_GET['term']."'
-                $entity
-          ORDER BY `".$_GET['field']."`";
+$values = [];
 
-$values = array();
-if ($result=$DB->query($query)) {
-
-
-   if ($DB->numrows($result)>0) {
-      $first = true;
-      while ($data=$DB->fetch_assoc($result)) {
-         $values[]=$data['VAL'];
-      }
+if (count($iterator)) {
+   while ($data = $iterator->next()) {
+      $values[] = Html::entity_decode_deep($data[$_GET['field']]);
    }
 }
+
 if (count($values)) {
    echo json_encode($values);
 }

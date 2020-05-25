@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 Session::checkRight("config", READ);
@@ -55,12 +51,7 @@ if (Toolbox::canUseLdap()) {
 }
 echo "</td></tr>";
 echo "<tr class='tab_bg_1'><td class='center b'>";
-if (Toolbox::canUseImapPop()) {
-   echo "<a href='authmail.php'>". _n('Mail server', 'Mail servers', 2)."</a>";
-} else {
-   echo "<p class='red'>".__('Your PHP parser was compiled without the IMAP functions') ."</p>";
-   echo "<p>".__('Impossible to use email server as external source of connection').'</p>';
-}
+echo "<a href='authmail.php'>". _n('Mail server', 'Mail servers', 2)."</a>";
 echo "</td> </tr>";
 echo "<tr class='tab_bg_1'><td class='center'>".
      "<a href='auth.others.php'>" . __('Others authentication methods') ."</a></td></tr>";

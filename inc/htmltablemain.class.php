@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -68,8 +64,8 @@ if (!defined('GLPI_ROOT')) {
 class HTMLTableMain extends HTMLTableBase {
 
 
-   private $groups    = array();
-   private $itemtypes = array();
+   private $groups    = [];
+   private $itemtypes = [];
 
 
    function __construct() {

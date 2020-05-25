@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,10 +37,10 @@ if (!defined('GLPI_ROOT')) {
 /**
  *  GLPIPDF class extends TCPDF
  *
- *  @since version 0.85
+ *  @since 0.85
 **/
 class GLPIPDF extends TCPDF {
-
+   private $total_count;
 
    /**
     * Page header
@@ -66,8 +62,11 @@ class GLPIPDF extends TCPDF {
 
       // Position at 15 mm from bottom
       $this->SetY(-15);
-      $text = "GLPI PDF export - ".Html::convDate(date("Y-m-d")).
-              " - ".$this->getAliasNumPage()."/".$this->getAliasNbPages();
+      $text = "GLPI PDF export - ".Html::convDate(date("Y-m-d"));
+      if ($this->total_count != null) {
+         $text .= " - " . sprintf(_n('%s item', '%s items', $this->total_count), $this->total_count);
+      }
+      $text .= " - ".$this->getAliasNumPage()."/".$this->getAliasNbPages();
 
       // Page number
       $this->Cell(0, 10, $text, 0, false, 'C', 0, '', 0, false, 'T', 'M');
@@ -81,7 +80,7 @@ class GLPIPDF extends TCPDF {
    **/
    public static function getFontList() {
 
-      $list = array();
+      $list = [];
       $path = TCPDF_FONTS::_getfontpath();
 
       foreach (glob($path.'/*.php') as $font) {
@@ -111,4 +110,15 @@ class GLPIPDF extends TCPDF {
       return $list;
    }
 
+   /**
+    * Set total results count
+    *
+    * @param integer $count Total number of results
+    *
+    * @return GLPIPDF
+    */
+   public function setTotalCount($count) {
+      $this->total_count = $count;
+      return $this;
+   }
 }

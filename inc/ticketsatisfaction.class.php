@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,21 +30,19 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 class TicketSatisfaction extends CommonDBTM {
 
+   static $rightname = 'ticket';
+
    public $dohistory         = true;
-   public $history_blacklist = array('date_answered');
+   public $history_blacklist = ['date_answered'];
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return __('Satisfaction');
    }
 
@@ -58,7 +56,7 @@ class TicketSatisfaction extends CommonDBTM {
 
 
    function getLogTypeID() {
-      return array('Ticket', $this->fields['tickets_id']);
+      return ['Ticket', $this->fields['tickets_id']];
    }
 
 
@@ -103,7 +101,7 @@ class TicketSatisfaction extends CommonDBTM {
    function showForm($ticket) {
 
       $tid                 = $ticket->fields['id'];
-      $options             = array();
+      $options             = [];
       $options['colspan']  = 1;
 
       // for external inquest => link
@@ -177,7 +175,7 @@ class TicketSatisfaction extends CommonDBTM {
    function post_addItem() {
       global $CFG_GLPI;
 
-      if ($CFG_GLPI["use_mailing"]) {
+      if (!isset($this->input['_disablenotif']) && $CFG_GLPI["use_notifications"]) {
          $ticket = new Ticket();
          if ($ticket->getFromDB($this->fields['tickets_id'])) {
             NotificationEvent::raiseEvent("satisfaction", $ticket);
@@ -187,12 +185,12 @@ class TicketSatisfaction extends CommonDBTM {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
-   function post_UpdateItem($history=1) {
+   function post_UpdateItem($history = 1) {
       global $CFG_GLPI;
 
-      if ($CFG_GLPI["use_mailing"]) {
+      if (!isset($this->input['_disablenotif']) && $CFG_GLPI["use_notifications"]) {
          $ticket = new Ticket();
          if ($ticket->getFromDB($this->fields['tickets_id'])) {
             NotificationEvent::raiseEvent("replysatisfaction", $ticket);
@@ -244,16 +242,16 @@ class TicketSatisfaction extends CommonDBTM {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field
     * @param $values
     * @param $options   array
    **/
-   static function getSpecificValueToDisplay($field, $values, array $options=array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       switch ($field) {
          case 'type':
@@ -264,28 +262,37 @@ class TicketSatisfaction extends CommonDBTM {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field
     * @param $name                  (default '')
     * @param $values                (default '')
     * @param $options   array
    **/
-   static function getSpecificValueToSelect($field, $name='', $values='', array $options=array()) {
+   static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       $options['display'] = false;
 
       switch ($field) {
          case 'type' :
             $options['value'] = $values[$field];
-            $typeinquest = array(1 => __('Internal survey'),
-                                 2 => __('External survey'));
+            $typeinquest = [1 => __('Internal survey'),
+                                 2 => __('External survey')];
             return Dropdown::showFromArray($name, $typeinquest, $options);
       }
       return parent::getSpecificValueToSelect($field, $name, $values, $options);
    }
 
+   static function getFormURLWithID($id = 0, $full = true) {
+
+      $satisfaction = new self();
+      if (!$satisfaction->getFromDB($id)) {
+         return '';
+      }
+
+      return Ticket::getFormURLWithID($satisfaction->fields['tickets_id']) . '&forcetab=Ticket$3';
+   }
 }

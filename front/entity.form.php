@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,18 +30,14 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 $dropdown = new Entity();
 
 // Root entity : no delete
 if (isset($_GET['id']) && ($_GET['id'] == 0)) {
-   $options = array('canedit' => true,
-                    'candel'  => false);
+   $options = ['canedit' => true,
+                    'candel'  => false];
 }
 
 include (GLPI_ROOT . "/front/dropdown.common.form.php");

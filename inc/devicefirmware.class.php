@@ -1,33 +1,33 @@
 <?php
-/*
- -------------------------------------------------------------------------
- GLPI - Gestionnaire Libre de Parc Informatique
- Copyright (C) 2015-2017 Teclib'.
-
- http://glpi-project.org
-
- based on GLPI - Gestionnaire Libre de Parc Informatique
- Copyright (C) 2003-2014 by the INDEPNET Development Team.
-
- -------------------------------------------------------------------------
-
- LICENSE
-
- This file is part of GLPI.
-
- GLPI is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- GLPI is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with GLPI. If not, see <http://www.gnu.org/licenses/>.
- --------------------------------------------------------------------------
+/**
+ * ---------------------------------------------------------------------
+ * GLPI - Gestionnaire Libre de Parc Informatique
+ * Copyright (C) 2015-2018 Teclib' and contributors.
+ *
+ * http://glpi-project.org
+ *
+ * based on GLPI - Gestionnaire Libre de Parc Informatique
+ * Copyright (C) 2003-2014 by the INDEPNET Development Team.
+ *
+ * ---------------------------------------------------------------------
+ *
+ * LICENSE
+ *
+ * This file is part of GLPI.
+ *
+ * GLPI is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * GLPI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
+ * ---------------------------------------------------------------------
  */
 
 if (!defined('GLPI_ROOT')) {
@@ -36,9 +36,9 @@ if (!defined('GLPI_ROOT')) {
 
 class DeviceFirmware extends CommonDevice {
 
-   static protected $forward_entity_to = array('Item_DeviceFirmware', 'Infocom');
+   static protected $forward_entity_to = ['Item_DeviceFirmware', 'Infocom'];
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Firmware', 'Firmware', $nb);
    }
 
@@ -56,7 +56,7 @@ class DeviceFirmware extends CommonDevice {
             [
                'name'   => 'date',
                'label'  => __('Installation date'),
-               'type'   => 'text'
+               'type'   => 'date'
             ],
             [
                'name'   => 'version',
@@ -73,8 +73,8 @@ class DeviceFirmware extends CommonDevice {
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',
@@ -111,66 +111,62 @@ class DeviceFirmware extends CommonDevice {
    }
 
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
-
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
+      global $CFG_GLPI;
       $column = parent::getHTMLTableHeader($itemtype, $base, $super, $father, $options);
 
       if ($column == $father) {
          return $father;
       }
 
-      switch ($itemtype) {
-         case 'Computer' :
-            Manufacturer::getHTMLTableHeader(__CLASS__, $base, $super, $father, $options);
-            $base->addHeader('devicefirmware_type', __('Type'), $super, $father);
-            $base->addHeader('version', __('Version'), $super, $father);
-            $base->addHeader('date', __('Installation date'), $super, $father);
-            break;
+      if (in_array($itemtype, $CFG_GLPI['itemdevicefirmware_types'])) {
+         Manufacturer::getHTMLTableHeader(__CLASS__, $base, $super, $father, $options);
+         $base->addHeader('devicefirmware_type', __('Type'), $super, $father);
+         $base->addHeader('version', __('Version'), $super, $father);
+         $base->addHeader('date', __('Installation date'), $super, $father);
       }
    }
 
-   function getHTMLTableCellForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                    HTMLTableCell $father=NULL, array $options=array()) {
-
+   function getHTMLTableCellForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                    HTMLTableCell $father = null, array $options = []) {
+      global $CFG_GLPI;
       $column = parent::getHTMLTableCellForItem($row, $item, $father, $options);
 
       if ($column == $father) {
          return $father;
       }
 
-      switch ($item->getType()) {
-         case 'Computer' :
-            Manufacturer::getHTMLTableCellsForItem($row, $this, NULL, $options);
+      if (in_array($item->getType(), $CFG_GLPI['itemdevicefirmware_types'])) {
+         Manufacturer::getHTMLTableCellsForItem($row, $this, null, $options);
 
-            if ($this->fields["devicefirmwaretypes_id"]) {
-               $row->addCell(
-                  $row->getHeaderByName('devicefirmware_type'),
-                  Dropdown::getDropdownName("glpi_devicefirmwaretypes",
-                  $this->fields["devicefirmwaretypes_id"]),
-                  $father
-               );
-            }
+         if ($this->fields["devicefirmwaretypes_id"]) {
             $row->addCell(
-               $row->getHeaderByName('version'), $this->fields["version"],
+               $row->getHeaderByName('devicefirmware_type'),
+               Dropdown::getDropdownName("glpi_devicefirmwaretypes",
+               $this->fields["devicefirmwaretypes_id"]),
                $father
-               );
+            );
+         }
+         $row->addCell(
+            $row->getHeaderByName('version'), $this->fields["version"],
+            $father
+            );
 
-            if ($this->fields["date"]) {
-               $row->addCell(
-                  $row->getHeaderByName('date'),
-                  Html::convDate($this->fields["date"]),
-                  $father
-               );
-            }
-
-            break;
+         if ($this->fields["date"]) {
+            $row->addCell(
+               $row->getHeaderByName('date'),
+               Html::convDate($this->fields["date"]),
+               $father
+            );
+         }
       }
    }
 
    function getImportCriteria() {
 
       return [
+         'designation'              => 'equal',
          'devicefirmwaretypes_id'   => 'equal',
          'manufacturers_id'         => 'equal',
          'version'                  => 'equal'

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -52,7 +48,7 @@ if (isset($_POST["add"])) {
       Event::log($newID, "problem", 4, "maintain",
                  sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($problem->getFormURL()."?id=".$newID);
+         Html::redirect($problem->getLinkURL());
       }
    }
    Html::back();
@@ -94,8 +90,7 @@ if (isset($_POST["add"])) {
 
    // Copy solution to KB redirect to KB
    if (isset($_POST['_sol_to_kb']) && $_POST['_sol_to_kb']) {
-      Html::redirect($CFG_GLPI["root_doc"].
-                     "/front/knowbaseitem.form.php?id=new&item_itemtype=Problem&item_items_id=". $_POST["id"]);
+      Html::redirect(KnowbaseItem::getFormURL()."?id=new&item_itemtype=Problem&item_items_id=". $_POST["id"]);
    } else {
       Html::back();
    }
@@ -103,17 +98,45 @@ if (isset($_POST["add"])) {
 } else if (isset($_POST['addme_assign'])) {
    $problem_user = new Problem_User();
    $problem->check($_POST['problems_id'], READ);
-   $input = array('problems_id'       => $_POST['problems_id'],
+   $input = ['problems_id'       => $_POST['problems_id'],
                   'users_id'         => Session::getLoginUserID(),
                   'use_notification' => 1,
-                  'type'             => CommonITILActor::ASSIGN);
+                  'type'             => CommonITILActor::ASSIGN];
    $problem_user->add($input);
    Event::log($_POST['problems_id'], "problem", 4, "maintain",
               //TRANS: %s is the user login
               sprintf(__('%s adds an actor'), $_SESSION["glpiname"]));
-   Html::redirect($CFG_GLPI["root_doc"]."/front/problem.form.php?id=".$_POST['problems_id']);
+   Html::redirect($problem->getFormURLWithID($_POST['problems_id']));
+} else if (isset($_REQUEST['delete_document'])) {
+   $doc = new Document();
+   $doc->getFromDB(intval($_REQUEST['documents_id']));
+   if ($doc->can($doc->getID(), UPDATE)) {
+      $document_item = new Document_Item;
+      $found_document_items = $document_item->find([
+         'itemtype'     => 'Problem',
+         'items_id'     => (int)$_REQUEST['problems_id'],
+         'documents_id' => $doc->getID()
+      ]);
+      foreach ($found_document_items  as $item) {
+         $document_item->delete($item, true);
+      }
+   }
+   Html::back();
 } else {
    Html::header(Problem::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "helpdesk", "problem");
-   $problem->display($_GET);
+   $problem->display($_REQUEST);
+
+   if (isset($_GET['id']) && ($_GET['id'] > 0) && isset($_GET['_sol_to_kb'])) {
+      Ajax::createIframeModalWindow(
+         'savetokb',
+         KnowbaseItem::getFormURL() . '?_in_modal=1&item_itemtype=Problem&item_items_id=' . $_GET['id'],
+         [
+            'title'         => __('Save solution to the knowledge base'),
+            'reloadonclose' => false,
+         ]
+      );
+      echo Html::scriptBlock('$(function() {' . Html::jsGetElementbyID('savetokb') . '.dialog("open"); });');
+   }
+
    Html::footer();
 }

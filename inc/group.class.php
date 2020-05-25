@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -50,7 +46,7 @@ class Group extends CommonTreeDropdown {
    protected $usenotepad  = true;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Group', 'Groups', $nb);
    }
 
@@ -58,7 +54,7 @@ class Group extends CommonTreeDropdown {
    /**
     * @see CommonGLPI::getAdditionalMenuOptions()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
    static function getAdditionalMenuOptions() {
 
@@ -74,7 +70,7 @@ class Group extends CommonTreeDropdown {
    /**
     * @see CommonGLPI::getMenuShorcut()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
    static function getMenuShorcut() {
       return 'g';
@@ -84,6 +80,7 @@ class Group extends CommonTreeDropdown {
    function post_getEmpty () {
 
       $this->fields['is_requester'] = 1;
+      $this->fields['is_watcher']   = 1;
       $this->fields['is_assign']    = 1;
       $this->fields['is_notify']    = 1;
       $this->fields['is_itemgroup'] = 1;
@@ -93,60 +90,36 @@ class Group extends CommonTreeDropdown {
 
 
    function cleanDBonPurge() {
-      global $DB;
 
-      $gu = new Group_User();
-      $gu->cleanDBonItemDelete($this->getType(), $this->fields['id']);
-
-      $gt = new Group_Ticket();
-      $gt->cleanDBonItemDelete($this->getType(), $this->fields['id']);
-
-      $gp = new Group_Problem();
-      $gp->cleanDBonItemDelete($this->getType(), $this->fields['id']);
-
-      $cg = new Change_Group();
-      $cg->cleanDBonItemDelete($this->getType(), $this->fields['id']);
-
-      $query1 = "DELETE
-                 FROM `glpi_projecttaskteams`
-                 WHERE `items_id` = '".$this->fields['id']."'
-                       AND `itemtype` = '".__CLASS__."'";
-      $DB->query($query1);
-
-      $query1 = "DELETE
-                 FROM `glpi_projectteams`
-                 WHERE `items_id` = '".$this->fields['id']."'
-                       AND `itemtype` = '".__CLASS__."'";
-      $DB->query($query1);
-
-      $gki = new Group_KnowbaseItem();
-      $gki->cleanDBonItemDelete($this->getType(), $this->fields['id']);
-
-      $gr = new Group_Reminder();
-      $gr->cleanDBonItemDelete($this->getType(), $this->fields['id']);
+      $this->deleteChildrenAndRelationsFromDb(
+         [
+            Change_Group::class,
+            Group_KnowbaseItem::class,
+            Group_Problem::class,
+            Group_Reminder::class,
+            Group_RSSFeed::class,
+            Group_Ticket::class,
+            Group_User::class,
+            ProjectTaskTeam::class,
+            ProjectTeam::class,
+         ]
+      );
 
       // Ticket rules use various _groups_id_*
       Rule::cleanForItemAction($this, '_groups_id%');
       Rule::cleanForItemCriteria($this, '_groups_id%');
       // GROUPS for RuleMailcollector
       Rule::cleanForItemCriteria($this, 'GROUPS');
-
-      // Set no group to consumables
-      $query = "UPDATE `glpi_consumables`
-                SET `items_id` = '0'
-                WHERE `items_id` = '".$this->fields['id']."'
-                      AND `itemtype` = 'Group'";
-      $DB->query($query);
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate && self::canView()) {
          $nb = 0;
          switch ($item->getType()) {
             case 'Group' :
-               $ong = array();
+               $ong = [];
                if ($_SESSION['glpishow_count_on_tabs']) {
                   $nb = countElementsInTable($this->getTable(),
                                              ['groups_id' => $item->getID()]);
@@ -172,7 +145,7 @@ class Group extends CommonTreeDropdown {
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($item->getType()) {
          case 'Group' :
@@ -199,9 +172,9 @@ class Group extends CommonTreeDropdown {
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
 
       $this->addDefaultFormTab($ong);
       $this->addStandardTab('Group', $ong, $options);
@@ -235,7 +208,7 @@ class Group extends CommonTreeDropdown {
    *
    * @return Nothing (display)
    **/
-   function showForm($ID, $options=array()) {
+   function showForm($ID, $options = []) {
 
       $this->initForm($ID, $options);
       $this->showFormHeader($options);
@@ -252,10 +225,10 @@ class Group extends CommonTreeDropdown {
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('As child of')."</td><td>";
-      self::dropdown(array('value'  => $this->fields['groups_id'],
+      self::dropdown(['value'  => $this->fields['groups_id'],
                            'name'   => 'groups_id',
                            'entity' => $this->fields['entities_id'],
-                           'used'   => (($ID > 0) ? getSonsOf($this->getTable(), $ID) : array())));
+                           'used'   => (($ID > 0) ? getSonsOf($this->getTable(), $ID) : [])]);
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
@@ -266,6 +239,12 @@ class Group extends CommonTreeDropdown {
       echo "<td>".__('Requester')."</td>";
       echo "<td>";
       Dropdown::showYesNo('is_requester', $this->fields['is_requester']);
+      echo "</td></tr>";
+
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>".__('Watcher')."</td>";
+      echo "<td>";
+      Dropdown::showYesNo('is_watcher', $this->fields['is_watcher']);
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
@@ -325,7 +304,7 @@ class Group extends CommonTreeDropdown {
    function title() {
       global $CFG_GLPI;
 
-      $buttons = array();
+      $buttons = [];
       if (Group::canUpdate()
           && Session::haveRight("user", User::UPDATEAUTHENT)
           && AuthLdap::useAuthLdap()) {
@@ -345,7 +324,7 @@ class Group extends CommonTreeDropdown {
    /**
     * @see CommonDBTM::getSpecificMassiveActions()
    **/
-   function getSpecificMassiveActions($checkitem=NULL) {
+   function getSpecificMassiveActions($checkitem = null) {
 
       $isadmin = static::canUpdate();
       $actions = parent::getSpecificMassiveActions($checkitem);
@@ -357,16 +336,12 @@ class Group extends CommonTreeDropdown {
          $actions[$prefix.'remove']         = _x('button', 'Remove a user');
       }
 
-      if ($isadmin) {
-         MassiveAction::getAddTransferList($actions);
-      }
-
       return $actions;
    }
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonDBTM::showMassiveActionsSubForm()
    **/
@@ -381,10 +356,17 @@ class Group extends CommonTreeDropdown {
                 && isset($input['check_itemtype'])) {
                if ($group = getItemForItemtype($input['check_itemtype'])) {
                   if ($group->getFromDB($input['check_items_id'])) {
-                     self::dropdown(array('entity'    => $group->fields["entities_id"],
-                                          'used'      => array($group->fields["id"]),
-                                          'condition' => ($input['is_tech'] ? '`is_assign`'
-                                                                            : '`is_itemgroup`')));
+                     $condition = [];
+                     if ($input['is_tech']) {
+                        $condition['is_assign'] = 1;
+                     } else {
+                        $condition['is_itemgroup'] = 1;
+                     }
+                     self::dropdown([
+                        'entity'    => $group->fields["entities_id"],
+                        'used'      => [$group->fields["id"]],
+                        'condition' => $condition
+                     ]);
                      echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
                                     _sx('button', 'Move')."'>";
                      return true;
@@ -398,7 +380,7 @@ class Group extends CommonTreeDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
@@ -412,8 +394,8 @@ class Group extends CommonTreeDropdown {
                 && isset($input['groups_id'])) {
                foreach ($ids as $id) {
                   if ($item->can($id, UPDATE)) {
-                     if ($item->update(array('id'            => $id,
-                                             $input["field"] => $input["groups_id"]))) {
+                     if ($item->update(['id'            => $id,
+                                             $input["field"] => $input["groups_id"]])) {
                         $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                      } else {
                         $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
@@ -434,8 +416,8 @@ class Group extends CommonTreeDropdown {
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       if (AuthLdap::useAuthLdap()) {
          $tab[] = [
@@ -525,7 +507,7 @@ class Group extends CommonTreeDropdown {
                'table'              => 'glpi_groups_users',
                'joinparams'         => [
                   'jointype'           => 'child',
-                  'condition'          => 'AND NEWTABLE.`is_manager` = 1'
+                  'condition'          => ['NEWTABLE.is_manager' => 1]
                ]
             ]
          ]
@@ -545,7 +527,7 @@ class Group extends CommonTreeDropdown {
                'table'              => 'glpi_groups_users',
                'joinparams'         => [
                   'jointype'           => 'child',
-                  'condition'          => 'AND NEWTABLE.`is_userdelegate` = 1'
+                  'condition'          => ['NEWTABLE.is_userdelegate' => 1]
                ]
             ]
          ]
@@ -567,7 +549,7 @@ class Group extends CommonTreeDropdown {
     * @param $ID
    **/
    function showLDAPForm($ID) {
-      $options = array();
+      $options = [];
       $this->initForm($ID, $options);
 
       echo "<form name='groupldap_form' id='groupldap_form' method='post' action='".
@@ -603,8 +585,8 @@ class Group extends CommonTreeDropdown {
          echo "</td></tr>";
       }
 
-      $options = array('colspan' => 1,
-                       'candel'  => false);
+      $options = ['colspan' => 1,
+                       'candel'  => false];
       $this->showFormButtons($options);
    }
 
@@ -612,7 +594,7 @@ class Group extends CommonTreeDropdown {
    /**
     * get list of Computers in a group
     *
-    * @since version 0.83
+    * @since 0.83
     *
     * @param $types  Array    of types
     * @param $field  String   field name
@@ -628,25 +610,38 @@ class Group extends CommonTreeDropdown {
 
       // include item of child groups ?
       if ($tree) {
-         $grprestrict = "IN (".implode(',', getSonsOf('glpi_groups', $this->getID())).")";
+         $groups_ids = getSonsOf('glpi_groups', $this->getID());
       } else {
-         $grprestrict = "='".$this->getID()."'";
+         $groups_ids = [$this->getID()];
       }
       // include items of members
+      $groups_criteria = [];
       if ($user) {
-         $ufield      = str_replace('groups', 'users', $field);
-         $grprestrict = "(`$field` $grprestrict
-                          OR (`$field`=0
-                              AND `$ufield` IN (SELECT `users_id`
-                                                FROM `glpi_groups_users`
-                                                WHERE `groups_id` $grprestrict)))";
+         $ufield = str_replace('groups', 'users', $field);
+         $groups_criteria['OR'] = [
+            $field => $groups_ids,
+            [
+               $field  => 0,
+               $ufield => new QuerySubQuery(
+                  [
+                     'SELECT' => 'users_id',
+                     'FROM'   => 'glpi_groups_users',
+                     'WHERE'  => [
+                        'groups_id'  => $groups_ids,
+                     ]
+                  ]
+               )
+            ]
+         ];
       } else {
-         $grprestrict = "`$field` $grprestrict";
+         $groups_criteria[$field] = $groups_ids;
       }
+
       // Count the total of item
-      $nb  = array();
+      $nb  = [];
       $tot = 0;
-      $join = $select = '';
+      $savfield = $field;
+      $restrict = [];
       foreach ($types as $itemtype) {
          $nb[$itemtype] = 0;
          if (!($item = getItemForItemtype($itemtype))) {
@@ -655,42 +650,51 @@ class Group extends CommonTreeDropdown {
          if (!$item->canView()) {
             continue;
          }
+         if ($itemtype == 'Consumable') {
+            $field = 'items_id';
+         } else {
+            $field = $savfield;
+         }
          if (!$item->isField($field)) {
             continue;
          }
-         $restrict[$itemtype] = $grprestrict;
-
-         if ($item->isEntityAssign()) {
-            if ($itemtype != 'Consumable') {
-               $restrict[$itemtype] .= getEntitiesRestrictRequest(" AND ", $item->getTable(), '', '',
-                                                                  $item->maybeRecursive());
-            }
-         }
-         if ($item->maybeTemplate()) {
-            $restrict[$itemtype] .= " AND NOT `is_template`";
-         }
-         if ($item->maybeDeleted()) {
-            $restrict[$itemtype] .= " AND NOT `is_deleted`";
-         }
+         $restrict[$itemtype] = $groups_criteria;
 
          if ($itemtype == 'Consumable') {
-            $select = "`glpi_consumableitems`.";
-            $join                 = " LEFT JOIN `glpi_consumableitems`
-                                       ON `glpi_consumables`.`consumableitems_id` = `glpi_consumableitems`.`id`";
-            $restrict[$itemtype] .= " AND `itemtype` = 'Group'
-                                      AND `consumableitems_id` IN (SELECT `id`
-                                                                   FROM `glpi_consumableitems` ".
-                                                                   getEntitiesRestrictRequest("WHERE",
-                                                                           "glpi_consumableitems", '', '', true).")";
+            $restrict[$itemtype] = [
+               $field               => $groups_ids,
+               'itemtype'           => 'Group',
+               'consumableitems_id' =>  new QuerySubQuery(
+                  [
+                     'SELECT' => 'id',
+                     'FROM'   => 'glpi_consumableitems',
+                     'WHERE'  => getEntitiesRestrictCriteria('glpi_consumableitems', '', '', true)
+                  ]
+               ),
+            ];
          }
 
+         if ($item->isEntityAssign() && $itemtype != 'Consumable') {
+            $restrict[$itemtype] += getEntitiesRestrictCriteria(
+               $item->getTable(),
+               '',
+               '',
+               $item->maybeRecursive()
+            );
+         }
+         if ($item->maybeTemplate()) {
+            $restrict[$itemtype]['is_template'] = 0;
+         }
+         if ($item->maybeDeleted()) {
+            $restrict[$itemtype]['is_deleted'] = 0;
+         }
          $tot += $nb[$itemtype] = countElementsInTable($item->getTable(), $restrict[$itemtype]);
       }
       $max = $_SESSION['glpilist_limit'];
       if ($start >= $tot) {
          $start = 0;
       }
-      $res = array();
+      $res = [];
       foreach ($types as $itemtype) {
          if (!($item = getItemForItemtype($itemtype))) {
             continue;
@@ -699,17 +703,31 @@ class Group extends CommonTreeDropdown {
             // No need to read
             $start -= $nb[$itemtype];
          } else {
+            $request = [
+               'SELECT' => 'id',
+               'FROM'   => $item->getTable(),
+               'WHERE'  => $restrict[$itemtype],
+               'ORDER'  => 'name',
+               'LIMIT'  => $max,
+               'START'  => $start
+            ];
 
-            $query = "SELECT $select`id`
-                      FROM `".$item->getTable()."`
-                      $join
-                      WHERE ".$restrict[$itemtype]."
-                      ORDER BY `name`
-                      LIMIT $start,$max";
+            if ($itemtype == 'Consumable') {
+               $request['SELECT'] = 'glpi_consumableitems.id';
+               $request['LEFT JOIN'] = [
+                  'glpi_consumableitems' => [
+                     'FKEY'   => [
+                        'glpi_consumables'     => 'consumableitems_id',
+                        'glpi_consumableitems' => 'id'
+                     ]
+                  ]
+               ];
+            }
 
-            foreach ($DB->request($query) as $data) {
-               $res[] = array('itemtype' => $itemtype,
-                              'items_id' => $data['id']);
+            $iterator = $DB->request($request);
+            while ($data = $iterator->next()) {
+               $res[] = ['itemtype' => $itemtype,
+                              'items_id' => $data['id']];
                $max--;
             }
             // For next type
@@ -757,33 +775,30 @@ class Group extends CommonTreeDropdown {
       echo "<tr class='tab_bg_1'><td class='center'>";
       echo __('Type')."&nbsp;";
       Dropdown::showItemType($types,
-                             array('value'      => $type,
+                             ['value'      => $type,
                                    'name'       => 'onlytype',
                                    'plural'     => true,
                                    'on_change'  => 'reloadTab("start=0&onlytype="+this.value)',
-                                   'checkright' => true));
+                                   'checkright' => true]);
       if ($this->haveChildren()) {
          echo "</td><td class='center'>".__('Child groups')."&nbsp;";
          Dropdown::showYesNo('tree', $tree, -1,
-                             array('on_change' => 'reloadTab("start=0&tree="+this.value)'));
+                             ['on_change' => 'reloadTab("start=0&tree="+this.value)']);
       } else {
          $tree = 0;
       }
       if ($this->getField('is_usergroup')) {
          echo "</td><td class='center'>".User::getTypeName(Session::getPluralNumber())."&nbsp;";
          Dropdown::showYesNo('user', $user, -1,
-                             array('on_change' => 'reloadTab("start=0&user="+this.value)'));
+                             ['on_change' => 'reloadTab("start=0&user="+this.value)']);
       } else {
          $user = 0;
       }
       echo "</td></tr></table>";
 
-      $datas = array();
+      $datas = [];
       if ($type) {
-         $types = array($type);
-      }
-      if ($type == 'Consumable') {
-         $field = 'items_id';
+         $types = [$type];
       }
       $start  = (isset($_GET['start']) ? intval($_GET['start']) : 0);
       $nb     = $this->getDataItems($types, $field, $tree, $user, $start, $datas);
@@ -800,18 +815,18 @@ class Group extends CommonTreeDropdown {
              || ($item->canView($data['items_id'])
                  && self::canUpdate())) {
             Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-            echo Html::hidden('field', array('value'                 => $field,
-                                             'data-glpicore-ma-tags' => 'common'));
+            echo Html::hidden('field', ['value'                 => $field,
+                                             'data-glpicore-ma-tags' => 'common']);
 
-            $massiveactionparams = array('num_displayed'    => $nb,
+            $massiveactionparams = ['num_displayed'    => min($_SESSION['glpilist_limit'], $nb),
                                          'check_itemtype'   => 'Group',
                                          'check_items_id'   => $ID,
                                          'container'        => 'mass'.__CLASS__.$rand,
-                                         'extraparams'      => array('is_tech' => $tech,
-                                                                  'massive_action_fields' => array('field')),
-                                         'specific_actions' => array(__CLASS__.
+                                         'extraparams'      => ['is_tech' => $tech,
+                                                                  'massive_action_fields' => ['field']],
+                                         'specific_actions' => [__CLASS__.
                                                                     MassiveAction::CLASS_ACTION_SEPARATOR.
-                                                                    'changegroup' => __('Move')) );
+                                                                    'changegroup' => __('Move')] ];
             Html::showMassiveActions($massiveactionparams);
          }
          echo "<table class='tab_cadre_fixehov'>";
@@ -842,6 +857,7 @@ class Group extends CommonTreeDropdown {
             if (!($item = getItemForItemtype($data['itemtype']))) {
                continue;
             }
+            $item->getFromDB($data['items_id']);
             echo "<tr class='tab_bg_1'><td>";
             if ($item->canUpdate($data['items_id'])
                 || ($item->canView($data['items_id'])
@@ -849,18 +865,18 @@ class Group extends CommonTreeDropdown {
                Html::showMassiveActionCheckBox($data['itemtype'], $data['items_id']);
             }
             echo "</td><td>".$item->getTypeName(1);
-            echo "</td><td>".$item->getLink(array('comments' => true));
+            echo "</td><td>".$item->getLink(['comments' => true]);
             echo "</td><td>".Dropdown::getDropdownName("glpi_entities", $item->getEntityID());
             if ($tree || $user) {
                echo "</td><td>";
                if ($grp = $item->getField($field)) {
                   if ($group->getFromDB($grp)) {
-                     echo $group->getLink(array('comments' => true));
+                     echo $group->getLink(['comments' => true]);
                   }
 
                } else if ($usr = $item->getField(str_replace('groups', 'users', $field))) {
                   if ($tuser->getFromDB($usr)) {
-                     echo $tuser->getLink(array('comments' => true));
+                     echo $tuser->getLink(['comments' => true]);
                   }
                }
             }
@@ -889,4 +905,60 @@ class Group extends CommonTreeDropdown {
       echo "</div>";
    }
 
+
+   function cleanRelationData() {
+
+      global $DB;
+
+      parent::cleanRelationData();
+
+      if ($this->isUsedInConsumables()) {
+         // Replace relation with Consumable
+         $newval = (isset($this->input['_replace_by']) ? $this->input['_replace_by'] : 0);
+
+         $fields_updates = [
+            'items_id' => $newval,
+         ];
+         if (empty($newval)) {
+            $fields_updates['itemtype'] = 'NULL';
+            $fields_updates['date_out'] = 'NULL';
+         }
+
+         $DB->update(
+            'glpi_consumables',
+            $fields_updates,
+            [
+               'items_id' => $this->fields['id'],
+               'itemtype' => self::class,
+            ]
+         );
+      }
+   }
+
+
+   function isUsed() {
+
+      if (parent::isUsed()) {
+         return true;
+      }
+
+      return $this->isUsedInConsumables();
+   }
+
+
+   /**
+    * Check if group is used in consumables.
+    *
+    * @return boolean
+    */
+   private function isUsedInConsumables() {
+
+      return countElementsInTable(
+         Consumable::getTable(),
+         [
+            'items_id' => $this->fields['id'],
+            'itemtype' => self::class,
+         ]
+      ) > 0;
+   }
 }

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,11 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -47,13 +42,22 @@ if (isset($_POST["add"])) {
    if (isset($_POST["computers_id"]) && $_POST["computers_id"]
        && isset($_POST["softwareversions_id"]) && $_POST["softwareversions_id"]) {
 
-      if ($newID = $inst->add(array('computers_id'        => $_POST["computers_id"],
-                                    'softwareversions_id' => $_POST["softwareversions_id"]))) {
+      if ($inst->add(['computers_id'        => $_POST["computers_id"],
+                                    'softwareversions_id' => $_POST["softwareversions_id"]])) {
 
          Event::log($_POST["computers_id"], "computers", 5, "inventory",
                     //TRANS: %s is the user login
                     sprintf(__('%s installs software'), $_SESSION["glpiname"]));
       }
+   } else {
+      $message = null;
+      if (!isset($_POST['softwares_id']) || !$_POST['softwares_id']) {
+         $message = __('Please select a software!');
+      } else if (!isset($_POST['softwareversions_id']) || !$_POST['softwareversions_id']) {
+         $message = __('Please select a version!');
+      }
+
+      Session::addMessageAfterRedirect($message, true, ERROR);
    }
    Html::back();
 

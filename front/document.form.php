@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -52,23 +48,25 @@ if (isset($_POST["add"])) {
    if (isset($_POST['_filename']) && is_array($_POST['_filename'])) {
       $fic = $_POST['_filename'];
       $tag = $_POST['_tag_filename'];
-      foreach ($fic as $key => $val) {
-         $_POST['_filename']     = [$fic[$key]];
-         $_POST['_tag_filename'] = [$tag[$key]];
+      $prefix = $_POST['_prefix_filename'];
+      foreach (array_keys($fic) as $key) {
+         $_POST['_filename']        = [$fic[$key]];
+         $_POST['_tag_filename']    = [$tag[$key]];
+         $_POST['_prefix_filename'] = [$prefix[$key]];
          if ($newID = $doc->add($_POST)) {
             Event::log($newID, "documents", 4, "login",
             sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $doc->fields["name"]));
          }
       }
       if ($_SESSION['glpibackcreated'] && (!isset($_POST['itemtype']) || !isset($_POST['items_id']))) {
-         Html::redirect($doc->getFormURL()."?id=".$newID);
+         Html::redirect($doc->getLinkURL());
       }
    } else if ($newID = $doc->add($_POST)) {
       Event::log($newID, "documents", 4, "login",
                  sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $doc->fields["name"]));
       // Not from item tab
       if ($_SESSION['glpibackcreated'] && (!isset($_POST['itemtype']) || !isset($_POST['items_id']))) {
-         Html::redirect($doc->getFormURL()."?id=".$newID);
+         Html::redirect($doc->getLinkURL());
       }
    }
 
@@ -116,6 +114,6 @@ if (isset($_POST["add"])) {
 
 } else {
    Html::header(Document::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "management", "document");
-   $doc->display(array('id' =>$_GET["id"]));
+   $doc->display(['id' =>$_GET["id"]]);
    Html::footer();
 }

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 if (!defined('GLPI_ROOT')) {
@@ -49,7 +45,7 @@ if (!defined('GLPI_ROOT')) {
 class Consumable extends CommonDBChild {
 
    // From CommonDBTM
-   static protected $forward_entity_to = array('Infocom');
+   static protected $forward_entity_to = ['Infocom'];
    public $no_form_page                = true;
 
    static $rightname                   = 'consumable';
@@ -58,9 +54,7 @@ class Consumable extends CommonDBChild {
    static public $itemtype             = 'ConsumableItem';
    static public $items_id             = 'consumableitems_id';
 
-   /**
-    * @since version 0.84
-   **/
+
    function getForbiddenStandardMassiveAction() {
 
       $forbidden   = parent::getForbiddenStandardMassiveAction();
@@ -69,28 +63,23 @@ class Consumable extends CommonDBChild {
    }
 
 
-   /**
-    * since version 0.84
-    *
-    * @see CommonDBTM::getNameField()
-   **/
    static function getNameField() {
       return 'id';
    }
 
-   static function getTypeName($nb=0) {
+
+   static function getTypeName($nb = 0) {
       return _n('Consumable', 'Consumables', $nb);
    }
 
 
    function cleanDBonPurge() {
-      global $DB;
 
-      $query = "DELETE
-                FROM `glpi_infocoms`
-                WHERE (`items_id` = '".$this->fields['id']."'
-                       AND `itemtype` = '".$this->getType()."')";
-      $result = $DB->query($query);
+      $this->deleteChildrenAndRelationsFromDb(
+         [
+            Infocom::class,
+         ]
+      );
    }
 
 
@@ -98,11 +87,11 @@ class Consumable extends CommonDBChild {
 
       $item = new ConsumableItem();
       if ($item->getFromDB($input["consumableitems_id"])) {
-         return array("consumableitems_id" => $item->fields["id"],
+         return ["consumableitems_id" => $item->fields["id"],
                       "entities_id"        => $item->getEntityID(),
-                      "date_in"            => date("Y-m-d"));
+                      "date_in"            => date("Y-m-d")];
       }
-      return array();
+      return [];
    }
 
 
@@ -116,25 +105,23 @@ class Consumable extends CommonDBChild {
    /**
     * send back to stock
    **/
-   function backToStock(array $input, $history=1) {
+   function backToStock(array $input, $history = 1) {
       global $DB;
 
-      $query = "UPDATE `".$this->getTable()."`
-                SET `date_out` = NULL
-                WHERE `id` = '".$input["id"]."'";
-
-      if ($result = $DB->query($query)) {
+      $result = $DB->update(
+         $this->getTable(), [
+            'date_out' => 'NULL'
+         ], [
+            'id' => $input['id']
+         ]
+      );
+      if ($result) {
          return true;
       }
       return false;
    }
 
 
-   /**
-    * @since version 0.84
-    *
-    * @see CommonDBTM::getPreAdditionalInfosForName
-   **/
    function getPreAdditionalInfosForName() {
 
       $ci = new ConsumableItem();
@@ -150,25 +137,28 @@ class Consumable extends CommonDBChild {
     *
     * UnLink the consumable identified by $ID
     *
-    * @param $ID           consumable identifier
-    * @param $itemtype     itemtype of who we give the consumable (default '')
-    * @param $items_id     ID of the item giving the consumable (default 0)
+    * @param integer $ID       consumable identifier
+    * @param string  $itemtype itemtype of who we give the consumable
+    * @param integer $items_id ID of the item giving the consumable
     *
     * @return boolean
    **/
-   function out($ID, $itemtype='', $items_id=0) {
+   function out($ID, $itemtype = '', $items_id = 0) {
       global $DB;
 
       if (!empty($itemtype)
           && ($items_id > 0)) {
 
-         $query = "UPDATE `".$this->getTable()."`
-                   SET `date_out` = '".date("Y-m-d")."',
-                       `itemtype` = '$itemtype',
-                       `items_id` = '$items_id'
-                   WHERE `id` = '$ID'";
-
-         if ($result = $DB->query($query)) {
+         $result = $DB->update(
+            $this->getTable(), [
+               'date_out'  => date('Y-m-d'),
+               'itemtype'  => $itemtype,
+               'items_id'  => $items_id
+            ], [
+               'id' => $ID
+            ]
+         );
+         if ($result) {
             return true;
          }
       }
@@ -176,11 +166,6 @@ class Consumable extends CommonDBChild {
    }
 
 
-   /**
-    * @since version 0.85
-    *
-    * @see CommonDBTM::showMassiveActionsSubForm()
-   **/
    static function showMassiveActionsSubForm(MassiveAction $ma) {
       global $CFG_GLPI;
 
@@ -188,16 +173,16 @@ class Consumable extends CommonDBChild {
       switch ($ma->getAction()) {
          case 'give' :
             if (isset($input["entities_id"])) {
-               Dropdown::showSelectItemFromItemtypes(array('itemtype_name'
+               Dropdown::showSelectItemFromItemtypes(['itemtype_name'
                                                               => 'give_itemtype',
                                                            'items_id_name'
                                                               => 'give_items_id',
                                                            'entity_restrict'
                                                               => $input["entities_id"],
                                                            'itemtypes'
-                                                              => $CFG_GLPI["consumables_types"]));
+                                                              => $CFG_GLPI["consumables_types"]]);
                echo "<br><br>".Html::submit(_x('button', 'Give'),
-                                            array('name' => 'massiveaction'));
+                                            ['name' => 'massiveaction']);
                return true;
             }
       }
@@ -205,11 +190,6 @@ class Consumable extends CommonDBChild {
    }
 
 
-   /**
-    * @since version 0.85
-    *
-    * @see CommonDBTM::processMassiveActionsForOneItemtype()
-   **/
    static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
                                                        array $ids) {
 
@@ -217,7 +197,7 @@ class Consumable extends CommonDBChild {
          case 'backtostock' :
             foreach ($ids as $id) {
                if ($item->can($id, UPDATE)) {
-                  if ($item->backToStock(array("id" => $id))) {
+                  if ($item->backToStock(["id" => $id])) {
                      $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                   } else {
                      $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
@@ -261,72 +241,76 @@ class Consumable extends CommonDBChild {
    /**
     * count how many consumable for the consumable item $tID
     *
-    * @param $tID integer  consumable item identifier.
+    * @param integer $tID consumable item identifier.
     *
-    * @return integer : number of consumable counted.
+    * @return integer number of consumable counted.
     **/
    static function getTotalNumber($tID) {
       global $DB;
 
-      $query = "SELECT `id`
-                FROM `glpi_consumables`
-                WHERE `consumableitems_id` = '$tID'";
-      $result = $DB->query($query);
-
-      return $DB->numrows($result);
+      $result = $DB->request([
+         'COUNT'  => 'cpt',
+         'FROM'   => 'glpi_consumables',
+         'WHERE'  => ['consumableitems_id' => $tID]
+      ])->next();
+      return (int)$result['cpt'];
    }
 
 
    /**
     * count how many old consumable for the consumable item $tID
     *
-    * @param $tID integer  consumable item identifier.
+    * @param integer $tID consumable item identifier.
     *
-    * @return integer : number of old consumable counted.
+    * @return integer number of old consumable counted.
    **/
    static function getOldNumber($tID) {
       global $DB;
 
-      $query = "SELECT `id`
-                FROM `glpi_consumables`
-                WHERE (`consumableitems_id` = '$tID'
-                       AND `date_out` IS NOT NULL)";
-      $result = $DB->query($query);
-
-      return $DB->numrows($result);
+      $result = $DB->request([
+         'COUNT'  => 'cpt',
+         'FROM'   => 'glpi_consumables',
+         'WHERE'  => [
+            'consumableitems_id' => $tID,
+            'NOT'                => ['date_out' => null]
+         ]
+      ])->next();
+      return (int)$result['cpt'];
    }
 
 
    /**
     * count how many consumable unused for the consumable item $tID
     *
-    * @param $tID integer  consumable item identifier.
+    * @param integer $tID consumable item identifier.
     *
-    * @return integer : number of consumable unused counted.
+    * @return integer number of consumable unused counted.
    **/
    static function getUnusedNumber($tID) {
       global $DB;
 
-      $query = "SELECT `id`
-                FROM `glpi_consumables`
-                WHERE (`consumableitems_id` = '$tID'
-                       AND `date_out` IS NULL)";
-      $result = $DB->query($query);
-
-      return $DB->numrows($result);
+      $result = $DB->request([
+         'COUNT'  => 'cpt',
+         'FROM'   => 'glpi_consumables',
+         'WHERE'  => [
+            'consumableitems_id' => $tID,
+            'date_out'           => null
+         ]
+      ])->next();
+      return(int) $result['cpt'];
    }
 
 
    /**
     * Get the consumable count HTML array for a defined consumable type
     *
-    * @param $tID             integer  consumable item identifier.
-    * @param $alarm_threshold integer  threshold alarm value.
-    * @param $nohtml          integer  Return value without HTML tags. (default 0)
+    * @param integer $tID             consumable item identifier.
+    * @param integer $alarm_threshold threshold alarm value.
+    * @param boolean $nohtml          Return value without HTML tags.
     *
     * @return string to display
    **/
-   static function getCount($tID, $alarm_threshold, $nohtml=0) {
+   static function getCount($tID, $alarm_threshold, $nohtml = 0) {
 
       // Get total
       $total = self::getTotalNumber($tID);
@@ -360,45 +344,53 @@ class Consumable extends CommonDBChild {
    /**
     * Check if a Consumable is New (not used, in stock)
     *
-    * @param $cID integer  consumable ID.
+    * @param integer $cID consumable ID.
+    *
+    * @return boolean
    **/
    static function isNew($cID) {
       global $DB;
 
-      $query = "SELECT `id`
-                FROM `glpi_consumables`
-                WHERE (`id` = '$cID'
-                       AND `date_out` IS NULL)";
-      $result = $DB->query($query);
-
-      return ($DB->numrows($result) == 1);
+      $result = $DB->request([
+         'COUNT'  => 'cpt',
+         'FROM'   => 'glpi_consumables',
+         'WHERE'  => [
+            'id'        => $cID,
+            'date_out'  => null
+         ]
+      ])->next();
+      return $result['cpt'] == 1;
    }
 
 
    /**
     * Check if a consumable is Old (used, not in stock)
     *
-    * @param $cID integer  consumable ID.
+    * @param integer $cID consumable ID.
+    *
+    * @return boolean
    **/
    static function isOld($cID) {
       global $DB;
 
-      $query = "SELECT `id`
-                FROM `glpi_consumables`
-                WHERE (`id` = '$cID'
-                       AND `date_out` IS NOT NULL)";
-      $result = $DB->query($query);
-
-      return ($DB->numrows($result) == 1);
+      $result = $DB->request([
+         'COUNT'  => 'cpt',
+         'FROM'   => 'glpi_consumables',
+         'WHERE'  => [
+            'id'     => $cID,
+            'NOT'   => ['date_out' => null]
+         ]
+      ])->next();
+      return $result['cpt'] == 1;
    }
 
 
    /**
     * Get the localized string for the status of a consumable
     *
-    * @param $cID integer  consumable ID.
+    * @param integer $cID consumable ID.
     *
-    * @return string : dict value for the consumable status.
+    * @return string
    **/
    static function getStatus($cID) {
 
@@ -414,17 +406,16 @@ class Consumable extends CommonDBChild {
    /**
     * Print out a link to add directly a new consumable from a consumable item.
     *
-    * @param $consitem  ConsumableItem object
+    * @param ConsumableItem $consitem
     *
-    * @return Nothing (displays)
+    * @return void
    **/
    static function showAddForm(ConsumableItem $consitem) {
-      global $CFG_GLPI;
 
       $ID = $consitem->getField('id');
 
       if (!$consitem->can($ID, UPDATE)) {
-         return false;
+         return;
       }
 
       if ($ID > 0) {
@@ -433,9 +424,9 @@ class Consumable extends CommonDBChild {
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr><td class='tab_bg_2 center'>";
          echo "<input type='hidden' name='consumableitems_id' value='$ID'>\n";
-         Dropdown::showNumber('to_add', array('value' => 1,
+         Dropdown::showNumber('to_add', ['value' => 1,
                                               'min'   => 1,
-                                              'max'   => 100));
+                                              'max'   => 100]);
          echo " <input type='submit' name='add_several' value=\""._sx('button', 'Add consumables')."\"
                 class='submit'>";
          echo "</td></tr>";
@@ -449,17 +440,17 @@ class Consumable extends CommonDBChild {
    /**
     * Print out the consumables of a defined type
     *
-    * @param $consitem           ConsumableItem object
-    * @param $show_old  boolean  show old consumables or not. (default 0)
+    * @param ConsumableItem $consitem
+    * @param boolean        $show_old show old consumables or not. (default 0)
     *
-    * @return Nothing (displays)
+    * @return void
    **/
-   static function showForConsumableItem(ConsumableItem $consitem, $show_old=0) {
-      global $DB, $CFG_GLPI;
+   static function showForConsumableItem(ConsumableItem $consitem, $show_old = 0) {
+      global $DB;
 
       $tID = $consitem->getField('id');
       if (!$consitem->can($tID, READ)) {
-         return false;
+         return;
       }
 
       if (isset($_GET["start"])) {
@@ -470,25 +461,24 @@ class Consumable extends CommonDBChild {
 
       $canedit = $consitem->can($tID, UPDATE);
       $rand = mt_rand();
-      $where = "";
+      $where = ['consumableitems_id' => $tID];
+      $order = ['date_in', 'id'];
       if (!$show_old) { // NEW
-         $where = " AND `date_out` IS NULL
-                  ORDER BY `date_in`, `id`";
+         $where += ['date_out' => 'NULL'];
       } else { //OLD
-         $where = " AND `date_out` IS NOT NULL
-                  ORDER BY `date_out` DESC,
-                           `date_in`,
-                           `id`";
+         $where += ['NOT'   => ['date_out' => 'NULL']];
+         $order = ['date_out DESC'] + $order;
       }
 
-      $number = countElementsInTable("glpi_consumables", "`consumableitems_id` = '$tID' $where");
+      $number = countElementsInTable("glpi_consumables", $where);
 
-      $query = "SELECT `glpi_consumables`.*
-                FROM `glpi_consumables`
-                WHERE `consumableitems_id` = '$tID'
-                      $where
-                LIMIT ".intval($start)."," . intval($_SESSION['glpilist_limit']);
-      $result = $DB->query($query);
+      $iterator = $DB->request([
+         'FROM'   => self::getTable(),
+         'WHERE'  => $where,
+         'ORDER'  => $order,
+         'START'  => (int)$start,
+         'LIMIT'  => (int)$_SESSION['glpilist_limit']
+      ]);
 
       echo "<div class='spaced'>";
 
@@ -497,23 +487,27 @@ class Consumable extends CommonDBChild {
 
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $actions = array('delete' => _x('button', 'Delete permanently'),
-                          'Infocom'.MassiveAction::CLASS_ACTION_SEPARATOR.'activate'
-                                   => __('Enable the financial and administrative information'));
+         $actions = [];
+         if ($consitem->can($tID, PURGE)) {
+            $actions['delete'] = _x('button', 'Delete permanently');
+         }
+         $actions['Infocom'.MassiveAction::CLASS_ACTION_SEPARATOR.'activate']
+            = __('Enable the financial and administrative information');
+
          if ($show_old) {
             $actions['Consumable'.MassiveAction::CLASS_ACTION_SEPARATOR.'backtostock']
                      = __('Back to stock');
          } else {
             $actions[__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'give'] = _x('button', 'Give');
          }
-         $entparam = array('entities_id' => $consitem->getEntityID());
+         $entparam = ['entities_id' => $consitem->getEntityID()];
          if ($consitem->isRecursive()) {
-            $entparam = array('entities_id' => getSonsOf('glpi_entities', $consitem->getEntityID()));
+            $entparam = ['entities_id' => getSonsOf('glpi_entities', $consitem->getEntityID())];
          }
-         $massiveactionparams = array('num_displayed'    => $number,
+         $massiveactionparams = ['num_displayed'    => min($_SESSION['glpilist_limit'], $number),
                            'specific_actions' => $actions,
                            'container'        => 'mass'.__CLASS__.$rand,
-                           'extraparams'      => $entparam);
+                           'extraparams'      => $entparam];
          Html::showMassiveActions($massiveactionparams);
          echo "<input type='hidden' name='consumableitems_id' value='$tID'>\n";
       }
@@ -528,7 +522,6 @@ class Consumable extends CommonDBChild {
       }
 
       if ($number) {
-         $i = 0;
          $header_begin  = "<tr>";
          $header_top    = '';
          $header_bottom = '';
@@ -550,7 +543,7 @@ class Consumable extends CommonDBChild {
          $header_end .= "</tr>";
          echo $header_begin.$header_top.$header_end;
 
-         while ($data = $DB->fetch_assoc($result)) {
+         while ($data = $iterator->next()) {
             $date_in  = Html::convDate($data["date_in"]);
             $date_out = Html::convDate($data["date_out"]);
 
@@ -593,64 +586,75 @@ class Consumable extends CommonDBChild {
 
    /**
     * Show the usage summary of consumables by user
+    *
+    * @return void
     **/
    static function showSummary() {
       global $DB;
 
       if (!Consumable::canView()) {
-         return false;
+         return;
       }
 
-      $query = "SELECT COUNT(*) AS count, `consumableitems_id`, `itemtype`, `items_id`
-                FROM `glpi_consumables`
-                WHERE `date_out` IS NOT NULL
-                      AND `consumableitems_id` IN (SELECT `id`
-                                                   FROM `glpi_consumableitems` ".
-                                                   getEntitiesRestrictRequest("WHERE",
-                                                                           "glpi_consumableitems").")
-                GROUP BY `itemtype`, `items_id`, `consumableitems_id`";
-      $used = array();
+      $iterator = $DB->request([
+         'SELECT' => [
+            'COUNT'  => ['* AS count'],
+            'consumableitems_id',
+            'itemtype',
+            'items_id'
+         ],
+         'FROM'   => 'glpi_consumables',
+         'WHERE'  => [
+            'NOT'                => ['date_out' => null],
+            'consumableitems_id' => new \QuerySubQuery([
+               'SELECT' => 'id',
+               'FROM'   => 'glpi_consumableitems',
+               'WHERE'  => getEntitiesRestrictCriteria('glpi_consumableitems')
+            ])
+         ],
+         'GROUP'  => ['itemtype', 'items_id', 'consumableitems_id']
+      ]);
+      $used = [];
 
-      if ($result = $DB->query($query)) {
-         if ($DB->numrows($result)) {
-            while ($data = $DB->fetch_assoc($result)) {
-               $used[$data['itemtype'].'####'.$data['items_id']][$data["consumableitems_id"]]
-                  = $data["count"];
-            }
-         }
-      }
-      $query = "SELECT COUNT(*) AS count, `consumableitems_id`
-                FROM `glpi_consumables`
-                WHERE `date_out` IS NULL
-                      AND `consumableitems_id` IN (SELECT `id`
-                                                   FROM `glpi_consumableitems` ".
-                                                   getEntitiesRestrictRequest("WHERE",
-                                                                           "glpi_consumableitems").")
-                GROUP BY `consumableitems_id`";
-      $new = array();
-
-      if ($result = $DB->query($query)) {
-         if ($DB->numrows($result)) {
-            while ($data = $DB->fetch_assoc($result)) {
-               $new[$data["consumableitems_id"]] = $data["count"];
-            }
-         }
+      while ($data = $iterator->next()) {
+         $used[$data['itemtype'].'####'.$data['items_id']][$data["consumableitems_id"]]
+            = $data["count"];
       }
 
-      $types = array();
-      $query = "SELECT *
-                FROM `glpi_consumableitems` ".
-                getEntitiesRestrictRequest("WHERE", "glpi_consumableitems");
+      $iterator = $DB->request([
+         'SELECT' => [
+            'COUNT'  => '* AS count',
+            'consumableitems_id',
+         ],
+         'FROM'   => 'glpi_consumables',
+         'WHERE'  => [
+            'date_out'           => null,
+            'consumableitems_id' => new \QuerySubQuery([
+               'SELECT' => 'id',
+               'FROM'   => 'glpi_consumableitems',
+               'WHERE'  => getEntitiesRestrictCriteria('glpi_consumableitems')
+            ])
+         ],
+         'GROUP'  => ['consumableitems_id']
+      ]);
+      $new = [];
 
-      if ($result = $DB->query($query)) {
-         if ($DB->numrows($result)) {
-            while ($data = $DB->fetch_assoc($result)) {
-               $types[$data["id"]] = $data["name"];
-            }
-         }
+      while ($data = $iterator->next()) {
+         $new[$data["consumableitems_id"]] = $data["count"];
       }
+
+      $iterator = $DB->request([
+         'FROM'   => 'glpi_consumableitems',
+         'WHERE'  => getEntitiesRestrictCriteria('glpi_consumableitems')
+      ]);
+      $types = [];
+
+      while ($data = $iterator->next()) {
+         $types[$data["id"]] = $data["name"];
+      }
+
       asort($types);
-      $total = array();
+      $total = [];
       if (count($types) > 0) {
          // Produce headline
          echo "<div class='center'><table class='tab_cadrehov'><tr>";
@@ -716,7 +720,7 @@ class Consumable extends CommonDBChild {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate && Consumable::canView()) {
          $nb = 0;
@@ -733,15 +737,17 @@ class Consumable extends CommonDBChild {
 
 
    /**
-    * @param $item   string  ConsumableItem object
+    * @param ConsumableItem $item
+    *
+    * @return integer
    **/
    static function countForConsumableItem(ConsumableItem $item) {
 
-      return countElementsInTable(array('glpi_consumables'), ['glpi_consumables.consumableitems_id' => $item->getField('id')]);
+      return countElementsInTable(['glpi_consumables'], ['glpi_consumables.consumableitems_id' => $item->getField('id')]);
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($item->getType()) {
          case 'ConsumableItem' :
@@ -752,7 +758,7 @@ class Consumable extends CommonDBChild {
       }
    }
 
-   function getRights($interface='central') {
+   function getRights($interface = 'central') {
       $ci = new ConsumableItem();
       return $ci->getRights($interface);
    }

@@ -3,7 +3,7 @@
 # /**
 #  * ---------------------------------------------------------------------
 #  * GLPI - Gestionnaire Libre de Parc Informatique
-#  * Copyright (C) 2015-2017 Teclib' and contributors.
+#  * Copyright (C) 2015-2018 Teclib' and contributors.
 #  *
 #  * http://glpi-project.org
 #  *
@@ -51,8 +51,8 @@ foreach (readdir(DIRHANDLE)){
 			}
 		} else {
 	 		if(!(-l "$dir/$_")){
-				# Included filetypes - php, css, js => default comment style
-				if ((index($_,".php",0)!=-1)||(index($_,".css",0)!=-1)||(index($_,".js",0)!=-1)){
+				# Included filetypes - php, css, js, scss => default comment style
+				if ((index($_,".php",0)!=-1)||(index($_,".css",0)!=-1)||(index($_,".scss",0)!=-1)||(index($_,".js",0)!=-1)){
 					do_file("$dir/$_", "");
 	 			}
 				# Included filetypes - sql, sh, pl => Add a specific comment style (#)

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-* @since version 0.85 in front
-*/
+/**
+ * @since 0.85
+ */
 
 include ('../inc/includes.php');
 
@@ -46,10 +45,7 @@ if (!isset($_SESSION["glpicookietest"]) || ($_SESSION["glpicookietest"] != 'test
    }
 }
 
-$_POST = array_map('stripslashes', $_POST);
-
 //Do login and checks
-//$user_present = 1;
 if (isset($_SESSION['namfield']) && isset($_POST[$_SESSION['namfield']])) {
    $login = $_POST[$_SESSION['namfield']];
 } else {
@@ -59,6 +55,12 @@ if (isset($_SESSION['pwdfield']) && isset($_POST[$_SESSION['pwdfield']])) {
    $password = Toolbox::unclean_cross_side_scripting_deep($_POST[$_SESSION['pwdfield']]);
 } else {
    $password = '';
+}
+// Manage the selection of the auth source (local, LDAP id, MAIL id)
+if (isset($_POST['auth'])) {
+   $login_auth = $_POST['auth'];
+} else {
+   $login_auth = '';
 }
 
 $remember = isset($_SESSION['rmbfield']) && isset($_POST[$_SESSION['rmbfield']]) && $CFG_GLPI["login_remember_time"];
@@ -76,7 +78,7 @@ $auth = new Auth();
 
 
 // now we can continue with the process...
-if ($auth->login($login, $password, (isset($_REQUEST["noAUTO"])?$_REQUEST["noAUTO"]:false), $remember)) {
+if ($auth->login($login, $password, (isset($_REQUEST["noAUTO"])?$_REQUEST["noAUTO"]:false), $remember, $login_auth)) {
    Auth::redirectIfAuthenticated();
 } else {
    // we have done at least a good login? No, we exit.

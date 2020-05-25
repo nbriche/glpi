@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,12 +30,10 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 define('DO_NOT_CHECK_HTTP_REFERER', 1);
 include ('./inc/includes.php');
+
+global $DB;
 
 // Force in normal mode
 $_SESSION['glpi_use_mode'] = Session::NORMAL_MODE;
@@ -57,7 +55,7 @@ if (DBConnection::isDBSlaveActive()) {
    if (is_array($DBslave->dbhost)) {
       $hosts = $DBslave->dbhost;
    } else {
-      $hosts = array($DBslave->dbhost);
+      $hosts = [$DBslave->dbhost];
    }
 
    foreach ($hosts as $num => $name) {
@@ -84,13 +82,6 @@ if (DBConnection::establishDBConnection(false, true, false)) {
    $ok_master = false;
 }
 
-$crashedTables = DBMysql::checkForCrashedTables();
-if (!empty($crashedTables)) {
-   echo "GLPI_TABLES_KO\n";
-} else {
-   echo "GLPI_TABLES_OK\n";
-}
-
 // Slave and master ok;
 $ok = $ok_slave && $ok_master;
 
@@ -107,7 +98,7 @@ if (($ok_master || $ok_slave )
     && DBConnection::establishDBConnection(false, false, false)) {
 
    // Check LDAP Auth connections
-   $ldap_methods = getAllDatasFromTable('glpi_authldaps', '`is_active`=1');
+   $ldap_methods = getAllDataFromTable('glpi_authldaps', ['is_active' => 1]);
 
    if (count($ldap_methods)) {
       echo "Check LDAP servers:";
@@ -130,7 +121,7 @@ if (($ok_master || $ok_slave )
    }
 
    // Check IMAP Auth connections
-   $imap_methods = getAllDatasFromTable('glpi_authmails', '`is_active`=1');
+   $imap_methods = getAllDataFromTable('glpi_authmails', ['is_active' => 1]);
 
    if (count($imap_methods)) {
       echo "Check IMAP servers:";
@@ -182,7 +173,7 @@ if (($ok_master || $ok_slave )
    }
 
    /// Check mailcollectors
-   $mailcollectors = getAllDatasFromTable('glpi_mailcollectors', '`is_active`=1');
+   $mailcollectors = getAllDataFromTable('glpi_mailcollectors', ['is_active' => 1]);
    if (count($mailcollectors)) {
       echo "Check mail collectors:";
       $mailcol = new MailCollector();
@@ -190,14 +181,13 @@ if (($ok_master || $ok_slave )
          echo " ".$mc['name'];
          if ($mailcol->getFromDB($mc['id'])) {
             $mailcol->connect();
-            if ($mailcol->marubox) {
+            if ($mailcol->storage) {
                echo "_OK";
             } else {
                echo "_PROBLEM";
                $ok = false;
             }
             echo "\n";
-            $mailcol->close_mailbox();
          }
       }
 
@@ -206,10 +196,21 @@ if (($ok_master || $ok_slave )
    }
 
    // Check crontask
-   $crontasks = getAllDatasFromTable('glpi_crontasks',
-                                     "`state`=".CronTask::STATE_RUNNING."
-                                      AND ((unix_timestamp(`lastrun`) + 2 * `frequency` < unix_timestamp(now()))
-                                           OR (unix_timestamp(`lastrun`) + 2*".HOUR_TIMESTAMP." < unix_timestamp(now())))");
+   $crontasks = getAllDataFromTable(
+      'glpi_crontasks', [
+         'state'  => CronTask::STATE_RUNNING,
+         'OR'     => [
+            new \QueryExpression(
+               '(unix_timestamp(' . $DB->quoteName('lastrun') . ') + 2 * '.
+               $DB->quoteName('frequency') .' < unix_timestamp(now()))'
+            ),
+            new \QueryExpression(
+               '(unix_timestamp(' . $DB->quoteName('lastrun') . ') + 2 * '.
+               HOUR_TIMESTAMP . ' < unix_timestamp(now()))'
+            )
+         ]
+      ]
+   );
    if (count($crontasks)) {
       echo "Check crontasks:";
       foreach ($crontasks as $ct) {
@@ -221,7 +222,7 @@ if (($ok_master || $ok_slave )
    }
 
    // hook for plugin
-   $param = array('ok' => $ok);
+   $param = ['ok' => $ok];
    Plugin::doHook("status", $param);
    if (isset($param['ok'])) {
       $ok = $param['ok'];

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (strpos($_SERVER['PHP_SELF'], "private_public.php")) {
    include ('../inc/includes.php');
    header("Content-Type: text/html; charset=UTF-8");
@@ -48,10 +44,10 @@ if (isset($_POST['is_private'])) {
    switch ($_POST['is_private']) {
       case true :
          echo "<input type='hidden' name='is_private' value='1'>\n";
-         echo "<input type='hidden' name='entities_id' value='-1'>\n";
+         echo "<input type='hidden' name='entities_id' value='0'>\n";
          echo "<input type='hidden' name='is_recursive' value='0'>\n";
          $private =  __('Personal');
-         $link    = "<a onClick='setPublic".$_POST['rand']."()'>".__('Set public')."</a>";
+         $link    = "<a href='#' onClick='setPublic".$_POST['rand']."();return false;'>".__('Set public')."</a>";
          printf(__('%1$s - %2$s'), $private, $link);
          break;
 
@@ -67,11 +63,11 @@ if (isset($_POST['is_private'])) {
          echo "<input type='hidden' name='is_private' value='0'>\n";
          echo __('Public');
          echo "</td><td>";
-         Entity::dropdown(array('value' => $val));
+         Entity::dropdown(['value' => $val]);
          echo "</td><td>". __('Child entities')."</td><td>";
          Dropdown::showYesNo('is_recursive', $_POST["is_recursive"]);
          echo "</td><td>";
-         echo "<a onClick='setPrivate".$_POST['rand']."()'>".__('Set personal')."</a>";
+         echo "<a href='#' onClick='setPrivate".$_POST['rand']."();return false'>".__('Set personal')."</a>";
          echo "</td></tr></table>";
          break;
    }

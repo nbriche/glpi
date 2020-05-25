@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,15 +30,11 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 Session::checkRight("networking", UPDATE);
 
-if (!TableExists('glpi_networkportmigrations')) {
+if (!$DB->tableExists('glpi_networkportmigrations')) {
    Html::displayNotFoundError();
 }
 

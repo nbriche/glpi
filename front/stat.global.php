@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 Html::header(__('Statistics'), $_SERVER['PHP_SELF'], "helpdesk", "stat");
@@ -42,7 +38,7 @@ Session::checkRight("statistic", READ);
 
 if (empty($_GET["date1"]) && empty($_GET["date2"])) {
    $year          = date("Y")-1;
-   $_GET["date1"] = date("Y-m-d", mktime(1, 0, 0, date("m"), date("d"), $year));
+   $_GET["date1"] = date("Y-m-d", mktime(1, 0, 0, (int)date("m"), (int)date("d"), $year));
    $_GET["date2"] = date("Y-m-d");
 }
 
@@ -103,17 +99,12 @@ $stat->displayLineGraph(
    ]
 );
 
-$show_all = false;
-if (!isset($_GET['graph']) || (count($_GET['graph']) == 0)) {
-   $show_all = true;
-}
-
 $values = [];
 //Temps moyen de resolution d'intervention
 $values['avgsolved'] = Stat::constructEntryValues($_GET['itemtype'], "inter_avgsolvedtime",
                                                    $_GET["date1"], $_GET["date2"]);
 // Pass to hour values
-foreach ($values['avgsolved'] as $key => &$val) {
+foreach ($values['avgsolved'] as &$val) {
    $val = round($val / HOUR_TIMESTAMP, 2);
 }
 
@@ -121,7 +112,7 @@ foreach ($values['avgsolved'] as $key => &$val) {
 $values['avgclosed'] = Stat::constructEntryValues($_GET['itemtype'], "inter_avgclosedtime",
                                                    $_GET["date1"], $_GET["date2"]);
 // Pass to hour values
-foreach ($values['avgclosed'] as $key => &$val) {
+foreach ($values['avgclosed'] as &$val) {
    $val = round($val / HOUR_TIMESTAMP, 2);
 }
 //Temps moyen d'intervention reel
@@ -129,7 +120,7 @@ $values['avgactiontime'] = Stat::constructEntryValues($_GET['itemtype'], "inter_
                                                        $_GET["date1"], $_GET["date2"]);
 
 // Pass to hour values
-foreach ($values['avgactiontime'] as $key => &$val) {
+foreach ($values['avgactiontime'] as &$val) {
    $val =  round($val / HOUR_TIMESTAMP, 2);
 }
 

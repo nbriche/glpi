@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,15 +30,14 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
+/**
+ * Following variables have to be defined before inclusion of this file:
+ * @var RuleCollection $rulecollection
+ */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
-
-$rule = $rulecollection->getRuleClass();
 
 if (!isset($_GET["id"])) {
    $_GET["id"] = "";
@@ -82,12 +81,12 @@ if (isset($_POST["action"])) {
 
    if (!isset($_GET['offset'])) {
       // First run
-      $offset       = $rulecollection->replayRulesOnExistingDB(0, $max, array(), $_POST);
+      $offset       = $rulecollection->replayRulesOnExistingDB(0, $max, [], $_POST);
       $manufacturer = (isset($_POST["manufacturer"]) ? $_POST["manufacturer"] : 0);
 
    } else {
       // Next run
-      $offset       = $rulecollection->replayRulesOnExistingDB($_GET['offset'], $max, array(),
+      $offset       = $rulecollection->replayRulesOnExistingDB($_GET['offset'], $max, [],
                                                                $_GET);
       $manufacturer = $_GET["manufacturer"];
 

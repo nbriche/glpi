@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 use Glpi\Event;
 
@@ -73,6 +69,6 @@ if (isset($_POST["add"])) {
 } else {
    Html::header(Link::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "link");
 
-   $link->display(array('id' => $_GET["id"]));
+   $link->display(['id' => $_GET["id"]]);
    Html::footer();
 }

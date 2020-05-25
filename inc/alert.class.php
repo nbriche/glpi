@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -78,7 +74,7 @@ class Alert extends CommonDBTM {
    /**
     * Clear all alerts  for an item
     *
-    * @since version 0.84
+    * @since 0.84
     *
     * @param string  $itemtype ID of the type to clear
     * @param integer $ID       ID of the item to clear
@@ -90,19 +86,22 @@ class Alert extends CommonDBTM {
       return $this->deleteByCriteria(['itemtype' => $itemtype, 'items_id' => $ID], 1);
    }
 
-   static function dropdown($options = array()) {
+   static function dropdown($options = []) {
 
-      $p = [];
-      $p['name']           = 'alert';
-      $p['value']          = 0;
-      $p['display']        = true;
-      $p['inherit_parent'] = false;
+      $p = [
+         'name'           => 'alert',
+         'value'          => 0,
+         'display'        => true,
+         'inherit_parent' => false,
+      ];
 
       if (count($options)) {
          foreach ($options as $key => $val) {
             $p[$key] = $val;
          }
       }
+
+      $times = [];
 
       if ($p['inherit_parent']) {
          $times[Entity::CONFIG_PARENT] = __('Inheritance of the parent entity');
@@ -124,18 +123,22 @@ class Alert extends CommonDBTM {
     *
     * @return void|string (see $options['display'])
     */
-   static function dropdownYesNo($options = array()) {
+   static function dropdownYesNo($options = []) {
 
-      $p['name']           = 'alert';
-      $p['value']          = 0;
-      $p['display']        = true;
-      $p['inherit_parent'] = false;
+      $p = [
+         'name'           => 'alert',
+         'value'          => 0,
+         'display'        => true,
+         'inherit_parent' => false,
+      ];
 
       if (count($options)) {
          foreach ($options as $key => $val) {
             $p[$key] = $val;
          }
       }
+
+      $times = [];
 
       if ($p['inherit_parent']) {
          $times[Entity::CONFIG_PARENT] = __('Inheritance of the parent entity');
@@ -157,13 +160,15 @@ class Alert extends CommonDBTM {
     *
     * @return void|string (see $options['display'])
     */
-   static function dropdownIntegerNever($name, $value, $options=array()) {
+   static function dropdownIntegerNever($name, $value, $options = []) {
 
-      $p['min']      = 1;
-      $p['max']      = 100;
-      $p['step']     = 1;
-      $p['toadd']    = array();
-      $p['display']  = true;
+      $p = [
+         'min'     => 1,
+         'max'     => 100,
+         'step'    => 1,
+         'toadd'   => [],
+         'display' => true,
+      ];
 
       if (isset($options['inherit_parent']) && $options['inherit_parent']) {
          $p['toadd'][-2] = __('Inheritance of the parent entity');
@@ -197,7 +202,7 @@ class Alert extends CommonDBTM {
     *
     * @return integer|boolean
     */
-   static function alertExists($itemtype='', $items_id='', $type='') {
+   static function alertExists($itemtype = '', $items_id = '', $type = '') {
       global $DB;
 
       $iter = $DB->request(self::getTable(), ['itemtype' => $itemtype, 'items_id' => $items_id, 'type' => $type]);
@@ -211,7 +216,7 @@ class Alert extends CommonDBTM {
    /**
     * Get date of alert
     *
-    * @since version 0.84
+    * @since 0.84
     *
     * @param string  $itemtype (default '')
     * @param integer $items_id (default '')
@@ -219,7 +224,7 @@ class Alert extends CommonDBTM {
     *
     * @return mixed|boolean
     */
-   static function getAlertDate($itemtype='', $items_id='', $type='') {
+   static function getAlertDate($itemtype = '', $items_id = '', $type = '') {
       global $DB;
 
       $iter = $DB->request(self::getTable(), ['itemtype' => $itemtype, 'items_id' => $items_id, 'type' => $type]);

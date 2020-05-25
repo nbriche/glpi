@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,9 +37,9 @@ if (!defined('GLPI_ROOT')) {
 /// Class DeviceHardDrive
 class DeviceHardDrive extends CommonDevice {
 
-   static protected $forward_entity_to = array('Item_DeviceHardDrive', 'Infocom');
+   static protected $forward_entity_to = ['Item_DeviceHardDrive', 'Infocom'];
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Hard drive', 'Hard drives', $nb);
    }
 
@@ -51,28 +47,28 @@ class DeviceHardDrive extends CommonDevice {
    function getAdditionalFields() {
 
       return array_merge(parent::getAdditionalFields(),
-                         array(array('name'  => 'capacity_default',
+                         [['name'  => 'capacity_default',
                                      'label' => __('Capacity by default'),
                                      'type'  => 'text',
-                                     'unit'  => __('Mio')),
-                               array('name'  => 'rpm',
+                                     'unit'  => __('Mio')],
+                               ['name'  => 'rpm',
                                      'label' => __('Rpm'),
-                                     'type'  => 'text'),
-                               array('name'  => 'cache',
+                                     'type'  => 'text'],
+                               ['name'  => 'cache',
                                      'label' => __('Cache'),
                                      'type'  => 'text',
-                                     'unit'  => __('Mio')),
-                               array('name'  => 'deviceharddrivemodels_id',
+                                     'unit'  => __('Mio')],
+                               ['name'  => 'deviceharddrivemodels_id',
                                      'label' => __('Model'),
-                                     'type'  => 'dropdownValue'),
-                               array('name'  => 'interfacetypes_id',
+                                     'type'  => 'dropdownValue'],
+                               ['name'  => 'interfacetypes_id',
                                      'label' => __('Interface'),
-                                     'type'  => 'dropdownValue')));
+                                     'type'  => 'dropdownValue']]);
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',
@@ -119,14 +115,14 @@ class DeviceHardDrive extends CommonDevice {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @param $input
     *
     * @return number
    **/
    function prepareInputForAddOrUpdate($input) {
 
-      foreach (array('capacity_default') as $field) {
+      foreach (['capacity_default'] as $field) {
          if (isset($input[$field]) && !is_numeric($input[$field])) {
             $input[$field] = 0;
          }
@@ -136,7 +132,7 @@ class DeviceHardDrive extends CommonDevice {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @see CommonDropdown::prepareInputForAdd()
    **/
    function prepareInputForAdd($input) {
@@ -145,7 +141,7 @@ class DeviceHardDrive extends CommonDevice {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @see CommonDropdown::prepareInputForUpdate()
    **/
    function prepareInputForUpdate($input) {
@@ -154,13 +150,13 @@ class DeviceHardDrive extends CommonDevice {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see CommonDevice::getHTMLTableHeader()
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column = parent::getHTMLTableHeader($itemtype, $base, $super, $father, $options);
 
@@ -180,8 +176,8 @@ class DeviceHardDrive extends CommonDevice {
    }
 
 
-   function getHTMLTableCellForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                    HTMLTableCell $father=NULL, array $options=array()) {
+   function getHTMLTableCellForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                    HTMLTableCell $father = null, array $options = []) {
 
       $column = parent::getHTMLTableCellForItem($row, $item, $father, $options);
 
@@ -191,7 +187,7 @@ class DeviceHardDrive extends CommonDevice {
 
       switch ($item->getType()) {
          case 'Computer' :
-            Manufacturer::getHTMLTableCellsForItem($row, $this, NULL, $options);
+            Manufacturer::getHTMLTableCellsForItem($row, $this, null, $options);
             if ($this->fields["rpm"]) {
                $row->addCell($row->getHeaderByName('deviceharddriver_rpm'), $this->fields["rpm"]);
             }
@@ -201,7 +197,7 @@ class DeviceHardDrive extends CommonDevice {
                              $this->fields["cache"]);
             }
 
-            InterfaceType::getHTMLTableCellsForItem($row, $this, NULL, $options);
+            InterfaceType::getHTMLTableCellsForItem($row, $this, null, $options);
             break;
       }
    }
@@ -212,13 +208,55 @@ class DeviceHardDrive extends CommonDevice {
     *
     * @see CommonDevice::getImportCriteria()
     *
-    * @since version 0.84
+    * @since 0.84
    **/
    function getImportCriteria() {
 
-      return array('designation'       => 'equal',
+      return ['designation'       => 'equal',
                    'manufacturers_id'  => 'equal',
-                   'interfacetypes_id' => 'equal');
+                   'interfacetypes_id' => 'equal'];
    }
 
+   public static function rawSearchOptionsToAdd($itemtype, $main_joinparams) {
+      global $DB;
+
+      $tab = [];
+
+      $tab[] = [
+         'id'                 => '114',
+         'table'              => 'glpi_deviceharddrives',
+         'field'              => 'designation',
+         'name'               => __('Hard drive type'),
+         'forcegroupby'       => true,
+         'usehaving'          => true,
+         'massiveaction'      => false,
+         'datatype'           => 'string',
+         'joinparams'         => [
+            'beforejoin'         => [
+               'table'              => 'glpi_items_deviceharddrives',
+               'joinparams'         => $main_joinparams
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '115',
+         'table'              => 'glpi_items_deviceharddrives',
+         'field'              => 'capacity',
+         'name'               => __('Hard drive size'),
+         'unit'               => 'auto',
+         'forcegroupby'       => true,
+         'usehaving'          => true,
+         'datatype'           => 'number',
+         'width'              => 1000,
+         'massiveaction'      => false,
+         'joinparams'         => $main_joinparams,
+         'computation'        =>
+            '(SUM(' . $DB->quoteName('TABLE.capacity') . ') / COUNT(' .
+            $DB->quoteName('TABLE.id') . '))
+            * COUNT(DISTINCT ' . $DB->quoteName('TABLE.id') . ')'
+      ];
+
+      return $tab;
+   }
 }

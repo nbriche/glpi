@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -49,8 +45,6 @@ if (!isset($_GET["withtemplate"])) {
 }
 
 $contract         = new Contract();
-$contractitem     = new Contract_Item();
-$contractsupplier = new Contract_Supplier();
 
 if (isset($_POST["add"])) {
    $contract->check(-1, CREATE, $_POST);
@@ -59,7 +53,7 @@ if (isset($_POST["add"])) {
       Event::log($newID, "contracts", 4, "financial",
                  sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($contract->getFormURL()."?id=".$newID);
+         Html::redirect($contract->getLinkURL());
       }
 
    }
@@ -107,7 +101,7 @@ if (isset($_POST["add"])) {
 
 } else {
    Html::header(Contract::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "management", "contract");
-   $contract->display(array('id'           => $_GET["id"],
-                            'withtemplate' => $_GET["withtemplate"]));
+   $contract->display(['id'           => $_GET["id"],
+                            'withtemplate' => $_GET["withtemplate"]]);
    Html::footer();
 }

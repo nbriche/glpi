@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -53,7 +49,7 @@ if (isset($_POST["add"])) {
       Event::log($newID, "consumableitems", 4, "inventory",
                  sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($constype->getFormURL()."?id=".$newID);
+         Html::redirect($constype->getLinkURL());
       }
    }
    Html::back();
@@ -100,6 +96,6 @@ if (isset($_POST["add"])) {
 
 } else {
    Html::header(_n('Consumable', 'Consumables', 2), $_SERVER['PHP_SELF'], "assets", "consumableitem");
-   $constype->display(array('id' =>$_GET["id"]));
+   $constype->display(['id' =>$_GET["id"]]);
    Html::footer();
 }

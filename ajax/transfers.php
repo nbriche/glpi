@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 header("Content-Type: text/html; charset=UTF-8");
 Html::header_nocache();
@@ -43,7 +39,7 @@ Session::checkRight("transfer", READ);
 if (isset($_POST["id"]) && ($_POST["id"] > 0)) {
    $transfer = new Transfer();
    $transfer->showForm($_POST["id"],
-                       array('target' => $CFG_GLPI["root_doc"]."/front/transfer.action.php"));
+                       ['target' => $CFG_GLPI["root_doc"]."/front/transfer.action.php"]);
 }
 
 Html::ajaxFooter();

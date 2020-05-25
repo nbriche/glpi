@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -47,7 +43,7 @@ class Ajax {
     * Create modal window
     * After display it using $name.dialog("open");
     *
-    * @since version 0.84
+    * @since 0.84
     *
     * @param string   $name    name of the js object
     * @param string   $url     URL to display in modal
@@ -61,16 +57,16 @@ class Ajax {
     *
     * @return void|string (see $options['display'])
     */
-   static function createModalWindow($name, $url, $options=array() ) {
+   static function createModalWindow($name, $url, $options = []) {
 
-      $param = array('width'           => 800,
+      $param = ['width'           => 800,
                      'height'          => 400,
                      'modal'           => true,
                      'container'       => '',
                      'title'           => '',
-                     'extraparams'     => array(),
+                     'extraparams'     => [],
                      'display'         => true,
-                     'js_modal_fields' => '');
+                     'js_modal_fields' => ''];
 
       if (count($options)) {
          foreach ($options as $key => $val) {
@@ -81,7 +77,9 @@ class Ajax {
       }
 
       $out  = "<script type='text/javascript'>\n";
-      $out .= "var $name=";
+      $out .= "var $name;";
+      $out .= "$(function() {";
+      $out .= "$name=";
       if (!empty($param['container'])) {
          $out .= Html::jsGetElementbyID(Html::cleanId($param['container']));
       } else {
@@ -107,6 +105,7 @@ class Ajax {
       $out .= "            $(this).load('$url', fields);
          }
       });\n";
+      $out .= "});";
       $out .= "</script>\n";
 
       if ($param['display']) {
@@ -116,12 +115,110 @@ class Ajax {
       }
    }
 
+   /**
+    * Create a side slide panel
+    *
+    * @param string $name    name of the js object
+    * @param array  $options Possible options:
+    *          - title       Title to display
+    *          - position    position (either left or right - defaults to right)
+    *          - display     display or get string? (default true)
+    *          - icon        Path to aditional icon
+    *          - icon_url    Link for aditional icon
+    *          - icon_txt    Alternative text and title for aditional icon_
+    *
+    * @return void|string (see $options['display'])
+    */
+   static function createSlidePanel($name, $options = []) {
+      global $CFG_GLPI;
+
+      $param = [
+         'title'     => '',
+         'position'  => 'right',
+         'url'       => '',
+         'display'   => true,
+         'icon'      => false,
+         'icon_url'  => false,
+         'icon_txt'  => false
+      ];
+
+      if (count($options)) {
+         foreach ($options as $key => $val) {
+            if (isset($param[$key])) {
+               $param[$key] = $val;
+            }
+         }
+      }
+
+      $out  =  "<script type='text/javascript'>\n";
+      $out .= "$(function() {";
+      $out .= "$('<div id=\'$name\' class=\'slidepanel on{$param['position']}\'><div class=\"header\">" .
+         "<button type=\'button\' class=\'close ui-button ui-widget ui-state-default ui-corner-all ui-button-icon-only ui-dialog-titlebar-close\' title=\'". __s('Close') . "\'><span class=\'ui-button-icon-primary ui-icon ui-icon-closethick\'></span><span class=\'ui-button-text\'>". __('Close') ."</span></button>";
+
+      if ($param['icon']) {
+         $icon = "<img class=\'icon\' src=\'{$CFG_GLPI['root_doc']}{$param['icon']}\' alt=\'{$param['icon_txt']}\' title=\'{$param['icon_txt']}\'/>";
+         if ($param['icon_url']) {
+            $out .= "<a href=\'{$param['icon_url']}\'>$icon</a>";
+         } else {
+            $out .= $icon;
+         }
+      }
+
+      if ($param['title'] != '') {
+         $out .= "<h3>{$param['title']}</h3>";
+      }
+
+      $out .= "</div><div class=\'contents\'></div></div>')
+         .hide()
+         .appendTo('body');\n";
+      $out .= "$('#{$name} .close').on('click', function() {
+         $('#$name').hide(
+            'slow',
+            function () {
+               $(this).find('.contents').empty();
+            }
+         );
+       });\n";
+      $out .= "$('#{$name}Link').on('click', function() {
+         $('#$name').show(
+            'slow',
+            function() {
+               _load$name();
+            }
+         );
+      });\n";
+      $out .= "});";
+      if ($param['url'] != null) {
+         $out .= "var _load$name = function() {
+            $.ajax({
+               url: '{$param['url']}',
+               beforeSend: function() {
+                  var _loader = $('<div id=\'loadingslide\'><div class=\'loadingindicator\'>" . __s('Loading...') . "</div></div>');
+                  $('#$name .contents').html(_loader);
+               }
+            })
+            .always( function() {
+               $('#loadingslide').remove();
+            })
+            .done(function(res) {
+               $('#$name .contents').html(res);
+            });
+         };\n";
+      }
+      $out .= "</script>";
+
+      if ($param['display']) {
+         echo $out;
+      } else {
+         return $out;
+      }
+   }
 
    /**
     * Create fixed modal window
     * After display it using $name.dialog("open");
     *
-    * @since version 0.84
+    * @since 0.84
     *
     * @param string $name    name of the js object
     * @param array  $options Possible options:
@@ -134,14 +231,14 @@ class Ajax {
     *
     * @return void|string (see $options['display'])
     */
-   static function createFixedModalWindow($name, $options=array() ) {
+   static function createFixedModalWindow($name, $options = []) {
 
-      $param = array('width'     => 800,
+      $param = ['width'     => 800,
                      'height'    => 400,
                      'modal'     => true,
                      'container' => '',
                      'title'     => '',
-                     'display'   => true);
+                     'display'   => true];
 
       if (count($options)) {
          foreach ($options as $key => $val) {
@@ -181,7 +278,7 @@ class Ajax {
     * Create modal window in Iframe
     * After display it using Html::jsGetElementbyID($domid).dialog("open");
     *
-    * @since version 0.85
+    * @since 0.85
     *
     * @param string $domid   DOM ID of the js object
     * @param string $url     URL to display in modal
@@ -195,14 +292,14 @@ class Ajax {
     *
     * @return void|string (see $options['display'])
     */
-   static function createIframeModalWindow($domid, $url, $options=array() ) {
+   static function createIframeModalWindow($domid, $url, $options = []) {
 
-      $param = array('width'         => 1050,
+      $param = ['width'         => 1050,
                      'height'        => 500,
                      'modal'         => true,
                      'title'         => '',
                      'display'       => true,
-                     'reloadonclose' => false);
+                     'reloadonclose' => false];
 
       if (count($options)) {
          foreach ($options as $key => $val) {
@@ -244,40 +341,6 @@ class Ajax {
 
 
    /**
-    * Input text used as search system in ajax system
-    *
-    * @deprecated since version 0.85
-    *
-    * @param string  $id   ID of the ajax item
-    * @param integer $size size of the input text field (default 4)
-    *
-    * @return string
-    */
-   static function displaySearchTextForDropdown($id, $size=4) {
-      echo self::getSearchTextForDropdown($id, $size);
-   }
-
-
-   /**
-    * Input text used as search system in ajax system
-    *
-    * @deprecated since version 0.85
-    *
-    * @since version 0.84
-    *
-    * @param string  $id   ID of the ajax item
-    * @param integer $size size of the input text field (default 4)
-    *
-    * @return string
-    */
-   static function getSearchTextForDropdown($id, $size=4) {
-      //TRANS: %s is the character used as wildcard in ajax search
-      return "<input title=\"" . sprintf(__s('Search (%s for all)'), '*') .
-              "\" type='text' ondblclick=\"this.value='*';\" id='search_$id' name='____data_$id' size='$size'>\n";
-   }
-
-
-   /**
     *  Create Ajax Tabs apply to 'tabspanel' div. Content is displayed in 'tabcontent'
     *
     * @param string  $tabdiv_id        ID of the div containing the tabs (default 'tabspanel')
@@ -294,12 +357,12 @@ class Ajax {
     * @return void
     */
    static function createTabs(
-      $tabdiv_id='tabspanel',
-      $tabdivcontent_id='tabcontent',
-      $tabs=array(),
-      $type='',
-      $ID=0,
-      $orientation='vertical',
+      $tabdiv_id = 'tabspanel',
+      $tabdivcontent_id = 'tabcontent',
+      $tabs = [],
+      $type = '',
+      $ID = 0,
+      $orientation = 'vertical',
       $options = []
    ) {
       global $CFG_GLPI;
@@ -327,7 +390,7 @@ class Ajax {
                $selected_tab = $current;
             }
             echo "<li><a title=\"".
-                 str_replace(array("<sup class='tab_nb'>", '</sup>'), '', $val['title'])."\" ";
+                 str_replace(["<sup class='tab_nb'>", '</sup>'], '', $val['title'])."\" ";
             echo " href='".$val['url'].(isset($val['params'])?'?'.$val['params']:'')."'>";
             // extract sup information
             // $title = '';
@@ -340,6 +403,7 @@ class Ajax {
          echo "</ul>";
          echo "</div>";
          $js = "
+         $(function(){
          forceReload$rand = false;
          $('#tabs$rand').tabs({
             active: $selected_tab,
@@ -350,27 +414,49 @@ class Ajax {
                   event.preventDefault();
                } else {
                   forceReload$rand = false;
-                  var _loader = $('<div id=\'loadingtabs\'><div class=\'loadingindicator\'>" . __s('Loading...') . "</div></div>');
+                  var _loader = $('<div id=\'loadingtabs\'><div class=\'loadingindicator\'>" . addslashes(__('Loading...')) . "</div></div>');
                   ui.panel.html(_loader);
 
-                  ui.jqXHR.complete(function() {
+                  ui.jqXHR.always(function() {
                      $('#loadingtabs').remove();
                   });
 
-                  ui.jqXHR.error(function(e) {
+                  ui.jqXHR.fail(function(e) {
                      console.log(e);
-                     ui.panel.html(
-                        '<div class=\'error\'><h3>" .
-                        __('An error occured loading contents!')  . "</h3><p>" .
-                        __('Please check GLPI logs or contact your administrator.')  .
-                        "<br/>" . __('or') . " <a href=\'#\' onclick=\'return reloadTab()\'>" . __('try to reload')  . "</a></p></div>'
-                     );
+                     if (e.statusText != 'abort') {
+                        ui.panel.html(
+                           '<div class=\'error\'><h3>" .
+                           addslashes(__('An error occured loading contents!'))  . "</h3><p>" .
+                           addslashes(__('Please check GLPI logs or contact your administrator.'))  .
+                           "<br/>" . addslashes(__('or')) . " <a href=\'#\' onclick=\'return reloadTab()\'>" . addslashes(__('try to reload'))  . "</a></p></div>'
+                        );
+                     }
                   });
                }
 
-               var newIndex = ui.tab.parent().children().index(ui.tab);
-               $.get('".$CFG_GLPI['root_doc']."/ajax/updatecurrenttab.php',
-                  { itemtype: '$type', id: '$ID', tab: newIndex });
+               var tabs = ui.tab.parent().children();
+               if (tabs.length > 1) {
+                  var newIndex = tabs.index(ui.tab);
+                  $.get(
+                     '".$CFG_GLPI['root_doc']."/ajax/updatecurrenttab.php',
+                     { itemtype: '$type', id: '$ID', tab: newIndex }
+                  );
+               }
+            },
+            load: function(event) {
+               var _url = window.location.href;
+               //get the anchor
+               var _parts = _url.split('#');
+               if (_parts.length > 1) {
+                  var _anchor = _parts[1];
+
+                  //get the top offset of the target anchor
+                  var target_offset = $('#' + _anchor).offset();
+                  var target_top = target_offset.top;
+
+                  //goto that anchor by setting the body scroll top to anchor top
+                  $('html, body').animate({scrollTop:target_top}, 2000, 'easeOutQuad');
+               }
             },
             ajaxOptions: {type: 'POST'}
          });";
@@ -385,18 +471,26 @@ class Ajax {
          } else {
             $js .=  "$('#tabs$rand').removeClass( 'ui-corner-top' ).addClass( 'ui-corner-left' );";
          }
+         $js .= '});';
 
-         $js .=  "// force reload
+         $js .=  "// force reload global function
             function reloadTab(add) {
                forceReload$rand = true;
                var current_index = $('#tabs$rand').tabs('option','active');
+
+               // remove scroll event bind, select2 bind it on parent with scrollbars (the tab currently)
+               // as the select2 disapear with this tab reload, remove the event to prevent issues (infinite scroll to top)
+               $('#tabs$rand .ui-tabs-panel[aria-expanded=true]').unbind('scroll');
+
                // Save tab
-               currenthref = $('#tabs$rand ul>li a').eq(current_index).attr('href');
+               var currenthref = $('#tabs$rand ul>li a').eq(current_index).attr('href');
                $('#tabs$rand ul>li a').eq(current_index).attr('href',currenthref+'&'+add);
                $('#tabs$rand').tabs( 'load' , current_index);
+
                // Restore tab
                $('#tabs$rand ul>li a').eq(current_index).attr('href',currenthref);
             };";
+
          echo Html::scriptBlock($js);
       }
    }
@@ -417,9 +511,9 @@ class Ajax {
     *
     * @return void|string (see $display)
     */
-   static function updateItemOnEvent($toobserve, $toupdate, $url, $parameters=array(),
-                                     $events=array("change"), $minsize=-1, $buffertime=-1,
-                                     $forceloadfor=array(), $display=true) {
+   static function updateItemOnEvent($toobserve, $toupdate, $url, $parameters = [],
+                                     $events = ["change"], $minsize = -1, $buffertime = -1,
+                                     $forceloadfor = [], $display = true) {
 
       $output  = "<script type='text/javascript'>";
       $output .= "$(function() {";
@@ -445,11 +539,11 @@ class Ajax {
     *
     * @return void|string (see $display)
     */
-   static function updateItemOnSelectEvent($toobserve, $toupdate, $url, $parameters=array(),
-                                           $display=true) {
+   static function updateItemOnSelectEvent($toobserve, $toupdate, $url, $parameters = [],
+                                           $display = true) {
 
-      return self::updateItemOnEvent($toobserve, $toupdate, $url, $parameters, array("change"),
-                                     -1, -1, array(), $display);
+      return self::updateItemOnEvent($toobserve, $toupdate, $url, $parameters, ["change"],
+                                     -1, -1, [], $display);
    }
 
 
@@ -467,12 +561,12 @@ class Ajax {
     *
     * @return void|string (see $display)
     */
-   static function updateItemOnInputTextEvent($toobserve, $toupdate, $url, $parameters=array(),
-                                              $minsize=-1, $buffertime=-1, $forceloadfor=array(),
-                                              $display=true) {
+   static function updateItemOnInputTextEvent($toobserve, $toupdate, $url, $parameters = [],
+                                              $minsize = -1, $buffertime = -1, $forceloadfor = [],
+                                              $display = true) {
 
       if (count($forceloadfor) == 0) {
-         $forceloadfor = array('*');
+         $forceloadfor = ['*'];
       }
       // Need to define min size for text search
       if ($minsize < 0) {
@@ -482,7 +576,7 @@ class Ajax {
          $buffertime = 0;
       }
       return self::updateItemOnEvent($toobserve, $toupdate, $url, $parameters,
-                                     array("dblclick", "keyup"), $minsize, $buffertime,
+                                     ["dblclick", "keyup"], $minsize, $buffertime,
                                      $forceloadfor, $display);
    }
 
@@ -502,14 +596,14 @@ class Ajax {
     *
     * @return void|string (see $display)
     */
-   static function updateItemOnEventJsCode($toobserve, $toupdate, $url, $parameters=array(),
-                                           $events=array("change"), $minsize = -1, $buffertime=-1,
-                                           $forceloadfor=array(), $display=true) {
+   static function updateItemOnEventJsCode($toobserve, $toupdate, $url, $parameters = [],
+                                           $events = ["change"], $minsize = -1, $buffertime = -1,
+                                           $forceloadfor = [], $display = true) {
 
       if (is_array($toobserve)) {
          $zones = $toobserve;
       } else {
-         $zones = array($toobserve);
+         $zones = [$toobserve];
       }
       $output = '';
       foreach ($zones as $zone) {
@@ -572,23 +666,20 @@ class Ajax {
     *
     * @return void|string (see $display)
     */
-   static function commonDropdownUpdateItem($options, $display=true) {
+   static function commonDropdownUpdateItem($options, $display = true) {
 
       $field     = '';
-      $fieldname = '';
 
       $output    = '';
       // Old scheme
       if (isset($options["update_item"])
           && (is_array($options["update_item"]) || (strlen($options["update_item"]) > 0))) {
          $field     = "update_item";
-         $fieldname = 'myname';
       }
       // New scheme
       if (isset($options["toupdate"])
           && (is_array($options["toupdate"]) || (strlen($options["toupdate"]) > 0))) {
          $field     = "toupdate";
-         $fieldname = 'name';
       }
 
       if (!empty($field)) {
@@ -596,12 +687,12 @@ class Ajax {
          if (is_array($datas) && count($datas)) {
             // Put it in array
             if (isset($datas['to_update'])) {
-               $datas = array($datas);
+               $datas = [$datas];
             }
             foreach ($datas as $data) {
-               $paramsupdate = array();
+               $paramsupdate = [];
                if (isset($data['value_fieldname'])) {
-                  $paramsupdate = array($data['value_fieldname'] => '__VALUE__');
+                  $paramsupdate = [$data['value_fieldname'] => '__VALUE__'];
                }
 
                if (isset($data["moreparams"])
@@ -640,14 +731,19 @@ class Ajax {
     *
     * @return void|string (see $display)
     */
-   static function updateItemJsCode($toupdate, $url, $parameters=array(), $toobserve="",
-                                    $display=true) {
+   static function updateItemJsCode($toupdate, $url, $parameters = [], $toobserve = "",
+                                    $display = true) {
 
       $out = Html::jsGetElementbyID($toupdate).".load('$url'\n";
       if (count($parameters)) {
          $out .= ",{";
          $first = true;
          foreach ($parameters as $key => $val) {
+            // prevent xss attacks
+            if (!preg_match('/^[a-zA-Z_$][0-9a-zA-Z_$]*$/', $key)) {
+               continue;
+            }
+
             if ($first) {
                $first = false;
             } else {
@@ -655,6 +751,7 @@ class Ajax {
             }
 
             $out .= $key.":";
+            $regs = [];
             if (!is_array($val) && preg_match('/^__VALUE(\d+)__$/', $val, $regs)) {
                $out .=  Html::jsGetElementbyID(Html::cleanId($toobserve[$regs[1]])).".val()";
 
@@ -688,7 +785,7 @@ class Ajax {
     *
     * @return void|string (see $display)
     */
-   static function updateItem($toupdate, $url, $parameters=array(), $toobserve="", $display=true) {
+   static function updateItem($toupdate, $url, $parameters = [], $toobserve = "", $display = true) {
 
       $output  = "<script type='text/javascript'>";
       $output .= "$(function() {";

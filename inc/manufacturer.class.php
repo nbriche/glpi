@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -45,16 +41,16 @@ class Manufacturer extends CommonDropdown {
    public $can_be_translated = false;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Manufacturer', 'Manufacturers', $nb);
    }
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @see CommonDropdown::displaySpecificTypeField()
    **/
-   function displaySpecificTypeField($ID, $field=array()) {
+   function displaySpecificTypeField($ID, $field = []) {
 
       switch ($field['type']) {
          case 'registeredIDChooser':
@@ -65,30 +61,30 @@ class Manufacturer extends CommonDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @see CommonDropdown::getAdditionalFields()
    **/
    function getAdditionalFields() {
 
-      return array(array('name'  => 'none',
+      return [['name'  => 'none',
                          'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
                                        RegisteredID::showAddChildButtonForItemForm($this,
                                                                                    '_registeredID',
-                                                                                   NULL, false),
-                         'type'  => 'registeredIDChooser'));
+                                                                                   null, false),
+                         'type'  => 'registeredIDChooser']];
    }
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
    function post_workOnItem() {
 
       if ((isset($this->input['_registeredID']))
           && (is_array($this->input['_registeredID']))) {
 
-         $input = array('itemtype' => $this->getType(),
-                        'items_id' => $this->getID());
+         $input = ['itemtype' => $this->getType(),
+                        'items_id' => $this->getID()];
 
          foreach ($this->input['_registeredID'] as $id => $registered_id) {
             $id_object     = new RegisteredID();
@@ -110,7 +106,7 @@ class Manufacturer extends CommonDropdown {
                   $id_object->update($input);
                   unset($input['id']);
                } else {
-                  $id_object->delete(array('id' => $id));
+                  $id_object->delete(['id' => $id]);
                }
             }
          }
@@ -120,7 +116,7 @@ class Manufacturer extends CommonDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @see CommonDBTM::post_addItem()
    **/
    function post_addItem() {
@@ -131,10 +127,10 @@ class Manufacturer extends CommonDropdown {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     * @see CommonDBTM::post_updateItem()
    **/
-   function post_updateItem($history=1) {
+   function post_updateItem($history = 1) {
 
       $this->post_workOnItem();
       parent::post_updateItem($history);
@@ -142,9 +138,9 @@ class Manufacturer extends CommonDropdown {
 
 
    /**
-    * @param $old_name Old name (need to be addslashes)
+    * @param string $old_name Old name
     *
-    * @return new addslashes name
+    * @return string new name
    **/
    static function processName($old_name) {
 
@@ -153,9 +149,9 @@ class Manufacturer extends CommonDropdown {
       }
 
       $rulecollection = new RuleDictionnaryManufacturerCollection();
-      $output         = array();
-      $output         = $rulecollection->processAllRules(array("name" => stripslashes($old_name)),
-                                                         $output, array());
+      $output         = [];
+      $output         = $rulecollection->processAllRules(["name" => $old_name],
+                                                         $output, []);
       if (isset($output["name"])) {
          return $output["name"];
       }
@@ -170,7 +166,7 @@ class Manufacturer extends CommonDropdown {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $itemtype
     * @param $base                  HTMLTableBase object
@@ -179,8 +175,8 @@ class Manufacturer extends CommonDropdown {
     * @param $options      array
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column_name = __CLASS__;
 
@@ -193,15 +189,15 @@ class Manufacturer extends CommonDropdown {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $row                HTMLTableRow object (default NULL)
     * @param $item               CommonDBTM object (default NULL)
     * @param $father             HTMLTableCell object (default NULL)
     * @param $options   array
    **/
-   static function getHTMLTableCellsForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                            HTMLTableCell $father=NULL, array $options = array()) {
+   static function getHTMLTableCellsForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                            HTMLTableCell $father = null, array $options = []) {
 
       $column_name = __CLASS__;
 

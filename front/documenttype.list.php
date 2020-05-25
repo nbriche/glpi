@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,11 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 Session::checkLoginUser();
@@ -44,6 +39,7 @@ Html::popHeader(__('Setup'), $_SERVER['PHP_SELF']);
 $params = Search::manageParams('DocumentType', $_GET);
 
 $params['target'] = $_SERVER['PHP_SELF'];
-Search::showList('DocumentType', $params);
+$search = new Search(new DocumentType(), $params);
+$search->showList('DocumentType', $params);
 
 Html::popFooter();

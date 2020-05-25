@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,20 +30,15 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 
-$group = new Group();
-Session::checkRightsOr('group', array(CREATE, UPDATE));
+Session::checkRightsOr('group', [CREATE, UPDATE]);
 Session::checkRight('user', User::UPDATEAUTHENT);
 
 Html::header(__('LDAP directory link'), $_SERVER['PHP_SELF'], "admin", "group", "ldap");
 
-if (isset($_GET['next'])) {
+if (isset($_GET['next']) || !isset($_SESSION['ldap_server']) && !isset($_POST['ldap_server'])) {
    AuthLdap::ldapChooseDirectory($_SERVER['PHP_SELF']);
 } else {
    if (isset($_POST["change_ldap_filter"])) {

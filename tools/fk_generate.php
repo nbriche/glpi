@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,10 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
+if (PHP_SAPI != 'cli') {
+   echo "This script must be run from command line";
+   exit();
+}
 
 include ('../inc/includes.php');
 
@@ -40,7 +41,7 @@ $DB->query("SET FOREIGN_KEY_CHECKS = '0';");
 $result = $DB->list_tables();
 $numtab = 0;
 
-while ($t=$DB->fetch_array($result)) {
+while ($t=$DB->fetchArray($result)) {
    $query = "ALTER TABLE `$t[0]`
              TYPE = innodb";
    $DB->query($query);
@@ -48,7 +49,7 @@ while ($t=$DB->fetch_array($result)) {
 
 $relations = getDbRelations();
 
-$query = array();
+$query = [];
 foreach ($relations as $totable => $rels) {
    foreach ($rels as $fromtable => $fromfield) {
 

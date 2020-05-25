@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
@@ -51,12 +47,12 @@ $antivirus = new ComputerAntivirus();
 if (isset($_POST["add"])) {
    $antivirus->check(-1, CREATE, $_POST);
 
-   if ($newID = $antivirus->add($_POST)) {
+   if ($antivirus->add($_POST)) {
       Event::log($_POST['computers_id'], "computers", 4, "inventory",
                  //TRANS: %s is the user login
                  sprintf(__('%s adds an antivirus'), $_SESSION["glpiname"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($antivirus->getFormURL()."?id=".$newID);
+         Html::redirect($antivirus->getLinkURL());
       }
    }
    Html::back();
@@ -86,7 +82,7 @@ if (isset($_POST["add"])) {
 
 } else {
    Html::header(Computer::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "assets", "computer");
-   $antivirus->display(array('id'           => $_GET["id"],
-                        'computers_id' => $_GET["computers_id"]));
+   $antivirus->display(['id'           => $_GET["id"],
+                        'computers_id' => $_GET["computers_id"]]);
    Html::footer();
 }

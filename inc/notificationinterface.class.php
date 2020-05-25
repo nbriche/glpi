@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -46,24 +42,26 @@ interface NotificationInterface {
    /**
     * Send notifications
     *
-    * @return must return 0 or 1
+    * @return 0|1
    **/
    function sendNotification();
 
 
    /**
-    * Check user address
+    * Check data
     *
-    * @param $address         the user's address to check
-    * @param $options   array with the special options (may be needed)
+    * @param mixed $value   The data to check (may differ for every notification mode)
+    * @param array $options Optionnal special options (may be needed)
     *
-    * @return true or false
+    * @return boolean
    **/
-   static function isUserAddressValid($address, $options=array());
+   static function check($value, $options = []);
 
 
    /**
     * Method to test notification
+    *
+    * @return mixed
    **/
    static function testNotification();
 }

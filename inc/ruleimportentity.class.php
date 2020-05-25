@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -55,13 +52,10 @@ class RuleImportEntity extends Rule {
    **/
    function maxActionsCount() {
       // Unlimited
-      return 2;
+      return 4;
    }
 
-   /**
-    * @see Rule::executeActions()
-   **/
-   function executeActions($output, $params) {
+   function executeActions($output, $params, array $input = []) {
 
       if (count($this->actions)) {
          foreach ($this->actions as $action) {
@@ -82,7 +76,7 @@ class RuleImportEntity extends Rule {
                      }
                      if ($res != null) {
                         //Get the entity associated with the TAG
-                        $target_entity = Entity::getEntityIDByTag(addslashes($res));
+                        $target_entity = Entity::getEntityIDByTag($res);
                         if ($target_entity != '') {
                            $output["entities_id"] = $target_entity;
                         }
@@ -101,7 +95,7 @@ class RuleImportEntity extends Rule {
    **/
    function getCriterias() {
 
-      static $criterias = array();
+      static $criterias = [];
 
       if (count($criterias)) {
          return $criterias;
@@ -110,23 +104,26 @@ class RuleImportEntity extends Rule {
       $criterias['_source']['table']            = '';
       $criterias['_source']['field']            = '_source';
       $criterias['_source']['name']             = __('Source');
-      $criterias['_source']['allow_condition']  = array(Rule::PATTERN_IS, Rule::PATTERN_IS_NOT);
+      $criterias['_source']['allow_condition']  = [Rule::PATTERN_IS, Rule::PATTERN_IS_NOT];
 
       return $criterias;
    }
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see Rule::displayAdditionalRuleCondition()
    **/
-   function displayAdditionalRuleCondition($condition, $criteria, $name, $value, $test=false) {
+   function displayAdditionalRuleCondition($condition, $criteria, $name, $value, $test = false) {
       global $PLUGIN_HOOKS;
 
       if ($criteria['field'] == '_source') {
-         $tab = array();
+         $tab = [];
          foreach ($PLUGIN_HOOKS['import_item'] as $plug => $types) {
+            if (!Plugin::isPluginLoaded($plug)) {
+               continue;
+            }
             $tab[$plug] = Plugin::getInfo($plug, 'name');
          }
          Dropdown::showFromArray($name, $tab);
@@ -137,14 +134,14 @@ class RuleImportEntity extends Rule {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @see Rule::getAdditionalCriteriaDisplayPattern()
    **/
    function getAdditionalCriteriaDisplayPattern($ID, $condition, $pattern) {
 
       $crit = $this->getCriteria($ID);
-      if ($crit['field'] == '_source') {
+      if (count($crit) && $crit['field'] == '_source') {
          $name = Plugin::getInfo($pattern, 'name');
          if (empty($name)) {
             return false;
@@ -159,7 +156,7 @@ class RuleImportEntity extends Rule {
    **/
    function getActions() {
 
-      $actions                             = array();
+      $actions                             = [];
 
       $actions['entities_id']['name']      = __('Entity');
       $actions['entities_id']['type']      = 'dropdown';
@@ -171,6 +168,16 @@ class RuleImportEntity extends Rule {
 
       $actions['_ignore_import']['name']   = __('To be unaware of import');
       $actions['_ignore_import']['type']   = 'yesonly';
+
+      $actions['is_recursive']['name']     = __('Child entities');
+      $actions['is_recursive']['type']     = 'yesno';
+
+      $actions['groups_id_tech']['name']     = __('Group in charge of the hardware');
+      $actions['groups_id_tech']['type']     = 'dropdown';
+      $actions['groups_id_tech']['table']    = 'glpi_groups';
+
+      $actions['users_id_tech']['name']     = __('Technician in charge of the hardware');
+      $actions['users_id_tech']['type']     = 'dropdown_users';
 
       return $actions;
    }

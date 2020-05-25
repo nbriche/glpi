@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,11 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
-
 include ('../inc/includes.php');
 Session::checkRight("config", READ);
 
@@ -55,14 +50,15 @@ if (!empty($_GET['reset_opcache'])) {
    }
    Html::redirect(Toolbox::getItemTypeFormURL('Config'));
 }
-if (!empty($_GET['reset_apcu'])) {
+if (!empty($_GET['reset_cache'])) {
    $config->checkGlobal(UPDATE);
-   if (apcu_clear_cache()) {
+   $cache = isset($_GET['optname']) ? $CONTAINER->get($_GET['optname']) : $CONTAINER->get('application_cache');
+   if ($cache->clear()) {
       Session::addMessageAfterRedirect(__('Cache reset successful'));
    }
    Html::redirect(Toolbox::getItemTypeFormURL('Config'));
 }
 
 Html::header(Config::getTypeName(1), $_SERVER['PHP_SELF'], "config", "config");
-$config->display(array('id' => 1));
+$config->display(['id' => 1]);
 Html::footer();

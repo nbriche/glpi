@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,13 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
-Session::checkRightsOr('problem', array(Problem::READALL, Problem::READMY));
+Session::checkRightsOr('problem', [Problem::READALL, Problem::READMY]);
 
 Html::header(Problem::getTypeName(Session::getPluralNumber()), '', "helpdesk", "problem");
 

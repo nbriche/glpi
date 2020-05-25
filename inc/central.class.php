@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 if (!defined('GLPI_ROOT')) {
@@ -46,29 +42,31 @@ if (!defined('GLPI_ROOT')) {
 class Central extends CommonGLPI {
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
 
       // No plural
       return __('Standard interface');
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addStandardTab(__CLASS__, $ong, $options);
 
       return $ong;
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if ($item->getType() == __CLASS__) {
-         $tabs[1] = __('Personal View');
-         $tabs[2] = __('Group View');
-         $tabs[3] = __('Global View');
-         $tabs[4] = _n('RSS feed', 'RSS feeds', Session::getPluralNumber());
+         $tabs = [
+            1 => __('Personal View'),
+            2 => __('Group View'),
+            3 => __('Global View'),
+            4 => _n('RSS feed', 'RSS feeds', Session::getPluralNumber()),
+         ];
 
          return $tabs;
       }
@@ -76,7 +74,7 @@ class Central extends CommonGLPI {
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       if ($item->getType() == __CLASS__) {
          switch ($tabnum) {
@@ -147,73 +145,60 @@ class Central extends CommonGLPI {
     * Show the central personal view
    **/
    static function showMyView() {
-      global $DB, $CFG_GLPI;
+      global $DB;
 
       $showticket  = Session::haveRightsOr("ticket",
-                                           array(Ticket::READMY, Ticket::READALL, Ticket::READASSIGN));
+                                           [Ticket::READMY, Ticket::READALL, Ticket::READASSIGN]);
 
-      $showproblem = Session::haveRightsOr('problem', array(Problem::READALL, Problem::READMY));
+      $showproblem = Session::haveRightsOr('problem', [Problem::READALL, Problem::READMY]);
 
       echo "<table class='tab_cadre_central'>";
 
       Plugin::doHook('display_central');
 
+      $warnings = [];
       if (Session::haveRight("config", UPDATE)) {
          $logins = User::checkDefaultPasswords();
          $user   = new User();
          if (!empty($logins)) {
-            $accounts = array();
+            $accounts = [];
             foreach ($logins as $login) {
-               $user->getFromDBbyName($login);
+               $user->getFromDBbyNameAndAuth($login, Auth::DB_GLPI, 0);
                $accounts[] = $user->getLink();
             }
-            $message = sprintf(__('For security reasons, please change the password for the default users: %s'),
+            $warnings[] = sprintf(__('For security reasons, please change the password for the default users: %s'),
                                implode(" ", $accounts));
-
-            echo "<tr><th colspan='2'>";
-            Html::displayTitle($CFG_GLPI['root_doc']."/pics/warning.png", $message, $message);
-            echo "</th></tr>";
          }
          if (file_exists(GLPI_ROOT . "/install/install.php")) {
-            echo "<tr><th colspan='2'>";
-            $message = sprintf(__('For security reasons, please remove file: %s'),
+            $warnings[] = sprintf(__('For security reasons, please remove file: %s'),
                                "install/install.php");
-            Html::displayTitle($CFG_GLPI['root_doc']."/pics/warning.png", $message, $message);
-            echo "</th></tr>";
          }
-      }
 
-      if ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE) {
-         if (!DBMysql::isMySQLStrictMode($comment)) {
-            echo "<tr><th colspan='2'>";
-            $message = sprintf(__('SQL strict mode is not fully enabled, recommended for development: %s'), $comment);
-            Html::displayTitle($CFG_GLPI['root_doc']."/pics/warning.png", $message, $message);
-            echo "</th></tr>";
-         }
-      }
-
-      if ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE) {
-         $crashedtables = DBMysql::checkForCrashedTables();
-         if (!empty($crashedtables)) {
-            $tables = array();
-            foreach ($crashedtables as $crashedtable) {
-               $tables[] = $crashedtable['table'];
+         if ($DB->areTimezonesAvailable()) {
+            $not_tstamp = $DB->notTzMigrated();
+            if ($not_tstamp > 0) {
+                $warnings[] = sprintf(
+                    __('%1$s columns are not compatible with timezones usage.'),
+                    $not_tstamp
+                );
             }
-            echo "<tr><th colspan='2'>";
-            $message = __('The following SQL tables are marked as crashed:');
-            $message.= implode(',', $tables);
-            Html::displayTitle($CFG_GLPI['root_doc']."/pics/warning.png", $message, $message);
-            echo "</th></tr>";
          }
       }
 
-      if ($DB->isSlave()
-          && !$DB->first_connection) {
+      if ($DB->isSlave()) {
+         $warnings[] = __('SQL replica: read only');
+      }
+
+      if (count($warnings)) {
          echo "<tr><th colspan='2'>";
-         Html::displayTitle($CFG_GLPI['root_doc']."/pics/warning.png", __('SQL replica: read only'),
-                            __('SQL replica: read only'));
+         echo "<div class='warning'>";
+         echo "<i class='fa fa-exclamation-triangle fa-5x'></i>";
+         echo "<ul><li>" . implode('</li><li>', $warnings) . "</li></ul>";
+         echo "<div class='sep'></div>";
+         echo "</div>";
          echo "</th></tr>";
       }
+
       echo "<tr class='noHover'><td class='top' width='50%'><table class='central'>";
       echo "<tr class='noHover'><td>";
       if (Session::haveRightsOr('ticketvalidation', TicketValidation::getValidateRights())) {
@@ -227,15 +212,20 @@ class Central extends CommonGLPI {
 
          Ticket::showCentralList(0, "survey", false);
 
-         Ticket::showCentralList(0, "rejected", false);
+         Ticket::showCentralList(0, "validation.rejected", false);
+         Ticket::showCentralList(0, "solution.rejected", false);
          Ticket::showCentralList(0, "requestbyself", false);
          Ticket::showCentralList(0, "observed", false);
 
          Ticket::showCentralList(0, "process", false);
          Ticket::showCentralList(0, "waiting", false);
+
+         TicketTask::showCentralList(0, "todo", false);
+
       }
       if ($showproblem) {
          Problem::showCentralList(0, "process", false);
+         ProblemTask::showCentralList(0, "todo", false);
       }
       echo "</td></tr>";
       echo "</table></td>";
@@ -254,7 +244,7 @@ class Central extends CommonGLPI {
    /**
     * Show the central RSS view
     *
-    * @since version 0.84
+    * @since 0.84
    **/
    static function showRSSView() {
 
@@ -278,21 +268,23 @@ class Central extends CommonGLPI {
    **/
    static function showGroupView() {
 
-      $showticket = Session::haveRightsOr("ticket", array(Ticket::READALL, Ticket::READASSIGN));
+      $showticket = Session::haveRightsOr("ticket", [Ticket::READALL, Ticket::READASSIGN]);
 
-      $showproblem = Session::haveRightsOr('problem', array(Problem::READALL, Problem::READMY));
+      $showproblem = Session::haveRightsOr('problem', [Problem::READALL, Problem::READMY]);
 
       echo "<table class='tab_cadre_central'>";
       echo "<tr class='noHover'><td class='top' width='50%'><table class='central'>";
       echo "<tr class='noHover'><td>";
       if ($showticket) {
          Ticket::showCentralList(0, "process", true);
+         TicketTask::showCentralList(0, "todo", true);
       }
       if (Session::haveRight('ticket', Ticket::READGROUP)) {
          Ticket::showCentralList(0, "waiting", true);
       }
       if ($showproblem) {
          Problem::showCentralList(0, "process", true);
+         ProblemTask::showCentralList(0, "todo", true);
       }
 
       echo "</td></tr>";

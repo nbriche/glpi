@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,25 +30,21 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 
 /**
- * @since version 0.84
+ * @since 0.84
 **/
 class HTMLTableGroup extends HTMLTableBase {
 
    private $name;
    private $content;
-   private $new_headers = array();
+   private $new_headers = [];
    private $table;
-   private $rows = array();
+   private $rows = [];
 
 
    /**
@@ -107,7 +103,7 @@ class HTMLTableGroup extends HTMLTableBase {
    private function completeHeaders() {
 
       if (!isset($this->ordered_headers)) {
-         $this->ordered_headers = array();
+         $this->ordered_headers = [];
 
          foreach ($this->table->getHeaderOrder() as $header_name) {
             $header        = $this->table->getSuperHeaderByName($header_name);

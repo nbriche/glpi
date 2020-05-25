@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,20 +37,20 @@ if (!defined('GLPI_ROOT')) {
 /**
  * Project Class
  *
- * @since version 0.85
+ * @since 0.85
 **/
 class Project extends CommonDBTM {
 
    // From CommonDBTM
    public $dohistory                   = true;
-   static protected $forward_entity_to = array('ProjectTask');
+   static protected $forward_entity_to = ['ProjectCost', 'ProjectTask'];
    static $rightname                   = 'project';
    protected $usenotepad               = true;
 
    const READMY                        = 1;
    const READALL                       = 1024;
 
-   protected $team                     = array();
+   protected $team                     = [];
 
 
    /**
@@ -62,13 +58,13 @@ class Project extends CommonDBTM {
     *
     * @param $nb : number of item in the type (default 0)
    **/
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Project', 'Projects', $nb);
    }
 
 
    static function canView() {
-      return Session::haveRightsOr(self::$rightname, array(self::READALL, self::READMY));
+      return Session::haveRightsOr(self::$rightname, [self::READALL, self::READMY]);
    }
 
 
@@ -79,7 +75,7 @@ class Project extends CommonDBTM {
    **/
    function canViewItem() {
 
-      if (!Session::haveAccessToEntity($this->getEntityID())) {
+      if (!parent::canViewItem()) {
          return false;
       }
       return (Session::haveRight(self::$rightname, self::READALL)
@@ -107,11 +103,11 @@ class Project extends CommonDBTM {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see commonDBTM::getRights()
     **/
-   function getRights($interface='central') {
+   function getRights($interface = 'central') {
 
       $values = parent::getRights();
       unset($values[READ]);
@@ -123,16 +119,21 @@ class Project extends CommonDBTM {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
-      if (static::canView()) {
+      if (static::canView() && !$withtemplate) {
          $nb = 0;
          switch ($item->getType()) {
             case __CLASS__ :
-               $ong    = array();
+               $ong    = [];
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  $nb = countElementsInTable($this->getTable(),
-                                             [$this->getForeignKeyField() => $item->getID()]);
+                  $nb = countElementsInTable(
+                     $this->getTable(),
+                     [
+                        $this->getForeignKeyField() => $item->getID(),
+                        'is_deleted'                => 0
+                     ]
+                  );
                }
                $ong[1] = self::createTabEntry($this->getTypeName(Session::getPluralNumber()), $nb);
                $ong[2] = __('GANTT');
@@ -144,7 +145,7 @@ class Project extends CommonDBTM {
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($item->getType()) {
          case __CLASS__ :
@@ -163,15 +164,15 @@ class Project extends CommonDBTM {
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addDefaultFormTab($ong);
       $this->addStandardTab('ProjectTask', $ong, $options);
       $this->addStandardTab('ProjectTeam', $ong, $options);
       $this->addStandardTab(__CLASS__, $ong, $options);
       $this->addStandardTab('ProjectCost', $ong, $options);
-      $this->addStandardTab('Change_Project', $ong, $options);
+      $this->addStandardTab('Itil_Project', $ong, $options);
       $this->addStandardTab('Item_Project', $ong, $options);
       $this->addStandardTab('Document_Item', $ong, $options);
       $this->addStandardTab('Contract_Item', $ong, $options);
@@ -188,15 +189,9 @@ class Project extends CommonDBTM {
       // No view to project by right on tasks add it
       if (!static::canView()
           && Session::haveRight('projecttask', ProjectTask::READMY)) {
-         $menu['project']['title']                    = Project::getTypeName(Session::getPluralNumber());
-         $menu['project']['page']                     = ProjectTask::getSearchURL(false);
+         $menu['project']['title'] = Project::getTypeName(Session::getPluralNumber());
+         $menu['project']['page']  = ProjectTask::getSearchURL(false);
 
-         $links = static::getAdditionalMenuLinks();
-         if (count($links)) {
-            $menu['project']['links'] = $links;
-         }
-         $menu['project']['options']['task']['title'] = __('My tasks');
-         $menu['project']['options']['task']['page']  = ProjectTask::getSearchURL(false);
          return $menu;
       }
       return false;
@@ -204,9 +199,15 @@ class Project extends CommonDBTM {
 
 
    static function getAdditionalMenuOptions() {
-
-      return array('task' => array('title' => __('My tasks'),
-                                   'page'  => ProjectTask::getSearchURL(false)));
+      return [
+         'task' => [
+            'title' => __('My tasks'),
+            'page'  => ProjectTask::getSearchURL(false),
+            'links' => [
+               'search' => ProjectTask::getSearchURL(false),
+            ]
+         ]
+      ];
    }
 
 
@@ -216,15 +217,15 @@ class Project extends CommonDBTM {
    static function getAdditionalMenuLinks() {
       global $CFG_GLPI;
 
-      $links = array();
+      $links = [];
       if (static::canView()
           || Session::haveRight('projecttask', ProjectTask::READMY)) {
-         $pic_validate = "<img title=\"".__('My tasks')."\" alt=\"".__('My tasks')."\" src='".
+         $pic_validate = "<img title=\"".__s('My tasks')."\" alt=\"".__('My tasks')."\" src='".
                            $CFG_GLPI["root_doc"]."/pics/menu_showall.png' class='pointer'>";
 
-         $links[$pic_validate] = '/front/projecttask.php';
+         $links[$pic_validate] = ProjectTask::getSearchURL(false);
 
-         $links['summary'] = '/front/project.form.php?showglobalgantt=1';
+         $links['summary'] = Project::getFormURL(false).'?showglobalgantt=1';
       }
       if (count($links)) {
          return $links;
@@ -233,10 +234,25 @@ class Project extends CommonDBTM {
    }
 
 
-   function post_updateItem($history=1) {
+   function post_updateItem($history = 1) {
       global $CFG_GLPI;
 
-      if ($CFG_GLPI["use_mailing"]) {
+      if (in_array('auto_percent_done', $this->updates) && $this->input['auto_percent_done'] == 1) {
+         // Auto-calculate was toggled. Force recalculation of this and parents
+         self::recalculatePercentDone($this->getID());
+      } else {
+         if ($this->fields['projects_id'] > 0) {
+            // Update parent percent_done
+            self::recalculatePercentDone($this->fields['projects_id']);
+         }
+      }
+
+      if (isset($this->input['_old_projects_id'])) {
+         // Recalculate previous parent percent done
+         self::recalculatePercentDone($this->input['_old_projects_id']);
+      }
+
+      if (!isset($this->input['_disablenotif']) && $CFG_GLPI["use_notifications"]) {
          // Read again project to be sure that all data are up to date
          $this->getFromDB($this->fields['id']);
          NotificationEvent::raiseEvent("update", $this);
@@ -250,12 +266,57 @@ class Project extends CommonDBTM {
       // Manage add from template
       if (isset($this->input["_oldID"])) {
          ProjectCost::cloneProject($this->input["_oldID"], $this->fields['id']);
+
+         // ADD Task
+         ProjectTask::cloneProjectTask($this->input["_oldID"], $this->fields['id']);
+
+         // ADD Documents
+         Document_Item::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
+
+         // ADD Team
+         ProjectTeam::cloneProjectTeam($this->input["_oldID"], $this->fields['id']);
+
+         // ADD Itil
+         Itil_Project::cloneItilProject($this->input["_oldID"], $this->fields['id']);
+
+         // ADD Contract
+         Contract::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
+
+         // ADD Notepad
+         Notepad::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
+
+         //Add KB links
+         KnowbaseItem_Item::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
       }
-      if ($CFG_GLPI["use_mailing"]) {
+
+      // Update parent percent_done
+      if (isset($this->fields['projects_id']) && $this->fields['projects_id'] > 0) {
+         self::recalculatePercentDone($this->fields['projects_id']);
+      }
+
+      if (!isset($this->input['_disablenotif']) && $CFG_GLPI["use_notifications"]) {
          // Clean reload of the project
          $this->getFromDB($this->fields['id']);
 
          NotificationEvent::raiseEvent('new', $this);
+      }
+   }
+
+
+   function post_deleteItem() {
+      $project = new Project();
+      // Update parent percent_done
+      if ($this->fields['projects_id'] > 0) {
+         self::recalculatePercentDone($this->fields['projects_id']);
+      }
+   }
+
+
+   function post_restoreItem() {
+      $project = new Project();
+      // Update parent percent_done
+      if ($this->fields['projects_id'] > 0) {
+         self::recalculatePercentDone($this->fields['projects_id']);
       }
    }
 
@@ -279,31 +340,83 @@ class Project extends CommonDBTM {
 
 
    function pre_deleteItem() {
+      global $CFG_GLPI;
 
-      NotificationEvent::raiseEvent('delete', $this);
+      if (!isset($this->input['_disablenotif']) && $CFG_GLPI['use_notifications']) {
+         NotificationEvent::raiseEvent('delete', $this);
+      }
       return true;
    }
 
 
    function cleanDBonPurge() {
-      global $DB;
 
-      $pt = new ProjectTask();
-      $pt->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $cp = new Change_Project();
-      $cp->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $ip = new Item_Project();
-      $ip->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
-      $pt = new ProjectTeam();
-      $pt->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
+      $this->deleteChildrenAndRelationsFromDb(
+         [
+            Item_Project::class,
+            Itil_Project::class,
+            ProjectCost::class,
+            ProjectTask::class,
+            ProjectTeam::class,
+         ]
+      );
 
       parent::cleanDBonPurge();
    }
 
 
+   /**
+    * Return visibility joins to add to DBIterator parameters
+    *
+    * @since 9.4
+    *
+    * @param boolean $forceall force all joins (false by default)
+    *
+    * @return array
+    */
+   static public function getVisibilityCriteria($forceall = false) {
+      global $CFG_GLPI;
+
+      if (Session::haveRight('project', self::READALL)) {
+         return [
+            'LEFT JOIN' => [],
+            'WHERE' => [],
+         ];
+      }
+
+      $join = [];
+      $where = [];
+
+      $join['glpi_projectteams'] = [
+         'ON' => [
+            'glpi_projectteams'  => 'projects_id',
+            'glpi_projects'      => 'id'
+         ]
+      ];
+
+      $teamtable = 'glpi_projectteams';
+      $where['OR'] = [
+         'glpi_projects.users_id'   => Session::getLoginUserID(),
+         [
+            "$teamtable.itemtype"   => 'User',
+            "$teamtable.items_id"   => Session::getLoginUserID()
+         ]
+      ];
+      if (count($_SESSION['glpigroups'])) {
+         $where['OR']['glpi_projects.groups_id'] = $_SESSION['glpigroups'];
+         $where['OR'][] = [
+            "$teamtable.itemtype"   => 'Group',
+            "$teamtable.items_id"   => $_SESSION['glpigroups']
+         ];
+      }
+
+      $criteria = [
+         'LEFT JOIN' => $join,
+         'WHERE'     => $where
+      ];
+
+      return $criteria;
+   }
    /**
     * Is the current user in the team?
     *
@@ -369,7 +482,9 @@ class Project extends CommonDBTM {
    }
 
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
+      global $DB;
+
       $tab = [];
 
       $tab[] = [
@@ -413,7 +528,7 @@ class Project extends CommonDBTM {
          'datatype'           => 'itemlink',
          'massiveaction'      => false,
          'joinparams'         => [
-            'condition'          => 'AND 1=1'
+            'condition'       => [new QueryExpression('1=1')]
          ]
       ];
 
@@ -448,7 +563,8 @@ class Project extends CommonDBTM {
          'table'              => 'glpi_projectstates',
          'field'              => 'name',
          'name'               => __('State'),
-         'datatype'           => 'dropdown'
+         'datatype'           => 'dropdown',
+         'additionalfields'   => ['color'],
       ];
 
       $tab[] = [
@@ -496,7 +612,7 @@ class Project extends CommonDBTM {
          'field'              => 'completename',
          'linkfield'          => 'groups_id',
          'name'               => __('Manager group'),
-         'condition'          => '`is_manager`',
+         'condition'          => ['is_manager' => 1],
          'datatype'           => 'dropdown'
       ];
 
@@ -596,10 +712,379 @@ class Project extends CommonDBTM {
          'datatype'           => 'bool'
       ];
 
-      // add objectlock search options
-      $tab = array_merge($tab, ObjectLock::getSearchOptionsToAddNew(get_class($this)));
+      $tab[] = [
+         'id'                 => '91',
+         'table'              => ProjectCost::getTable(),
+         'field'              => 'totalcost',
+         'name'               => __('Total cost'),
+         'datatype'           => 'decimal',
+         'forcegroupby'       => true,
+         'usehaving'          => true,
+         'massiveaction'      => false,
+         'joinparams'         => [
+            'jointype'           => 'child',
+            'specific_itemtype'  => 'ProjectCost',
+            'condition'          => ['NEWTABLE.projects_id' => new QueryExpression($DB->quoteName('REFTABLE.id'))],
+            'beforejoin'         => [
+               'table'        => $this->getTable(),
+               'joinparams'   => [
+                  'jointype'  => 'child'
+               ],
+            ],
+         ],
+         'computation'        => '(SUM('.$DB->quoteName('TABLE.cost').'))'
+      ];
 
-      $tab = array_merge($tab, Notepad::getSearchOptionsToAddNew());
+      $itil_count_types = [
+         'Change'  => _x('quantity', 'Number of changes'),
+         'Problem' => _x('quantity', 'Number of problems'),
+         'Ticket'  => _x('quantity', 'Number of tickets'),
+      ];
+      $index = 92;
+      foreach ($itil_count_types as $itil_type => $label) {
+         $tab[] = [
+            'id'                 => $index,
+            'table'              => Itil_Project::getTable(),
+            'field'              => 'id',
+            'name'               => $label,
+            'datatype'           => 'count',
+            'forcegroupby'       => true,
+            'usehaving'          => true,
+            'massiveaction'      => false,
+            'joinparams'         => [
+               'jointype'           => 'child',
+               'condition'          => ['NEWTABLE.itemtype' => $itil_type]
+            ]
+         ];
+         $index++;
+      }
+
+      $tab[] = [
+         'id'                 => 'project_team',
+         'name'               => ProjectTeam::getTypeName(),
+      ];
+
+      $tab[] = [
+         'id'                 => '87',
+         'table'              => User::getTable(),
+         'field'              => 'name',
+         'name'               => User::getTypeName(2),
+         'forcegroupby'       => true,
+         'datatype'           => 'dropdown',
+         'joinparams'         => [
+            'jointype'          => 'itemtype_item_revert',
+            'specific_itemtype' => 'User',
+            'beforejoin'        => [
+               'table'      => ProjectTeam::getTable(),
+               'joinparams' => [
+                  'jointype' => 'child',
+               ]
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '88',
+         'table'              => Group::getTable(),
+         'field'              => 'completename',
+         'name'               => Group::getTypeName(2),
+         'forcegroupby'       => true,
+         'datatype'           => 'dropdown',
+         'joinparams'         => [
+            'jointype'          => 'itemtype_item_revert',
+            'specific_itemtype' => 'Group',
+            'beforejoin'        => [
+               'table'      => ProjectTeam::getTable(),
+               'joinparams' => [
+                  'jointype' => 'child',
+               ]
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '89',
+         'table'              => Supplier::getTable(),
+         'field'              => 'name',
+         'name'               => Supplier::getTypeName(2),
+         'forcegroupby'       => true,
+         'datatype'           => 'dropdown',
+         'joinparams'         => [
+            'jointype'          => 'itemtype_item_revert',
+            'specific_itemtype' => 'Supplier',
+            'beforejoin'        => [
+               'table'      => ProjectTeam::getTable(),
+               'joinparams' => [
+                  'jointype' => 'child',
+               ]
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '90',
+         'table'              => Contact::getTable(),
+         'field'              => 'name',
+         'name'               => Contact::getTypeName(2),
+         'forcegroupby'       => true,
+         'datatype'           => 'dropdown',
+         'joinparams'         => [
+            'jointype'          => 'itemtype_item_revert',
+            'specific_itemtype' => 'Contact',
+            'beforejoin'        => [
+               'table'      => ProjectTeam::getTable(),
+               'joinparams' => [
+                  'jointype' => 'child',
+               ]
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => 'project_task',
+         'name'               => ProjectTask::getTypeName(),
+      ];
+
+      $tab[] = [
+         'id'                 => '111',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'name',
+         'name'               => __('Name'),
+         'datatype'           => 'string',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '112',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'content',
+         'name'               => __('Description'),
+         'datatype'           => 'text',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '113',
+         'table'              => ProjectState::getTable(),
+         'field'              => 'name',
+         'name'               => _x('item', 'State'),
+         'datatype'           => 'dropdown',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'          => 'item_revert',
+            'specific_itemtype' => 'ProjectState',
+            'beforejoin'        => [
+               'table'      => ProjectTask::getTable(),
+               'joinparams' => [
+                  'jointype' => 'child',
+               ]
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '114',
+         'table'              => ProjectTaskType::getTable(),
+         'field'              => 'name',
+         'name'               => __('Type'),
+         'datatype'           => 'dropdown',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'          => 'item_revert',
+            'specific_itemtype' => 'ProjectTaskType',
+            'beforejoin'        => [
+               'table'      => ProjectTask::getTable(),
+               'joinparams' => [
+                  'jointype' => 'child',
+               ]
+            ]
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '115',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'date',
+         'name'               => __('Opening date'),
+         'datatype'           => 'datetime',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '116',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'date_mod',
+         'name'               => __('Last update'),
+         'datatype'           => 'datetime',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '117',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'percent_done',
+         'name'               => __('Percent done'),
+         'datatype'           => 'number',
+         'unit'               => '%',
+         'min'                => 0,
+         'max'                => 100,
+         'step'               => 5,
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '118',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'plan_start_date',
+         'name'               => __('Planned start date'),
+         'datatype'           => 'datetime',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '119',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'plan_end_date',
+         'name'               => __('Planned end date'),
+         'datatype'           => 'datetime',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '120',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'real_start_date',
+         'name'               => __('Real start date'),
+         'datatype'           => 'datetime',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '122',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'real_end_date',
+         'name'               => __('Real end date'),
+         'datatype'           => 'datetime',
+         'massiveaction'      => false,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '123',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'planned_duration',
+         'name'               => __('Planned Duration'),
+         'datatype'           => 'timestamp',
+         'min'                => 0,
+         'max'                => 100*HOUR_TIMESTAMP,
+         'step'               => HOUR_TIMESTAMP,
+         'addfirstminutes'    => true,
+         'inhours'            => true,
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '124',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'effective_duration',
+         'name'               => __('Effective duration'),
+         'datatype'           => 'timestamp',
+         'min'                => 0,
+         'max'                => 100*HOUR_TIMESTAMP,
+         'step'               => HOUR_TIMESTAMP,
+         'addfirstminutes'    => true,
+         'inhours'            => true,
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '125',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'comment',
+         'name'               => __('Comments'),
+         'datatype'           => 'text',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      $tab[] = [
+         'id'                 => '126',
+         'table'              => ProjectTask::getTable(),
+         'field'              => 'is_milestone',
+         'name'               => __('Milestone'),
+         'datatype'           => 'bool',
+         'massiveaction'      => false,
+         'forcegroupby'       => true,
+         'splititems'         => true,
+         'joinparams'         => [
+            'jointype'  => 'child'
+         ]
+      ];
+
+      // add objectlock search options
+      $tab = array_merge($tab, ObjectLock::rawSearchOptionsToAdd(get_class($this)));
+
+      $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
 
       return $tab;
    }
@@ -609,14 +1094,14 @@ class Project extends CommonDBTM {
     * @param $output_type     (default 'Search::HTML_OUTPUT')
     * @param $mass_id         id of the form to check all (default '')
     */
-   static function commonListHeader($output_type=Search::HTML_OUTPUT, $mass_id='') {
+   static function commonListHeader($output_type = Search::HTML_OUTPUT, $mass_id = '') {
 
       // New Line for Header Items Line
       echo Search::showNewLine($output_type);
       // $show_sort if
       $header_num                      = 1;
 
-      $items                           = array();
+      $items                           = [];
       $items[(empty($mass_id) ? '&nbsp' : Html::getCheckAllAsCheckbox($mass_id))] = '';
       $items[__('ID')]                 = "id";
       $items[__('Status')]             = "glpi_projectstates.name";
@@ -646,7 +1131,7 @@ class Project extends CommonDBTM {
    /**
     * Display a line for an object
     *
-    * @since version 0.85 (befor in each object with differents parameters)
+    * @since 0.85 (befor in each object with differents parameters)
     *
     * @param $id                 Integer  ID of the object
     * @param $options            array    of options
@@ -656,7 +1141,7 @@ class Project extends CommonDBTM {
     *      id_for_massaction      : default 0 means no massive action
     *      followups              : only for Tickets : show followup columns
     */
-   static function showShort($id, $options=array()) {
+   static function showShort($id, $options = []) {
       global $CFG_GLPI, $DB;
 
       $p['output_type']            = Search::HTML_OUTPUT;
@@ -708,10 +1193,12 @@ class Project extends CommonDBTM {
          $first_col = '';
          $color     = '';
          if ($item->fields["projectstates_id"]) {
-            $query = "SELECT `color`
-                      FROM `glpi_projectstates`
-                      WHERE `id` = '".$item->fields["projectstates_id"]."'";
-            foreach ($DB->request($query) as $color) {
+            $iterator = $DB->request([
+               'SELECT' => 'color',
+               'FROM'   => 'glpi_projectstates',
+               'WHERE'  => ['id' => $item->fields['projectstates_id']]
+            ]);
+            while ($color = $iterator->next()) {
                $color = $color['color'];
             }
             $first_col = Dropdown::getDropdownName('glpi_projectstates', $item->fields["projectstates_id"]);
@@ -754,8 +1241,8 @@ class Project extends CommonDBTM {
             $fourth_col .= sprintf(__('%1$s %2$s'),
                                    "<span class='b'>".$userdata['name']."</span>",
                                     Html::showToolTip($userdata["comment"],
-                                                      array('link'    => $userdata["link"],
-                                                            'display' => false)));
+                                                      ['link'    => $userdata["link"],
+                                                            'display' => false]));
          }
 
          echo Search::showItem($p['output_type'], $fourth_col, $item_num, $p['row_num'], $align);
@@ -782,10 +1269,10 @@ class Project extends CommonDBTM {
          if ($p['output_type'] == Search::HTML_OUTPUT) {
             $eigth_column = sprintf(__('%1$s %2$s'), $eigth_column,
                                     Html::showToolTip($item->fields['content'],
-                                                      array('display' => false,
+                                                      ['display' => false,
                                                             'applyto' => $item->getType().
                                                                            $item->fields["id"].
-                                                                           $rand)));
+                                                                           $rand]));
          }
 
          echo Search::showItem($p['output_type'], $eigth_column, $item_num, $p['row_num'],
@@ -799,8 +1286,33 @@ class Project extends CommonDBTM {
       }
    }
 
+   function prepareInputForAdd($input) {
+
+      if (isset($input["id"]) && ($input["id"] > 0)) {
+         $input["_oldID"] = $input["id"];
+      }
+      unset($input['id']);
+      unset($input['withtemplate']);
+
+      return $input;
+   }
+
 
    function prepareInputForUpdate($input) {
+      if (isset($input['auto_percent_done']) && $input['auto_percent_done']) {
+         unset($input['percent_done']);
+      }
+      if (isset($input['projects_id']) && $input['projects_id'] > 0) {
+         if (self::checkCircularRelation($input['id'], $input['projects_id'])) {
+            Session::addMessageAfterRedirect(__('Circular relation found. Parent not updated.'), false,
+                                          ERROR);
+            unset($input['projects_id']);
+         }
+      }
+      if ($this->fields['projects_id'] > 0 && isset($input['projects_id'])
+          && ($input['projects_id'] != $this->fields['projects_id'])) {
+         $input['_old_projects_id'] = $this->fields['projects_id'];
+      }
       return self::checkPlanAndRealDates($input);
    }
 
@@ -841,12 +1353,14 @@ class Project extends CommonDBTM {
       $this->check($ID, READ);
       $rand = mt_rand();
 
-      $query = "SELECT *
-                FROM `".$this->getTable()."`
-                WHERE `".$this->getForeignKeyField()."` = '$ID'";
-      if ($result = $DB->query($query)) {
-         $numrows = $DB->numrows($result);
-      }
+      $iterator = $DB->request([
+         'FROM'   => $this->getTable(),
+         'WHERE'  => [
+            $this->getForeignKeyField()   => $ID,
+            'is_deleted'                  => 0
+         ]
+      ]);
+      $numrows = count($iterator);
 
       if ($this->can($ID, UPDATE)) {
          echo "<div class='firstbloc'>";
@@ -872,9 +1386,9 @@ class Project extends CommonDBTM {
                                                  $this->fields["name"]));
 
          $i = 0;
-         while ($data = $DB->fetch_assoc($result)) {
+         while ($data = $iterator->next()) {
             Session::addToNavigateListItems('Project', $data["id"]);
-            Project::showShort($data['id'], array('row_num' => $i));
+            Project::showShort($data['id'], ['row_num' => $i]);
             $i++;
          }
          Project::commonListHeader();
@@ -894,7 +1408,7 @@ class Project extends CommonDBTM {
     *
     *@return Nothing (display)
    **/
-   function showForm($ID, $options=array()) {
+   function showForm($ID, $options = []) {
       global $CFG_GLPI, $DB;
 
       $this->initForm($ID, $options);
@@ -908,9 +1422,9 @@ class Project extends CommonDBTM {
       if (!$ID) {
          $date = $_SESSION['glpi_currenttime'];
       }
-      Html::showDateTimeField("date", array('value'      => $date,
+      Html::showDateTimeField("date", ['value'      => $date,
                                             'timestep'   => 1,
-                                            'maybeempty' => false));
+                                            'maybeempty' => false]);
       echo "</td>";
       if ($ID) {
          echo "<td>".__('Last update')."</td>";
@@ -934,36 +1448,54 @@ class Project extends CommonDBTM {
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Priority')."</td>";
       echo "<td>";
-      CommonITILObject::dropdownPriority(array('value' => $this->fields['priority'],
-                                               'withmajor' => 1));
+      CommonITILObject::dropdownPriority(['value' => $this->fields['priority'],
+                                               'withmajor' => 1]);
       echo "</td>";
       echo "<td>".__('As child of')."</td>";
       echo "<td>";
-      $this->dropdown(array('entity'   => $this->fields['entities_id'],
+      $this->dropdown(['entity'   => $this->fields['entities_id'],
                             'value'    => $this->fields['projects_id'],
-                            'used'     => array($this->fields['id'])));
+                            'used'     => [$this->fields['id']]]);
       echo "</td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>"._x('item', 'State')."</td>";
       echo "<td>";
-      ProjectState::dropdown(array('value' => $this->fields["projectstates_id"]));
+      ProjectState::dropdown(['value' => $this->fields["projectstates_id"]]);
       echo "</td>";
       echo "<td>".__('Percent done')."</td>";
       echo "<td>";
-      Dropdown::showNumber("percent_done", array('value' => $this->fields['percent_done'],
-                                                 'min'   => 0,
-                                                 'max'   => 100,
-                                                 'step'  => 5,
-                                                 'unit'  => '%'));
-      echo "</td>";
+      $percent_done_params = [
+         'value' => $this->fields['percent_done'],
+         'min'   => 0,
+         'max'   => 100,
+         'step'  => 5,
+         'unit'  => '%'
+      ];
+      if ($this->fields['auto_percent_done']) {
+         $percent_done_params['specific_tags'] = ['disabled' => 'disabled'];
+      }
+      Dropdown::showNumber("percent_done", $percent_done_params);
+      $auto_percent_done_params = [
+         'type'      => 'checkbox',
+         'name'      => 'auto_percent_done',
+         'title'     => __('Automatically calculate'),
+         'onclick'   => "$(\"select[name='percent_done']\").prop('disabled', !$(\"input[name='auto_percent_done']\").prop('checked'));"
+      ];
+      if ($this->fields['auto_percent_done']) {
+         $auto_percent_done_params['checked'] = 'checked';
+      }
+      Html::showCheckbox($auto_percent_done_params);
+      echo "<span class='very_small_space'>";
+      Html::showToolTip(__('When automatic computation is active, percentage is computed based on the average of all child project and task percent done.'));
+      echo "</span></td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Type')."</td>";
       echo "<td>";
-      ProjectType::dropdown(array('value' => $this->fields["projecttypes_id"]));
+      ProjectType::dropdown(['value' => $this->fields["projecttypes_id"]]);
       echo "</td>";
       echo "<td>".__('Show on global GANTT')."</td>";
       echo "<td>";
@@ -976,17 +1508,19 @@ class Project extends CommonDBTM {
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('User')."</td>";
       echo "<td>";
-      User::dropdown(array('name'   => 'users_id',
+      User::dropdown(['name'   => 'users_id',
                            'value'  => $this->fields["users_id"],
                            'right'  => 'see_project',
-                           'entity' => $this->fields["entities_id"]));
+                           'entity' => $this->fields["entities_id"]]);
       echo "</td>";
       echo "<td>".__('Group')."</td>";
       echo "<td>";
-      Group::dropdown(array('name'      => 'groups_id',
-                            'value'     => $this->fields['groups_id'],
-                            'entity'    => $this->fields['entities_id'],
-                            'condition' => '`is_manager`'));
+      Group::dropdown([
+         'name'      => 'groups_id',
+         'value'     => $this->fields['groups_id'],
+         'entity'    => $this->fields['entities_id'],
+         'condition' => ['is_manager' => 1]
+      ]);
       echo "</td></tr>\n";
 
       echo "<tr><td colspan='4' class='subheader'>".__('Planning')."</td></tr>";
@@ -994,21 +1528,21 @@ class Project extends CommonDBTM {
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Planned start date')."</td>";
       echo "<td>";
-      Html::showDateTimeField("plan_start_date", array('value' => $this->fields['plan_start_date']));
+      Html::showDateTimeField("plan_start_date", ['value' => $this->fields['plan_start_date']]);
       echo "</td>";
       echo "<td>".__('Real start date')."</td>";
       echo "<td>";
-      Html::showDateTimeField("real_start_date", array('value' => $this->fields['real_start_date']));
+      Html::showDateTimeField("real_start_date", ['value' => $this->fields['real_start_date']]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Planned end date')."</td>";
       echo "<td>";
-      Html::showDateTimeField("plan_end_date", array('value' => $this->fields['plan_end_date']));
+      Html::showDateTimeField("plan_end_date", ['value' => $this->fields['plan_end_date']]);
       echo "</td>";
       echo "<td>".__('Real end date')."</td>";
       echo "<td>";
-      Html::showDateTimeField("real_end_date", array('value' => $this->fields['real_end_date']));
+      Html::showDateTimeField("real_end_date", ['value' => $this->fields['real_end_date']]);
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'>";
@@ -1049,10 +1583,10 @@ class Project extends CommonDBTM {
    }
 
 
-   static function getSpecificValueToDisplay($field, $values, array $options=array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       switch ($field) {
          case 'priority':
@@ -1063,17 +1597,17 @@ class Project extends CommonDBTM {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @param $field
     * @param $name            (default '')
     * @param $values          (default '')
     * @param $options   array
    **/
-   static function getSpecificValueToSelect($field, $name='', $values='', array $options=array()) {
+   static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       $options['display'] = false;
 
@@ -1112,12 +1646,12 @@ class Project extends CommonDBTM {
          echo "<tr class='tab_bg_1'><th colspan='2'>".__('Add a team member')."</tr>";
          echo "<tr class='tab_bg_2'><td>";
 
-         $params = array('itemtypes'       => ProjectTeam::$available_types,
+         $params = ['itemtypes'       => ProjectTeam::$available_types,
                          'entity_restrict' => ($project->fields['is_recursive']
                                                ? getSonsOf('glpi_entities',
                                                            $project->fields['entities_id'])
                                                : $project->fields['entities_id']),
-                         );
+                         ];
          $addrand = Dropdown::showSelectItemFromItemtypes($params);
 
          echo "</td>";
@@ -1133,8 +1667,8 @@ class Project extends CommonDBTM {
       echo "<div class='spaced'>";
       if ($canedit && $nb) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $nb,
-                                      'container'     => 'mass'.__CLASS__.$rand);
+         $massiveactionparams = ['num_displayed' => min($_SESSION['glpilist_limit'], $nb),
+                                      'container'     => 'mass'.__CLASS__.$rand];
          Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
@@ -1194,22 +1728,22 @@ class Project extends CommonDBTM {
    * @param $ID        integer   ID of the project
    * @param $showall   boolean   show all sub items (projects / tasks) (true by default)
    */
-   static function getDataToDisplayOnGantt($ID, $showall=true) {
+   static function getDataToDisplayOnGantt($ID, $showall = true) {
       global $DB;
 
-      $todisplay = array();
+      $todisplay = [];
       $project   = new self();
       if ($project->getFromDB($ID)) {
-         $projects = array();
-         foreach ($DB->request('glpi_projects', array('projects_id' => $ID)) as $data) {
+         $projects = [];
+         foreach ($DB->request('glpi_projects', ['projects_id' => $ID]) as $data) {
             $projects += static::getDataToDisplayOnGantt($data['id']);
          }
          ksort($projects);
          // Get all tasks
          $tasks      = ProjectTask::getAllForProject($ID);
 
-         $real_begin = NULL;
-         $real_end   = NULL;
+         $real_begin = null;
+         $real_end   = null;
          // Use real if set
          if (is_null($project->fields['real_start_date'])) {
             $real_begin = $project->fields['real_start_date'];
@@ -1266,14 +1800,14 @@ class Project extends CommonDBTM {
 
          // Add current project
          $todisplay[$real_begin.'#'.$real_end.'#project'.$project->getID()]
-                      = array('id'       => $project->getID(),
+                      = ['id'       => $project->getID(),
                               'name'     => $project->fields['name'],
                               'link'     => $project->getLink(),
                               'desc'     => $project->fields['content'],
                               'percent'  => isset($project->fields['percent_done'])?$project->fields['percent_done']:0,
                               'type'     => 'project',
                               'from'     => $real_begin,
-                              'to'       => $real_end);
+                              'to'       => $real_end];
 
          if ($showall) {
             // Add current tasks
@@ -1305,27 +1839,30 @@ class Project extends CommonDBTM {
             return false;
          }
       } else {
-         $todisplay = array();
+         $todisplay = [];
          // Get all root projects
-         $query = "SELECT *
-                   FROM `glpi_projects`
-                   WHERE `projects_id` = '0'
-                        AND `show_on_global_gantt` = '1'
-                         ".getEntitiesRestrictRequest("AND", 'glpi_projects', "", '', true);
-         foreach ($DB->request($query) as $data) {
+         $iterator = $DB->request([
+            'FROM'   => 'glpi_projects',
+            'WHERE'  => [
+               'projects_id'           => 0,
+               'show_on_global_gantt'  => 1,
+               'is_template'           => 0
+            ] + getEntitiesRestrictCriteria('glpi_projects', '', '', true)
+         ]);
+         while ($data = $iterator->next()) {
             $todisplay += static::getDataToDisplayOnGantt($data['id'], false);
          }
          ksort($todisplay);
       }
 
-      $data    = array();
-      $invalid = array();
+      $data    = [];
+      $invalid = [];
       if (count($todisplay)) {
 
          // Prepare for display
          foreach ($todisplay as $key => $val) {
             if (!empty($val['from']) && !empty($val['to'])) {
-               $temp  = array();
+               $temp  = [];
                $color = 'ganttRed';
                if ($val['percent'] > 50) {
                   $color = 'ganttOrange';
@@ -1335,9 +1872,9 @@ class Project extends CommonDBTM {
                }
                switch ($val['type']) {
                   case 'project' :
-                     $temp = array('name'   => $val['link'],
+                     $temp = ['name'   => $val['link'],
                                    'desc'   => '',
-                                   'values' => array(array('from'
+                                   'values' => [['from'
                                                             => "/Date(".strtotime($val['from'])."000)/",
                                                            'to'
                                                             => "/Date(".strtotime($val['to'])."000)/",
@@ -1346,17 +1883,17 @@ class Project extends CommonDBTM {
                                                          'label'
                                                             => $val['percent']."%",
                                                          'customClass'
-                                                            => $color))
-                                 );
+                                                            => $color]]
+                                 ];
                      break;
 
                   case 'task' :
                      if (isset($val['is_milestone']) && $val['is_milestone']) {
                         $color = 'ganttMilestone';
                      }
-                     $temp = array('name'   => ' ',
+                     $temp = ['name'   => ' ',
                                    'desc'   => str_repeat('-', $val['parents']).$val['link'],
-                                   'values' => array(array('from'
+                                   'values' => [['from'
                                                             => "/Date(".strtotime($val['from'])."000)/",
                                                            'to'
                                                             => "/Date(".strtotime($val['to'])."000)/",
@@ -1365,8 +1902,8 @@ class Project extends CommonDBTM {
                                                            'label'
                                                             => strlen($val['percent']==0)?'':$val['percent']."%",
                                                            'customClass'
-                                                            => $color))
-                                 );
+                                                            => $color]]
+                                 ];
                      break;
                }
                $data[] = $temp;
@@ -1383,31 +1920,33 @@ class Project extends CommonDBTM {
       }
 
       if (count($data)) {
-         $months = array(__('January'), __('February'), __('March'), __('April'), __('May'),
+         $months = [__('January'), __('February'), __('March'), __('April'), __('May'),
                          __('June'), __('July'), __('August'), __('September'),
-                         __('October'), __('November'), __('December'));
+                         __('October'), __('November'), __('December')];
 
-         $dow    = array(Toolbox::substr(__('Sunday'), 0, 1), Toolbox::substr(__('Monday'), 0, 1),
+         $dow    = [Toolbox::substr(__('Sunday'), 0, 1), Toolbox::substr(__('Monday'), 0, 1),
                          Toolbox::substr(__('Tuesday'), 0, 1), Toolbox::substr(__('Wednesday'), 0, 1),
                          Toolbox::substr(__('Thursday'), 0, 1), Toolbox::substr(__('Friday'), 0, 1),
                          Toolbox::substr(__('Saturday'), 0, 1)
-                     );
+                     ];
 
          echo "<div class='gantt'></div>";
          $js = "
-                           $('.gantt').gantt({
-                                 source: ".json_encode($data).",
-                                 navigate: 'scroll',
-                                 maxScale: 'months',
-                                 itemsPerPage: 20,
-                                 months: ".json_encode($months).",
-                                 dow: ".json_encode($dow).",
-                                 onItemClick: function(data) {
-                                 //    alert('Item clicked - show some details');
-                                 },
-                                 onAddClick: function(dt, rowId) {
-                                 //    alert('Empty space clicked - add an item!');
-                                 },
+                           $(function() {
+                              $('.gantt').gantt({
+                                    source: ".json_encode($data).",
+                                    navigate: 'scroll',
+                                    maxScale: 'months',
+                                    itemsPerPage: 20,
+                                    months: ".json_encode($months).",
+                                    dow: ".json_encode($dow).",
+                                    onItemClick: function(data) {
+                                    //    alert('Item clicked - show some details');
+                                    },
+                                    onAddClick: function(dt, rowId) {
+                                    //    alert('Empty space clicked - add an item!');
+                                    },
+                              });
                            });";
          echo Html::scriptBlock($js);
       } else {
@@ -1420,5 +1959,61 @@ class Project extends CommonDBTM {
    **/
    function showDebug() {
       NotificationEvent::debugEvent($this);
+   }
+
+   /**
+    * Update the specified project's percent_done based on the percent_done of subprojects and tasks.
+    * This function indirectly updates the percent done for all parents if they are set to automatically update.
+    * @since 9.5.0
+    * @return boolean False if the specified project is not set to automatically update the percent done.
+    */
+   public static function recalculatePercentDone($ID) {
+      global $DB;
+
+      $project = new self();
+      $project->getFromDB($ID);
+      if (!$project->fields['auto_percent_done']) {
+         return false;
+      }
+
+      $query1 = new \QuerySubQuery([
+         'SELECT' => [
+            'percent_done'
+         ],
+         'FROM'   => self::getTable(),
+         'WHERE'  => [
+            'projects_id'  => $ID,
+            'is_deleted'   => 0
+         ]
+      ]);
+      $query2 = new \QuerySubQuery([
+         'SELECT' => [
+            'percent_done'
+         ],
+         'FROM'   => ProjectTask::getTable(),
+         'WHERE'  => [
+            'projects_id' => $ID
+         ]
+      ]);
+      $union = new QueryUnion([$query1, $query2], false, 'all_items');
+      $iterator = $DB->request([
+         'SELECT' => [
+            new QueryExpression('CAST(AVG('.$DB->quoteName('percent_done').') AS INT) AS percent_done')
+         ],
+         'FROM'   => $union
+      ]);
+
+      if ($iterator->count()) {
+         $avg = $iterator->next()['percent_done'];
+         $percent_done = is_null($avg) ? 0 : $avg;
+      } else {
+         $percent_done = 0;
+      }
+
+      $project->update([
+         'id'           => $ID,
+         'percent_done' => $percent_done
+      ]);
+      return true;
    }
 }

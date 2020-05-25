@@ -1,0 +1,352 @@
+version: 2.1
+
+executors:
+  php_7_0:
+    docker:
+      - image: glpi/circleci-env-core:php_7.0_fpm-node
+  php_7_0_mariadb:
+    docker:
+      - image: glpi/circleci-env-core:php_7.0_fpm-node
+      - image: circleci/mariadb:10.1-ram
+  php_7_1_mariadb:
+    docker:
+      - image: glpi/circleci-env-core:php_7.1_fpm-node
+      - image: circleci/mariadb:10.2-ram
+  php_7_2_mariadb:
+    docker:
+      - image: glpi/circleci-env-core:php_7.2_fpm-node
+      - image: circleci/mariadb:10.3-ram
+  php_7_3_mariadb:
+    docker:
+      - image: glpi/circleci-env-core:php_7.3_fpm-node
+      - image: circleci/mariadb:10.3-ram
+  php_7_3_mysql_5_6:
+    docker:
+      - image: glpi/circleci-env-core:php_7.3_fpm-node
+      - image: circleci/mysql:5.6-ram
+  php_7_3_mysql_5_7:
+    docker:
+      - image: glpi/circleci-env-core:php_7.3_fpm-node
+      - image: circleci/mysql:5.7-ram
+  php_7_3_mysql_8_0:
+    docker:
+      - image: glpi/circleci-env-core:php_7.3_fpm-node
+      - image: circleci/mysql:8.0-ram
+        command: [--default-authentication-plugin=mysql_native_password] # Fix "Authentication plugin 'caching_sha2_password' cannot be loaded"
+  php_latest_mariadb:
+    docker:
+      - image: glpi/circleci-env-core:php_latest_fpm-node
+      - image: circleci/mariadb:10.3-ram
+
+commands:
+  # Build command.
+  # Retrieve codebase and install dependencies.
+  build:
+    steps:
+      - attach_workspace:
+          at: /home/circleci
+      - run:
+          name: Install codebase
+          command: cp -a /home/circleci/codebase/. ./
+      - restore_cache:
+          keys:
+            - composer-cache-{{ .Environment.CIRCLE_JOB }}
+      - restore_cache:
+          keys:
+            - npm-cache-{{ .Environment.CIRCLE_JOB }}
+      - run:
+          name: Install dependencies
+          command: |
+            composer --version
+            echo "node version: $(node --version)"
+            echo "npm version: $(npm --version)"
+            perl -i -0 -p -e 's/,?\s*"platform"\:\s*\{[^\}]*}//i' composer.json
+            mv composer.lock composer.lock.bak
+            bin/console dependencies install --ci
+      - save_cache:
+          key: composer-cache-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          paths:
+            - /home/circleci/.composer/cache/
+      - save_cache:
+          key: npm-cache-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          paths:
+            - /home/circleci/.npm/_cacache/
+      - run:
+          name: PHP Parallel Lint
+          command: vendor/bin/parallel-lint  --exclude files --exclude plugins --exclude vendor --exclude tools/vendor .
+
+  # Database test suite command.
+  run_db_test_suite:
+    steps:
+      - run:
+          name: Update DB tests
+          command: |
+            mysql -h 127.0.0.1 -u root -e 'create database glpitest080;'
+            mysql -h 127.0.0.1 -u root glpitest080 < tests/glpi-0.80-empty.sql
+            bin/console glpi:database:configure --config-dir=./tests --no-interaction --reconfigure --db-driver=mysql --db-name=glpitest080 --db-host=127.0.0.1 --db-user=root
+            bin/console glpi:migration:myisam_to_innodb --config-dir=./tests --no-interaction
+            bin/console glpi:database:update --config-dir=./tests --allow-unstable --no-interaction
+            bin/console glpi:database:update --config-dir=./tests --allow-unstable --no-interaction |grep -q "No migration needed." || (echo "glpi:database:update command FAILED" && exit 1)
+            bin/console glpi:migration:myisam_to_innodb --config-dir=./tests --no-interaction
+            bin/console glpi:migration:timestamps --config-dir=./tests --no-interaction
+      - run:
+          name: Database tests
+          command: |
+            bin/console glpi:database:configure --config-dir=./tests --no-interaction --reconfigure --db-driver=mysql --db-name=glpitest080 --db-host=127.0.0.1 --db-user=root
+            php vendor/bin/atoum -p 'php -d memory_limit=512M' --debug --force-terminal --use-dot-report  --configurations tests/telemetry.php --bootstrap-file tests/bootstrap.php --no-code-coverage --max-children-number 1 -d tests/database
+
+  # Database install command.
+  install_db:
+    steps:
+      - run:
+          name: Install DB
+          command: |
+            mysql -h 127.0.0.1 -u root -e 'create database glpitest;'
+            bin/console glpi:database:install --config-dir=./tests --no-interaction --reconfigure --db-driver=mysql --db-name=glpitest --db-host=127.0.0.1 --db-user=root
+            bin/console glpi:database:update --config-dir=./tests --no-interaction |grep -q "No migration needed." || (echo "glpi:database:update command FAILED" && exit 1)
+            cp tests/circleci.parameters.yaml tests/parameters.yaml
+
+  # Unit test suite command.
+  run_unit_test_suite:
+    steps:
+      - run:
+          name: Unit tests
+          command: php vendor/bin/atoum -p 'php -d memory_limit=512M' --debug --force-terminal --use-dot-report --configurations tests/telemetry.php --bootstrap-file tests/bootstrap.php --no-code-coverage -d tests/units
+
+  # Unit test suite command.
+  run_imap_test_suite:
+    steps:
+      - run:
+          name: IMAP tests
+          command: |
+            sudo service dovecot start
+            for f in `ls tests/emails-tests/*.eml`; do getmail_maildir ~/Maildir/ < $f; done
+            php vendor/bin/atoum -p 'php -d memory_limit=512M' --debug --force-terminal --use-dot-report --configurations tests/telemetry.php --bootstrap-file tests/bootstrap.php --no-code-coverage --max-children-number 1 -d tests/imap
+
+  # Functionnal test suite command.
+  run_functionnal_test_suite:
+    steps:
+      - run:
+          name: Functionnal tests
+          command: php vendor/bin/atoum -p 'php -d memory_limit=512M' --debug --force-terminal --use-dot-report --configurations tests/telemetry.php --bootstrap-file tests/bootstrap.php --no-code-coverage --max-children-number 1 -d tests/functionnal
+
+  # Web test suite command.
+  run_web_test_suite:
+    steps:
+      - run:
+          name: WEB tests
+          command: |
+            php -S localhost:8088 tests/router.php &>/dev/null &
+            php vendor/bin/atoum -p 'php -d memory_limit=512M' --debug --force-terminal --use-dot-report --configurations tests/telemetry.php --bootstrap-file tests/bootstrap.php --no-code-coverage --max-children-number 1 -d tests/web
+
+  # Run full test suite command.
+  run_full_test_suite:
+    steps:
+      - run_db_test_suite
+      - install_db
+      - run_unit_test_suite
+      - run_imap_test_suite
+      - run_functionnal_test_suite
+      - run_web_test_suite
+
+jobs:
+  # Checkout codebase and store it into workspace.
+  checkout:
+    docker:
+      - image: circleci/buildpack-deps
+    steps:
+      - checkout:
+          path: /home/circleci/codebase
+      - run: rm -rf /home/circleci/codebase/.git
+      - persist_to_workspace:
+          root: /home/circleci
+          paths:
+            - codebase
+
+  # Lint code.
+  lint:
+    executor: php_7_0 # lint on lower PHP version to check compatibility with the older supported API
+    steps:
+      - build
+      - run:
+          name: sensiolabs/security-checker
+          command: |
+            vendor/bin/security-checker security:check
+      - run:
+          name: PHP CS
+          command: |
+            vendor/bin/phpcs -d memory_limit=512M -p -n --extensions=php --standard=PSR2 ./src ./public/index.php && vendor/bin/phpcs -d memory_limit=512M -p -n --extensions=php --standard=vendor/glpi-project/coding-standard/GlpiStandard/ --ignore=/.git/,/config/,/files/,/lib/,/node_modules/,/plugins/,/public/index.php,/src/,/tests/config/,/vendor/ ./
+      - run:
+          name: ESLint
+          command: |
+            node_modules/.bin/eslint ./js && node_modules/.bin/eslint --env=node --parser-options=ecmaVersion:6 --rule 'indent: ["error", 4]' ./webpack.config.js && echo "ESLint found no errors"
+      - run:
+          name: stylelint
+          command: |
+            node_modules/.bin/stylelint "css/**/*.{,s,sa}css" --ignore-pattern="css/tiny_mce/**" && echo "stylelint found no errors"
+            bin/console build:compile_scss
+
+  # PHP 7.0 test suite.
+  php_7_0_test_suite:
+    executor: php_7_0_mariadb
+    steps:
+      - build
+      - run_full_test_suite
+
+  # PHP 7.1 test suite.
+  php_7_1_test_suite:
+    executor: php_7_1_mariadb
+    steps:
+      - build
+      - run_full_test_suite
+
+  # PHP 7.2 test suite.
+  php_7_2_test_suite:
+    executor: php_7_2_mariadb
+    steps:
+      - build
+      - run_full_test_suite
+
+  # PHP 7.3 test suite.
+  php_7_3_test_suite:
+    executor: php_7_3_mariadb
+    steps:
+      - build
+      - run_full_test_suite
+
+  # PHP 7.3 test suite using MySQL 5.6.
+  php_7_3_mysql_5_6_test_suite:
+    executor: php_7_3_mysql_5_6
+    steps:
+      - build
+      - run_full_test_suite
+
+  # PHP 7.3 test suite using MySQL 5.7.
+  php_7_3_mysql_5_7_test_suite:
+    executor: php_7_3_mysql_5_7
+    steps:
+      - build
+      - run_full_test_suite
+
+  # PHP 7.3 test suite using MySQL 8.0.
+  php_7_3_mysql_8_0_test_suite:
+    executor: php_7_3_mysql_8_0
+    steps:
+      - build
+      - run_full_test_suite
+
+  # PHP latest version test suite.
+  php_latest_test_suite:
+    executor: php_latest_mariadb
+    steps:
+      - build
+      - run_full_test_suite
+
+
+workflows:
+  # Run test suite on all supported PHP versions.
+  tests_all:
+    jobs:
+      - checkout:
+          filters:
+            tags:
+              only: /.*/ # required as test_suites waits for this job to be done
+      - lint:
+          requires:
+            - checkout
+          filters:
+            tags:
+              only: /.*/ # run also on tag creation
+      - php_7_0_test_suite:
+          requires:
+            - checkout
+          filters:
+            tags:
+              only: /.*/ # run also on tag creation
+      - php_7_1_test_suite:
+          requires:
+            - checkout
+          filters:
+            tags:
+              only: /.*/ # run also on tag creation
+            branches:
+              ignore: /.*/ # do not run on branch update
+      - php_7_2_test_suite:
+          requires:
+            - checkout
+          filters:
+            tags:
+              only: /.*/ # run also on tag creation
+            branches:
+              ignore: /.*/ # do not run on branch update
+      - php_7_3_test_suite:
+          requires:
+            - checkout
+          filters:
+            tags:
+              only: /.*/ # run also on tag creation
+      - php_7_3_mysql_5_6_test_suite:
+          requires:
+            - checkout
+          filters:
+            tags:
+              only: /.*/ # run also on tag creation
+            branches:
+              ignore: /.*/ # do not run on branch update
+      - php_7_3_mysql_5_7_test_suite:
+          requires:
+            - checkout
+          filters:
+            tags:
+              only: /.*/ # run also on tag creation
+            branches:
+              ignore: /.*/ # do not run on branch update
+      - php_7_3_mysql_8_0_test_suite:
+          requires:
+            - checkout
+          filters:
+            tags:
+              only: /.*/ # run also on tag creation
+            branches:
+              ignore: /.*/ # do not run on branch update
+
+  # Nightly run test suite on latest PHP version.
+  scheduled_build:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+                - 9.4/bugfixes
+                - 9.5/bugfixes
+    jobs:
+      - checkout
+      - lint:
+          requires:
+            - checkout
+      - php_7_0_test_suite:
+          requires:
+            - checkout
+      - php_7_1_test_suite:
+          requires:
+            - checkout
+      - php_7_2_test_suite:
+          requires:
+            - checkout
+      - php_7_3_test_suite:
+          requires:
+            - checkout
+      - php_7_3_mysql_5_6_test_suite:
+          requires:
+            - checkout
+      - php_7_3_mysql_5_7_test_suite:
+          requires:
+            - checkout
+      - php_7_3_mysql_8_0_test_suite:
+          requires:
+            - checkout
+      - php_latest_test_suite:
+          requires:
+            - checkout

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -45,7 +41,7 @@ if (!defined('GLPI_ROOT')) {
 class NetworkPortAggregate extends NetworkPortInstantiation {
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return __('Aggregation port');
    }
 
@@ -55,7 +51,7 @@ class NetworkPortAggregate extends NetworkPortInstantiation {
       if ((isset($input['networkports_id_list'])) && is_array($input['networkports_id_list'])) {
          $input['networkports_id_list'] = exportArrayToDB($input['networkports_id_list']);
       } else {
-         $input['networkports_id_list'] = exportArrayToDB(array());
+         $input['networkports_id_list'] = exportArrayToDB([]);
       }
       return parent::prepareInputForAdd($input);
    }
@@ -66,7 +62,7 @@ class NetworkPortAggregate extends NetworkPortInstantiation {
       if ((isset($input['networkports_id_list'])) && is_array($input['networkports_id_list'])) {
          $input['networkports_id_list'] = exportArrayToDB($input['networkports_id_list']);
       } else {
-         $input['networkports_id_list'] = exportArrayToDB(array());
+         $input['networkports_id_list'] = exportArrayToDB([]);
       }
       return parent::prepareInputForAdd($input);
    }
@@ -91,14 +87,14 @@ class NetworkPortAggregate extends NetworkPortInstantiation {
     * @see NetworkPortInstantiation::getInstantiationHTMLTableHeaders
    **/
    function getInstantiationHTMLTableHeaders(HTMLTableGroup $group, HTMLTableSuperHeader $super,
-                                             HTMLTableSuperHeader $internet_super=NULL,
-                                             HTMLTableHeader $father=NULL,
-                                             array $options=array()) {
+                                             HTMLTableSuperHeader $internet_super = null,
+                                             HTMLTableHeader $father = null,
+                                             array $options = []) {
 
       $group->addHeader('Origin', __('Origin port'), $super);
 
       parent::getInstantiationHTMLTableHeaders($group, $super, $internet_super, $father, $options);
-      return NULL;
+      return null;
 
    }
 
@@ -107,7 +103,7 @@ class NetworkPortAggregate extends NetworkPortInstantiation {
     * @see NetworkPortInstantiation::getInstantiationHTMLTable()
    **/
    function getInstantiationHTMLTable(NetworkPort $netport, HTMLTableRow $row,
-                                      HTMLTableCell $father=NULL, array $options=array()) {
+                                      HTMLTableCell $father = null, array $options = []) {
 
       if (isset($this->fields['networkports_id_list'])
           && is_string($this->fields['networkports_id_list'])) {
@@ -119,7 +115,7 @@ class NetworkPortAggregate extends NetworkPortInstantiation {
                     $this->getInstantiationNetworkPortHTMLTable());
 
       parent::getInstantiationHTMLTable($netport, $row, $father, $options);
-      return NULL;
+      return null;
    }
 
 }

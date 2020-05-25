@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -42,11 +38,15 @@ if (!defined('GLPI_ROOT')) {
 /// since version 9.2
 class KnowbaseItem_Comment extends CommonDBTM {
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Comment', 'Comments', $nb);
    }
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
+      if (!$item->canUpdateItem()) {
+         return '';
+      }
+
       $nb = 0;
       if ($_SESSION['glpishow_count_on_tabs']) {
          $where = [];
@@ -70,7 +70,7 @@ class KnowbaseItem_Comment extends CommonDBTM {
       return self::createTabEntry(self::getTypeName($nb), $nb);
    }
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
       self::showForItem($item, $withtemplate);
       return true;
    }
@@ -79,12 +79,11 @@ class KnowbaseItem_Comment extends CommonDBTM {
     * Show linked items of a knowbase item
     *
     * @param $item                     CommonDBTM object
-    * @param $withtemplate    integer  withtemplate param (default '')
+    * @param $withtemplate    integer  withtemplate param (default 0)
    **/
-   static function showForItem(CommonDBTM $item, $withtemplate='') {
+   static function showForItem(CommonDBTM $item, $withtemplate = 0) {
       global $DB, $CFG_GLPI;
 
-      $kbitem_id = null;
       $item_id = $item->getID();
       $item_type = $item::getType();
       if (isset($_GET["start"])) {
@@ -105,8 +104,9 @@ class KnowbaseItem_Comment extends CommonDBTM {
             'language'         => $item->fields['language']
          ];
       }
+
       $kbitem_id = $where['knowbaseitems_id'];
-      $kbitem = new KnowbaseItem_Item();
+      $kbitem = new KnowbaseItem();
       $kbitem->getFromDB($kbitem_id);
 
       $number = countElementsInTable(
@@ -114,7 +114,7 @@ class KnowbaseItem_Comment extends CommonDBTM {
          $where
        );
 
-      $cancomment = $item->canComment();
+      $cancomment = $kbitem->canComment();
       if ($cancomment) {
          echo "<div class='firstbloc'>";
 
@@ -291,17 +291,17 @@ class KnowbaseItem_Comment extends CommonDBTM {
          $userdata = getUserName($user->getID(), 2);
          $html .= $user->getLink()."&nbsp;";
          $html .= Html::showToolTip($userdata["comment"],
-                                array('link' => $userdata['link'], 'display' => false));
+                                ['link' => $userdata['link'], 'display' => false]);
          $html .= "</span>";
          $html .= "</div>"; // h_user
          $html .= "</div>"; //h_info
 
-         $html .= "<div class='h_content TicketFollowup'>";
+         $html .= "<div class='h_content KnowbaseItemComment'>";
          $html .= "<div class='displayed_content'>";
 
          if ($cancomment) {
             if (Session::getLoginUserID() == $comment['users_id']) {
-               $html .= "<span class='edit_item'
+               $html .= "<span class='fa fa-pencil-square-o edit_item'
                   data-kbitem_id='{$comment['knowbaseitems_id']}'
                   data-lang='{$comment['language']}'
                   data-id='{$comment['id']}'></span>";

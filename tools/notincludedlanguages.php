@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,10 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief Get all po files not used in GLPI
-* @since version 0.84
-*/
+/**
+ * Get all po files not used in GLPI
+ * @since 0.84
+ */
 
 include ('../inc/includes.php');
 
@@ -47,7 +47,7 @@ foreach ($CFG_GLPI['languages'] as $key => $val) {
 
 // Get missing
 $dir   = opendir(GLPI_ROOT.'/locales');
-$files = array();
+$files = [];
 while ($file = readdir($dir)) {
    if (($file != ".") && ($file != "..")) {
       if (preg_match("/(.*)\.mo$/i", $file, $reg)) {

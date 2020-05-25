@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -53,21 +49,21 @@ class TaskCategory extends CommonTreeDropdown {
 
       $tab = parent::getAdditionalFields();
 
-      $tab[] = array('name'  => 'is_active',
+      $tab[] = ['name'  => 'is_active',
                      'label' => __('Active'),
-                     'type'  => 'bool');
+                     'type'  => 'bool'];
 
-      $tab[] = array('name'  => 'knowbaseitemcategories_id',
+      $tab[] = ['name'  => 'knowbaseitemcategories_id',
                      'label' => KnowbaseItemCategory::getTypeName(),
                      'type'  => 'dropdownValue',
-                     'list'  => true);
+                     'list'  => true];
 
       return $tab;
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '8',
@@ -81,7 +77,7 @@ class TaskCategory extends CommonTreeDropdown {
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Task category', 'Task categories', $nb);
    }
 

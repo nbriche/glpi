@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,16 @@
  * ---------------------------------------------------------------------
  */
 
+// Check PHP version not to have trouble
+// Need to be the very fist step before any include
+if (version_compare(PHP_VERSION, '7.0.8') < 0) {
+   die('PHP >= 7.0.8 required');
+}
 
-/** @file
-* @brief
-*/
+if (!isset($_GET['oldui'])) {
+   header('Location: public/index.php');
+   die();
+}
 
 use Glpi\Event;
 
@@ -42,21 +48,15 @@ define('GLPI_ROOT', __DIR__);
 include (GLPI_ROOT . "/inc/based_config.php");
 include_once (GLPI_ROOT . "/inc/define.php");
 
-// Check PHP version not to have trouble
-if (version_compare(PHP_VERSION, GLPI_MIN_PHP) < 0) {
-   die(sprintf("PHP >= %s required", GLPI_MIN_PHP));
-}
-
 define('DO_NOT_CHECK_HTTP_REFERER', 1);
 
-// If config_db doesn't exist -> start installation
-if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
+// If db.yaml doesn't exist -> start installation
+if (!file_exists(GLPI_CONFIG_DIR . "/db.yaml")) {
    include_once (GLPI_ROOT . "/inc/autoload.function.php");
    Html::redirect("install/install.php");
    die();
 
 } else {
-   $TRY_OLD_CONFIG_FIRST = true;
    include (GLPI_ROOT . "/inc/includes.php");
    $_SESSION["glpicookietest"] = 'testcookie';
 
@@ -75,7 +75,7 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
 
    // Start the page
    echo "<!DOCTYPE html>\n";
-   echo "<html lang=\"{$CFG_GLPI["languages"][$_SESSION['glpilanguage']][3]}\">";
+   echo "<html lang=\"{$CFG_GLPI["languages"][$_SESSION['glpilanguage']][3]}\" class='legacy loginpage'>";
    echo '<head><title>'.__('GLPI - Authentication').'</title>'."\n";
    echo '<meta charset="utf-8"/>'."\n";
    echo "<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n";
@@ -86,20 +86,36 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
    echo "<meta name='viewport' content='width=device-width, initial-scale=1'/>";
 
    // Appel CSS
-   echo '<link rel="stylesheet" href="'.$CFG_GLPI["root_doc"].'/css/styles.css" type="text/css" '.
-         'media="screen" />';
-   // CSS theme link
-      echo Html::css("css/palettes/".$CFG_GLPI["palette"].".css");
-   // surcharge CSS hack for IE
-   echo "<!--[if lte IE 6]>";
-   echo Html::css("css/styles_ie.css");
-   echo "<![endif]-->";
+   echo Html::scss('css/legacy');
+   if (isset($_SESSION['glpihighcontrast_css']) && $_SESSION['glpihighcontrast_css']) {
+      echo Html::scss('css/highcontrast');
+   }
+   $theme = isset($_SESSION['glpipalette']) ? $_SESSION['glpipalette'] : 'auror';
+   echo Html::scss('css/palettes/' . $theme);
+   // external libs CSS
+   echo Html::css('public/lib/base.css');
+   // Custom CSS for root entity
+   $entity = new Entity();
+   $entity->getFromDB('0');
+   echo $entity->getCustomCssTag();
+
+   // CFG
+   echo Html::scriptBlock("
+      var CFG_GLPI  = {
+         'url_base': '".(isset($CFG_GLPI['url_base']) ? $CFG_GLPI["url_base"] : '')."',
+         'root_doc': '".$CFG_GLPI["root_doc"]."',
+      };
+   ");
+
+   echo Html::script("public/lib/base.js");
+   echo Html::script("public/lib/fuzzy.js");
+   echo Html::script('js/common.js');
 
    echo "</head>";
 
    echo "<body>";
    echo "<div id='firstboxlogin'>";
-   echo "<div id='logo_login'></div>";
+   echo "<h1 id='logo_login'><img src='".$CFG_GLPI['root_doc']."/pics/login_logo_glpi.png' alt='GLPI' title='GLPI' /></h1>";
    echo "<div id='text-login'>";
    echo nl2br(Toolbox::unclean_html_cross_side_scripting_deep($CFG_GLPI['text_login']));
    echo "</div>";
@@ -118,18 +134,37 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
    // redirect to ticket
    if (isset($_GET["redirect"])) {
       Toolbox::manageRedirect($_GET["redirect"]);
-      echo '<input type="hidden" name="redirect" value="'.$_GET['redirect'].'"/>';
+      echo '<input type="hidden" name="redirect" value="'.Html::entities_deep($_GET['redirect']).'"/>';
    }
-   echo '<p class="login_input">
+   echo '<p class="login_input" id="login_input_name">
+         <label for="login_name" class="sr-only">'.__('Login').'</label>
          <input type="text" name="'.$namfield.'" id="login_name" required="required"
                 placeholder="'.__('Login').'" autofocus="autofocus" />
-         <span class="login_img"></span>
          </p>';
-   echo '<p class="login_input">
+   echo '<p class="login_input" id="login_input_password">
+         <label for="login_password" class="sr-only">'.__('Password').'</label>
          <input type="password" name="'.$pwdfield.'" id="login_password" required="required"
                 placeholder="'.__('Password').'"  />
-         <span class="login_img"></span>
          </p>';
+
+   if (GLPI_DEMO_MODE) {
+      //lang selector
+      echo '<p class="login_input" id="login_lang">';
+      Dropdown::showLanguages(
+         'language', [
+            'display_emptychoice'   => true,
+            'emptylabel'            => __('Default (from user profile)'),
+            'width'                 => '100%'
+         ]
+      );
+      echo '</p>';
+   }
+
+   // Add dropdown for auth (local, LDAPxxx, LDAPyyy, imap...)
+   if ($CFG_GLPI['display_login_source']) {
+      Auth::dropdownLogin();
+   }
+
    if ($CFG_GLPI["login_remember_time"]) {
       echo '<p class="login_input">
             <label for="login_remember">
@@ -142,19 +177,23 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
          <input type="submit" name="submit" value="'._sx('button', 'Post').'" class="submit" />
          </p>';
 
-   if ($CFG_GLPI["use_mailing"]
-       && countElementsInTable('glpi_notifications',
-                               "`itemtype`='User'
-                                AND `event`='passwordforget'
-                                AND `is_active`=1")) {
+   if ($CFG_GLPI["notifications_mailing"]
+      && countElementsInTable(
+         'glpi_notifications', [
+            'itemtype'  => 'User',
+            'event'     => 'passwordforget',
+            'is_active' => 1
+         ])
+      ) {
       echo '<a id="forget" href="front/lostpassword.php?lostpassword=1">'.
              __('Forgotten password?').'</a>';
    }
    Html::closeForm();
 
-   echo "<script type='text/javascript' >\n";
-   echo "document.getElementById('login_name').focus();";
-   echo "</script>";
+   $js = "$(function() {
+      $('#login_name').focus();
+   });";
+   echo Html::scriptBlock($js);
 
    echo "</div>";  // end login box
 
@@ -195,12 +234,7 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
 
    echo "</div>"; // end contenu login
 
-   if (GLPI_DEMO_MODE) {
-      echo "<div class='center'>";
-      Event::getCountLogin();
-      echo "</div>";
-   }
-   echo "<div id='footer-login'>" . Html::getCopyrightMessage() . "</div>";
+   echo "<div id='footer-login' class='home'>" . Html::getCopyrightMessage(false) . "</div>";
 
 }
 // call cron

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,15 +30,10 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 Session::checkRight("config", UPDATE);
 
-$config      = new Config();
 $config_ldap = new AuthLDAP();
 
 if (!isset($_GET['id'])) {
@@ -57,6 +52,7 @@ if (isset($_POST["update"])) {
             Session::addMessageAfterRedirect(__('Test successful'));
          } else {
             Session::addMessageAfterRedirect(__('Test failed'), false, ERROR);
+            GlpiNetwork::addErrorMessageAfterRedirect();
          }
          Html::redirect($CFG_GLPI["root_doc"] . "/front/authldap.php?next=extauth_ldap&id=".$newID);
       }
@@ -81,6 +77,7 @@ if (isset($_POST["update"])) {
       $_SESSION["LDAP_TEST_MESSAGE"] = sprintf(__('Test failed: %s'),
                                                //TRANS: %s is the name of the LDAP main server
                                                sprintf(__('Main server %s'), $config_ldap->fields["name"]));
+      GLPINetwork::addErrorMessageAfterRedirect();
    }
    Html::back();
 
@@ -98,6 +95,7 @@ if (isset($_POST["update"])) {
       $_SESSION["LDAP_TEST_MESSAGE"] = sprintf(__('Test failed: %s'),
                                                //TRANS: %s is the name of the LDAP replica server
                                                sprintf(__('Replicate %s'), $replicate->fields["name"]));
+      GLPINetwork::addErrorMessageAfterRedirect();
    }
    Html::back();
 

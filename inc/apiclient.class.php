@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,9 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @since version 9.1
-*/
+/**
+ * @since 9.1
+ */
 
 class APIClient extends CommonDBTM {
 
@@ -57,16 +57,16 @@ class APIClient extends CommonDBTM {
       return _n("API client", "API clients", $nb);
    }
 
-   function defineTabs($options = array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addDefaultFormTab($ong)
            ->addStandardTab('Log', $ong, $options);
 
       return $ong;
    }
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
       $tab = [];
 
       $tab[] = [
@@ -148,7 +148,7 @@ class APIClient extends CommonDBTM {
       return $tab;
    }
 
-   static function getSpecificValueToDisplay($field, $values, array $options = array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
 
       switch ($field) {
          case 'dolog_method' :
@@ -157,7 +157,10 @@ class APIClient extends CommonDBTM {
 
          case 'ipv4_range_start':
          case 'ipv4_range_end':
-            return long2ip($values[$field]);
+            if (empty($values[$field])) {
+               return '';
+            }
+            return long2ip((int)$values[$field]);
       }
 
       return parent::getSpecificValueToDisplay($field, $values, $options);
@@ -171,7 +174,7 @@ class APIClient extends CommonDBTM {
     *
     * @return void
     */
-   function showForm ($ID, $options=array()) {
+   function showForm ($ID, $options = []) {
 
       $this->initForm($ID, $options);
       $this->showFormHeader($options);
@@ -197,7 +200,7 @@ class APIClient extends CommonDBTM {
       echo "<td>";
       Dropdown::showFromArray("dolog_method",
                               self::getLogMethod(),
-                              array('value' => $this->fields["dolog_method"]));
+                              ['value' => $this->fields["dolog_method"]]);
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
@@ -207,7 +210,7 @@ class APIClient extends CommonDBTM {
 
       echo "<tr class='tab_bg_1'>";
       echo "<td colspan='4'>";
-      echo "<i>".__('Leave these parameters empty to disable api access restriction')."</i>";
+      echo "<i>".__('Leave these parameters empty to disable API access restriction')."</i>";
       echo "<br><br><br>";
       echo "</td></tr>";
 
@@ -226,7 +229,9 @@ class APIClient extends CommonDBTM {
       echo "<td>".__('IPv6 address')."</td>";
       echo "<td>";
       Html::autocompletionTextField($this, "ipv6");
-      echo "</td></tr>";
+      echo "</td>";
+      echo "<td colspan='2'></td>";
+      echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".sprintf(__('%1$s (%2$s)'), __('Application token'), "app_token")."</td>";
@@ -234,7 +239,7 @@ class APIClient extends CommonDBTM {
       Html::autocompletionTextField($this, "app_token");
       echo "<br><input type='checkbox' name='_reset_app_token' id='app_token'>&nbsp;";
       echo "<label for='app_token'>".__('Regenerate')."</label>";
-      echo "</td></tr>";
+      echo "</td><td></td></tr>";
 
       $this->showFormButtons($options);
    }
@@ -270,6 +275,10 @@ class APIClient extends CommonDBTM {
          }
       }
 
+      if (isset($input['ipv6']) && empty($input['ipv6'])) {
+         $input['ipv6'] = "NULL";
+      }
+
       if (isset($input['_reset_app_token'])) {
          $input['app_token']      = self::getUniqueAppToken();
          $input['app_token_date'] = $_SESSION['glpi_currenttime'];
@@ -285,10 +294,10 @@ class APIClient extends CommonDBTM {
     */
    static function getLogMethod() {
 
-      return array(self::DOLOG_DISABLED   => __('Disabled'),
+      return [self::DOLOG_DISABLED   => __('Disabled'),
                    self::DOLOG_HISTORICAL => __('Historical'),
                    self::DOLOG_LOGS       => _n('Log', 'Logs',
-                                                Session::getPluralNumber()));
+                                                Session::getPluralNumber())];
    }
 
    /**
@@ -300,7 +309,7 @@ class APIClient extends CommonDBTM {
 
       $ok = false;
       do {
-         $key    = Toolbox::getRandomString(40, true);
+         $key    = Toolbox::getRandomString(40);
          if (countElementsInTable(self::getTable(), ['app_token' => $key]) == 0) {
             return $key;
          }

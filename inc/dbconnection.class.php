@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,14 +30,13 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
+use Glpi\Database\AbstractDatabase;
+use Glpi\DatabaseFactory;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  *  Database class for Mysql
@@ -47,7 +46,7 @@ class DBConnection extends CommonDBTM {
    static protected $notable = true;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('SQL replica', 'SQL replicas', $nb);
    }
 
@@ -57,63 +56,73 @@ class DBConnection extends CommonDBTM {
     *
     * @since 9.1
     *
-    * @param $dbhost
-    * @param $user
-    * @param $password
-    * @param $DBname
+    * @param string $driver   Database driver
+    * @param string $host     Database host
+    * @param string $user     Dataabse user name
+    * @param string $password Database user password
+    * @param string $dbname   Database name
     *
     * @return boolean
     *
    **/
-   static function createMainConfig($host, $user, $password, $DBname) {
-
-      $DB_str = "<?php\nclass DB extends DBmysql {\n" .
-                "   public \$dbhost     = '$host';\n" .
-                "   public \$dbuser     = '$user';\n" .
-                "   public \$dbpassword = '". rawurlencode($password) . "';\n" .
-                "   public \$dbdefault  = '$DBname';\n" .
-                "}\n";
-
-      return Toolbox::writeConfig('config_db.php', $DB_str);
+   static function createMainConfig($driver, $host, $user, $password, $dbname) {
+      $yaml = Yaml::dump([
+         'driver' => $driver,
+         'host'   => $host,
+         'user'   => $user,
+         'pass'   => $password,
+         'dbname' => $dbname
+      ]);
+      return Toolbox::writeConfig('db.yaml', $yaml);
    }
 
 
    /**
     * Create slave DB configuration file
     *
-    * @param host       the slave DB host(s)
-    * @param user       the slave DB user
-    * @param password   the slave DB password
-    * @param DBname     the name of the slave DB
+    * @param string $driver   Database driver
+    * @param string $host     Database host
+    * @param string $user     Dataabse user name
+    * @param string $password Database user password
+    * @param string $dbname   Database name
     *
-    * @return boolean for success
+    * @return boolean
    **/
-   static function createSlaveConnectionFile($host, $user, $password, $DBname) {
+   static function createSlaveConnectionFile($driver, $host, $user = null, $password = null, $dbname = null) {
+      $conf = [
+         'driver' => $driver,
+         'host'   => trim($host)
+      ];
 
-      $DB_str = "<?php \n class DBSlave extends DBmysql { \n public \$slave = true; \n public \$dbhost = ";
-      $host   = trim($host);
-      if (strpos($host, ' ')) {
-         $hosts = explode(' ', $host);
-         $first = true;
+      if ($user !== null) {
+         $conf['user'] = $user;
+      }
+
+      if ($password !== null) {
+         $conf['pass'] = $password;
+      }
+
+      if ($dbname !== null) {
+         $conf['dbname'] = $dbname;
+      }
+
+      if (strpos($conf['host'], ' ')) {
+         $hosts = explode(' ', $conf['host']);
+         $conf['host'] = [];
          foreach ($hosts as $host) {
             if (!empty($host)) {
-               $DB_str .= ($first ? "array('" : ",'").$host."'";
-               $first   = false;
+               $conf['host'][] = $host;
             }
          }
-         if ($first) {
+         if (!count($conf['host'])) {
             // no host configured
+            Toolbox::logerror('No slave host configured!');
             return false;
          }
-         $DB_str .= ");\n";
-
-      } else {
-         $DB_str .= "'$host';\n";
       }
-      $DB_str .= " public \$dbuser = '" . $user . "'; \n public \$dbpassword= '" .
-                  rawurlencode($password) . "'; \n public \$dbdefault = '" . $DBname . "'; \n }\n";
 
-      return Toolbox::writeConfig('config_db_slave.php', $DB_str);
+      $yaml = Yaml::dump($conf);
+      return Toolbox::writeConfig('db.slave.yaml', $yaml);
    }
 
 
@@ -123,22 +132,21 @@ class DBConnection extends CommonDBTM {
     * @return true if active / false if not active
    **/
    static function isDBSlaveActive() {
-      return file_exists(GLPI_CONFIG_DIR . "/config_db_slave.php");
+      return file_exists(GLPI_CONFIG_DIR . "/db.slave.yaml");
    }
 
 
    /**
     * Read slave DB configuration file
     *
-    * @param $choice integer, host number (default NULL)
+    * @param integer $server host number (default NULL)
     *
-    * @return DBmysql object
+    * @return AbstractDatabase object
    **/
-   static function getDBSlaveConf($choice=NULL) {
+   static function getDBSlaveConf($server = null): AbstractDatabase {
 
       if (self::isDBSlaveActive()) {
-         include_once (GLPI_CONFIG_DIR . "/config_db_slave.php");
-         return new DBSlave($choice);
+         return DatabaseFactory::create(null, true, $server);
       }
    }
 
@@ -168,7 +176,7 @@ class DBConnection extends CommonDBTM {
     * Delete slave DB configuration file
     */
    static function deleteDBSlaveConfig() {
-      unlink(GLPI_CONFIG_DIR . "/config_db_slave.php");
+      unlink(GLPI_CONFIG_DIR . "/db.slave.yaml");
    }
 
 
@@ -179,9 +187,8 @@ class DBConnection extends CommonDBTM {
       global $DB;
 
       if (self::isDBSlaveActive()) {
-         include_once (GLPI_CONFIG_DIR . "/config_db_slave.php");
-         $DB = new DBSlave();
-         return $DB->connected;
+         $DB = DatabaseFactory::create(null, true);
+         return $DB->isConnected();
       }
       return false;
    }
@@ -193,8 +200,8 @@ class DBConnection extends CommonDBTM {
    static function switchToMaster() {
       global $DB;
 
-      $DB = new DB();
-      return $DB->connected;
+      $DB = DatabaseFactory::create();
+      return $DB->isConnected();
    }
 
 
@@ -202,7 +209,7 @@ class DBConnection extends CommonDBTM {
     * Get Connection to slave, if exists,
     * and if configured to be used for read only request
     *
-    * @return DBmysql object
+    * @return AbstractDatabase object
    **/
    static function getReadConnection() {
       global $DB, $CFG_GLPI;
@@ -211,12 +218,13 @@ class DBConnection extends CommonDBTM {
           && !$DB->isSlave()
           && self::isDBSlaveActive()) {
 
-         include_once (GLPI_CONFIG_DIR . "/config_db_slave.php");
-         $DBread = new DBSlave();
+         $DBread = DatabaseFactory::create(null, true);
 
-         if ($DBread->connected) {
-            $sql = "SELECT MAX(`id`) AS maxid
-                    FROM `glpi_logs`";
+         if ($DBread->isConnected()) {
+            $sql = [
+               'SELECT' => ['MAX' => 'id AS maxid'],
+               'FROM'   => 'glpi_logs'
+            ];
 
             switch ($CFG_GLPI['use_slave_for_search']) {
                case 3 : // If synced or read-only account
@@ -260,12 +268,14 @@ class DBConnection extends CommonDBTM {
    /**
     *  Establish a connection to a mysql server (main or replicate)
     *
-    * @param $use_slave    try to connect to slave server first not to main server
-    * @param $required     connection to the specified server is required
-    *                      (if connection failed, do not try to connect to the other server)
-    * @param $display      display error message (true by default)
+    * @param boolean $use_slave try to connect to slave server first not to main server
+    * @param boolean $required  connection to the specified server is required
+    *                           (if connection failed, do not try to connect to the other server)
+    * @param boolean $display   display error message (true by default)
+    *
+    * @return boolean True if successfull, false otherwise
    **/
-   static function establishDBConnection($use_slave, $required, $display=true) {
+   static function establishDBConnection($use_slave, $required, $display = true) {
       global $DB;
 
       $DB  = null;
@@ -301,9 +311,6 @@ class DBConnection extends CommonDBTM {
                } else {
                   $res = self::switchToSlave();
                }
-               if ($res) {
-                  $DB->first_connection = false;
-               }
             }
          }
       }
@@ -323,11 +330,12 @@ class DBConnection extends CommonDBTM {
     *
     * @return integer
    **/
-   static function getReplicateDelay($choice=NULL) {
+   static function getReplicateDelay($choice = null) {
 
-      include_once (GLPI_CONFIG_DIR . "/config_db_slave.php");
-      return (int) (self::getHistoryMaxDate(new DB())
-                    - self::getHistoryMaxDate(new DBSlave($choice)));
+      $db = DatabaseFactory::create();
+      $sdb = DatabaseFactory::create(null, true, $choice);
+      return (int) (self::getHistoryMaxDate($db)
+                    - self::getHistoryMaxDate($sdb));
    }
 
 
@@ -338,7 +346,7 @@ class DBConnection extends CommonDBTM {
    **/
    static function getHistoryMaxDate($DBconnection) {
 
-      if ($DBconnection->connected) {
+      if ($DBconnection->isConnected()) {
          $result = $DBconnection->query("SELECT UNIX_TIMESTAMP(MAX(`date_mod`)) AS max_date
                                          FROM `glpi_logs`");
          if ($DBconnection->numrows($result) > 0) {
@@ -359,15 +367,15 @@ class DBConnection extends CommonDBTM {
          echo "<div class='center'><p class ='b'>
                 A link to the SQL server could not be established. Please check your configuration.
                 </p><p class='b'>
-                Le serveur Mysql est inaccessible. V??rifiez votre configuration</p>
+                Le serveur Mysql est inaccessible. Vérifiez votre configuration</p>
                </div>";
          Html::nullFooter();
       } else {
          echo "A link to the SQL server could not be established. Please check your configuration.\n";
-         echo "Le serveur Mysql est inaccessible. V??rifiez votre configuration\n";
+         echo "Le serveur Mysql est inaccessible. Vérifiez votre configuration\n";
       }
 
-      die();
+      die(1);
    }
 
 
@@ -376,17 +384,19 @@ class DBConnection extends CommonDBTM {
    **/
    static function cronInfo($name) {
 
-      return array('description' => __('Check the SQL replica'),
-                   'parameter'   => __('Max delay between master and slave (minutes)'));
+      return ['description' => __('Check the SQL replica'),
+                   'parameter'   => __('Max delay between master and slave (minutes)')];
    }
 
 
    /**
-    *  Cron process to check DB replicate state
+    * Cron process to check DB replicate state
     *
-    * @param $task to log and get param
+    * @param Crontask $task to log and get param
+    *
+    * @return integer
    **/
-   static function cronCheckDBreplicate($task) {
+   static function cronCheckDBreplicate(Crontask $task) {
       global $DB;
 
       //Lauch cron only is :
@@ -398,7 +408,7 @@ class DBConnection extends CommonDBTM {
          if (is_array($DBslave->dbhost)) {
             $hosts = $DBslave->dbhost;
          } else {
-            $hosts = array($DBslave->dbhost);
+            $hosts = [$DBslave->dbhost];
          }
 
          foreach ($hosts as $num => $name) {
@@ -416,9 +426,9 @@ class DBConnection extends CommonDBTM {
 
             if ($diff > ($task->fields['param']*60)) {
                //Raise event if replicate is not synchronized
-               $options = array('diff'        => $diff,
+               $options = ['diff'        => $diff,
                                 'name'        => $name,
-                                'entities_id' => 0); // entity to avoid warning in getReplyTo
+                                'entities_id' => 0]; // entity to avoid warning in getReplyTo
                NotificationEvent::raiseEvent('desynchronization', new self(), $options);
             }
          }
@@ -439,7 +449,7 @@ class DBConnection extends CommonDBTM {
       if (is_array($DBslave->dbhost)) {
          $hosts = $DBslave->dbhost;
       } else {
-         $hosts = array($DBslave->dbhost);
+         $hosts = [$DBslave->dbhost];
       }
 
       foreach ($hosts as $num => $name) {
@@ -449,11 +459,11 @@ class DBConnection extends CommonDBTM {
          echo " - ";
          if ($diff > 1000000000) {
             echo __("can't connect to the database") . "<br>";
-         } else if ($diff) {
-            printf(__('%1$s: %2$s')."<br>", __('Difference between master and slave'),
-                   Html::timestampToString($diff, 1));
-         } else {
-            printf(__('%1$s: %2$s')."<br>", __('Difference between master and slave'), __('None'));
+            printf(
+               __('%1$s: %2$s')."<br>",
+               __('Difference between master and slave'),
+               ($diff ? Html::timestampToString($diff, 1) : __('None'))
+            );
          }
       }
    }
@@ -484,12 +494,14 @@ class DBConnection extends CommonDBTM {
     *
     * @param enable of disable cron task (true by default)
    **/
-   static function changeCronTaskStatus($enable=true) {
+   static function changeCronTaskStatus($enable = true) {
 
       $cron           = new CronTask();
       $cron->getFromDBbyName('DBConnection', 'CheckDBreplicate');
-      $input['id']    = $cron->fields['id'];
-      $input['state'] = ($enable?1:0);
+      $input = [
+         'id'    => $cron->fields['id'],
+         'state' => ($enable ? 1 : 0)
+      ];
       $cron->update($input);
    }
 

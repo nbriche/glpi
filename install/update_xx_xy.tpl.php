@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 /**
  * DO NOT FORGET TO REPLACE XX AND XY OCCURENCES WITH CORRECT VALUES
  * Update from XX to XY
@@ -45,31 +41,11 @@ function updateXXtoXY() {
 
    $current_config   = Config::getConfigurationValues('core');
    $updateresult     = true;
-   $ADDTODISPLAYPREF = array();
+   $ADDTODISPLAYPREF = [];
 
    //TRANS: %s is the number of new version
    $migration->displayTitle(sprintf(__('Update to %s'), 'XY'));
    $migration->setVersion('XY');
-
-   $backup_tables = false;
-   // table already exist but deleted during the migration
-   // not table created during the migration
-   $newtables     = array();
-
-   foreach ($newtables as $new_table) {
-      // rename new tables if exists ?
-      if (TableExists($new_table)) {
-         $migration->dropTable("backup_$new_table");
-         $migration->displayWarning("$new_table table already exists. ".
-                                    "A backup have been done to backup_$new_table.");
-         $backup_tables = true;
-         $query         = $migration->renameTable("$new_table", "backup_$new_table");
-      }
-   }
-   if ($backup_tables) {
-      $migration->displayWarning("You can delete backup tables if you have no need of them.",
-                                 true);
-   }
 
    //put you migration script here
 

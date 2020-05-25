@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -48,27 +44,27 @@ class Holiday extends CommonDropdown {
    public $can_be_translated = false;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Close time', 'Close times', $nb);
    }
 
 
    function getAdditionalFields() {
 
-      return array(array('name'  => 'begin_date',
+      return [['name'  => 'begin_date',
                          'label' => __('Start'),
-                         'type'  => 'date'),
-                   array('name'  => 'end_date',
+                         'type'  => 'date'],
+                   ['name'  => 'end_date',
                          'label' => __('End'),
-                         'type'  => 'date'),
-                   array('name'  => 'is_perpetual',
+                         'type'  => 'date'],
+                   ['name'  => 'is_perpetual',
                          'label' => __('Recurrent'),
-                         'type'  => 'bool'));
+                         'type'  => 'bool']];
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',

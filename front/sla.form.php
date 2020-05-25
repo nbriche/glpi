@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,15 +30,11 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 use Glpi\Event;
 
 include ('../inc/includes.php');
 
-Session::checkRight("sla", READ);
+Session::checkRight("slm", READ);
 
 if (empty($_GET["id"])) {
    $_GET["id"] = "";
@@ -47,16 +43,16 @@ if (empty($_GET["id"])) {
 $sla = new SLA();
 
 if (isset($_POST["add"])) {
-   $sla->check(-1, CREATE);
+   $sla->check(-1, CREATE, $_POST);
 
    if ($newID = $sla->add($_POST)) {
       Event::log($newID, "slas", 4, "setup",
                  sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
       if ($_SESSION['glpibackcreated']) {
-         Html::redirect($sla->getFormURL()."?id=".$newID);
+         Html::redirect($sla->getLinkURL());
       }
    }
-   Html::redirect($CFG_GLPI["root_doc"]."/front/sla.php");
+   Html::back();
 
 } else if (isset($_POST["purge"])) {
    $sla->check($_POST["id"], PURGE);
@@ -77,8 +73,9 @@ if (isset($_POST["add"])) {
    Html::back();
 
 } else {
-   Html::header(SLA::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "sla");
+   Html::header(SLA::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "slm", "sla");
 
-   $sla->display(array('id' => $_GET["id"]));
+   $sla->display(['id' => $_GET["id"]]);
    Html::footer();
 }
+

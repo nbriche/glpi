@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,14 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief Purge history with some criteria
-*/
+/**
+ *Purge history with some criteria
+ */
+
+if (PHP_SAPI != 'cli') {
+   echo "This script must be run from command line";
+   exit();
+}
 
 ini_set("memory_limit", "-1");
 ini_set("max_execution_time", "0");
@@ -53,7 +58,7 @@ $CFG_GLPI["debug"]=0;
 if (!isset($_GET['delay'])) {
    print "
 *******************************************
- This script kill babies : don t use it !!
+ This script kills babies : don t use it !!
 
    If you really want to try it:
    Do a full backup before use.
@@ -82,8 +87,8 @@ Usage : php cleanhistory.php [ --item=# ] [ --type=# ] [ --old=<regex> ] [ --new
      10 : OCS ID Changed                 24 : Unlock a link with an item
      11 : OCS Link                       25 : Unlock an sub item
      12 : Other (often from plugin)      26 : Lock an sub item
-     13 : Delete item (put in dustbin)   27 : Unlock an item
-     14 : Restore item from dustbin
+     13 : Delete item (put in trashbin)   27 : Unlock an item
+     14 : Restore item from trashbin
 
    With old an optional regex pattern on old_value
    With new an optional regex pattern on new_value
@@ -122,7 +127,7 @@ if (isset($_GET['run'])) {
       die("SQL request: $query\nSQL error : ".$DB->error()."\n");
    }
 
-   echo "  Deleted entries in history : ".$DB->affected_rows()."\n";
+   echo "  Deleted entries in history : ".$res->rowCount()."\n";
    echo "Remaining entries in history : ".countElementsInTable($table)."\n";
 
    if (isset($_GET['optimize'])) {

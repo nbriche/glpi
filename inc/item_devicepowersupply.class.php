@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -49,15 +45,15 @@ class Item_DevicePowerSupply extends Item_Devices {
    static protected $notable = false;
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
-   static function getSpecificities($specif='') {
+   static function getSpecificities($specif = '') {
 
-      return array('serial' => parent::getSpecificities('serial'),
+      return ['serial' => parent::getSpecificities('serial'),
                    'otherserial' => parent::getSpecificities('otherserial'),
                    'locations_id' => parent::getSpecificities('locations_id'),
                    'states_id' => parent::getSpecificities('states_id')
-                  );
+                  ];
    }
 
 }

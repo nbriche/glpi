@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,14 @@
  * ---------------------------------------------------------------------
 */
 
-/** @file
-* @brief
-* @since version 0.85
-*/
+/**
+ * @since 0.85
+ */
+
+/**
+ * Following variables have to be defined before inclusion of this file:
+ * @var CommonITILValidation $validation
+ */
 
 use Glpi\Event;
 

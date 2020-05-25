@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,16 +30,12 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 /// Class Group_Reminder
-/// @since version 0.83
+/// @since 0.83
 class Group_Reminder extends CommonDBRelation {
 
    // From CommonDBRelation
@@ -62,12 +58,15 @@ class Group_Reminder extends CommonDBRelation {
    static function getGroups($reminders_id) {
       global $DB;
 
-      $groups = array();
-      $query  = "SELECT `glpi_groups_reminders`.*
-                 FROM `glpi_groups_reminders`
-                 WHERE `reminders_id` = '$reminders_id'";
+      $groups = [];
+      $iterator = $DB->request([
+         'FROM'   => self::getTable(),
+         'WHERE'  => [
+            'reminders_id' => $reminders_id
+         ]
+      ]);
 
-      foreach ($DB->request($query) as $data) {
+      while ($data = $iterator->next()) {
          $groups[$data['groups_id']][] = $data;
       }
       return $groups;

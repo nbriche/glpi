@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,8 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -41,7 +40,7 @@ if (!defined('GLPI_ROOT')) {
 
 /** GLPIPhpMailer class
  *
- * @since version 0.85
+ * @since 0.85
 **/
 class GLPIMailer extends PHPMailer {
 
@@ -78,15 +77,42 @@ class GLPIMailer extends PHPMailer {
          }
 
          if (!$CFG_GLPI['smtp_check_certificate']) {
-            $this->SMTPOptions = array('ssl' => array('verify_peer'       => false,
-                                                      'verify_peer_name'  => false,
-                                                      'allow_self_signed' => true));
+            $this->SMTPOptions = ['ssl' => ['verify_peer'       => false,
+                                            'verify_peer_name'  => false,
+                                            'allow_self_signed' => true]];
+         }
+         if ($CFG_GLPI['smtp_sender'] != '') {
+            $this->Sender = $CFG_GLPI['smtp_sender'];
          }
       }
 
       if ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE) {
-         $this->do_debug = 3;
+         $this->SMTPDebug = SMTP::DEBUG_CONNECTION;
+         $this->Debugoutput = function ($message, $level) {
+            Toolbox::logInFile(
+               'mail-debug',
+               "$level - $message"
+            );
+         };
       }
    }
 
+   public static function validateAddress($address, $patternselect = null) {
+      $isValid = parent::validateAddress($address, $patternselect);
+      if (!$isValid && Toolbox::endsWith($address, '@localhost')) {
+         //since phpmailer6, @localhost address are no longer valid...
+         $isValid = parent::ValidateAddress($address . '.me');
+      }
+      return $isValid;
+   }
+
+   public function setLanguage($langcode = 'en', $lang_path = '') {
+      if ($lang_path == '') {
+         $local_path = dirname(Config::getLibraryDir('PHPMailer\PHPMailer\PHPMailer'))  . '/language/';
+         if (is_dir($local_path)) {
+            $lang_path = $local_path;
+         }
+      }
+      parent::setLanguage($langcode, $lang_path);
+   }
 }

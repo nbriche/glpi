@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -49,23 +46,6 @@ class RuleRight extends Rule {
    public $orderby             = "name";
    public $specific_parameters = true;
 
-
-   // Temproray hack for this class in 0.84
-   static function getTable() {
-      return 'glpi_rules';
-   }
-
-
-
-   /**
-    * @see Rule::maxActionsCount()
-   **/
-   function maxActionsCount() {
-      // Unlimited
-      return 4;
-   }
-
-
    /**
     * @see Rule::showNewRuleForm()
    **/
@@ -77,11 +57,11 @@ class RuleRight extends Rule {
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Name') . "</td><td>";
-      Html::autocompletionTextField($this, "name", array('value' => '',
-                                                         'size'  => 33));
+      Html::autocompletionTextField($this, "name", ['value' => '',
+                                                         'size'  => 33]);
       echo '</td><td>'.__('Description') . "</td><td>";
-      Html::autocompletionTextField($this, "description", array('value' => '',
-                                                                'size'  => 33));
+      Html::autocompletionTextField($this, "description", ['value' => '',
+                                                                'size'  => 33]);
       echo "</td><td>".__('Logical operator') . "</td><td>";
       $this->dropdownRulesMatch();
       echo "</td><td rowspan='2' class='tab_bg_2 center middle'>";
@@ -104,27 +84,16 @@ class RuleRight extends Rule {
    }
 
 
-   /**
-    * Execute the actions as defined in the rule
-    *
-    * @see Rule::executeActions()
-    *
-    * @param $output the result of the actions
-    * @param $params the parameters
-    *
-    * @return the fields modified
-   **/
-   function executeActions($output, $params) {
+   function executeActions($output, $params, array $input = []) {
       global $CFG_GLPI;
 
-      $entity       = '';
+      $entity = [];
       $right        = '';
       $is_recursive = 0;
       $continue     = true;
       $output_src   = $output;
 
       if (count($this->actions)) {
-         $entity = array();
          foreach ($this->actions as $action) {
 
             switch ($action->fields["action_type"]) {
@@ -142,14 +111,31 @@ class RuleRight extends Rule {
                         $is_recursive = $action->fields["value"];
                         break;
 
+                     case '_entities_id_default':
+                        $output['entities_id'] = $action->fields["value"];
+                        break;
+
+                     case '_profiles_id_default':
+                        $output['profiles_id'] = $action->fields["value"];
+                        break;
+
+                     case 'groups_id':
+                        $output['groups_id'] = $action->fields["value"];
+                        break;
+
                      case "is_active" :
                         $output["is_active"] = $action->fields["value"];
+                        break;
+
+                     case 'timezone':
+                        $output['timezone'] = $action->fields['value'];
                         break;
 
                      case "_ignore_user_import" :
                         $continue                   = false;
                         $output_src["_stop_import"] = true;
                         break;
+
                   } // switch (field)
                   break;
 
@@ -165,20 +151,20 @@ class RuleRight extends Rule {
                            if ($res != null) {
                               switch ($action->fields["field"]) {
                                  case "_affect_entity_by_dn" :
-                                    $entity_found = Entity::getEntityIDByDN(addslashes($res));
+                                    $entity_found = Entity::getEntityIDByDN($res);
                                     break;
 
                                  case "_affect_entity_by_tag" :
-                                    $entity_found = Entity::getEntityIDByTag(addslashes($res));
+                                    $entity_found = Entity::getEntityIDByTag($res);
                                     break;
 
                                  case "_affect_entity_by_domain" :
-                                    $entity_found = Entity::getEntityIDByDomain(addslashes($res));
+                                    $entity_found = Entity::getEntityIDByDomain($res);
                                     break;
 
                                  case "_affect_entity_by_completename" :
                                     $res          = Toolbox::unclean_cross_side_scripting_deep($res);
-                                    $entity_found = Entity::getEntityIDByCompletename(addslashes($res));
+                                    $entity_found = Entity::getEntityIDByCompletename($res);
                                     break;
 
                                  default:
@@ -211,12 +197,12 @@ class RuleRight extends Rule {
          if (count($entity)) {
             if ($right != '') {
                foreach ($entity as $entID) {
-                  $output["_ldap_rules"]["rules_entities_rights"][] = array($entID, $right,
-                                                                            $is_recursive);
+                  $output["_ldap_rules"]["rules_entities_rights"][] = [$entID, $right,
+                                                                            $is_recursive];
                }
             } else {
                foreach ($entity as $entID) {
-                  $output["_ldap_rules"]["rules_entities"][] = array($entID, $is_recursive);
+                  $output["_ldap_rules"]["rules_entities"][] = [$entID, $is_recursive];
                }
             }
          } else if ($right != '') {
@@ -238,7 +224,7 @@ class RuleRight extends Rule {
     * @see Rule::getCriterias()
    **/
    function getCriterias() {
-      static $criterias = array();
+      static $criterias = [];
 
       if (!count($criterias)) {
          $criterias['common']                   = __('Global criteria');
@@ -293,7 +279,7 @@ class RuleRight extends Rule {
    **/
    function getActions() {
 
-      $actions                                              = array();
+      $actions                                              = [];
 
       $actions['entities_id']['name']                       = __('Entity');
       $actions['entities_id']['type']                       = 'dropdown';
@@ -301,22 +287,22 @@ class RuleRight extends Rule {
 
       $actions['_affect_entity_by_dn']['name']              = __('Entity based on LDAP information');
       $actions['_affect_entity_by_dn']['type']              = 'text';
-      $actions['_affect_entity_by_dn']['force_actions']     = array('regex_result');
+      $actions['_affect_entity_by_dn']['force_actions']     = ['regex_result'];
       $actions['_affect_entity_by_dn']['duplicatewith']     = 'entities_id';
 
       $actions['_affect_entity_by_tag']['name']             = __('Entity from TAG');
       $actions['_affect_entity_by_tag']['type']             = 'text';
-      $actions['_affect_entity_by_tag']['force_actions']    = array('regex_result');
+      $actions['_affect_entity_by_tag']['force_actions']    = ['regex_result'];
       $actions['_affect_entity_by_tag']['duplicatewith']    = 'entities_id';
 
       $actions['_affect_entity_by_domain']['name']          = __('Entity from mail domain');
       $actions['_affect_entity_by_domain']['type']          = 'text';
-      $actions['_affect_entity_by_domain']['force_actions'] = array('regex_result');
+      $actions['_affect_entity_by_domain']['force_actions'] = ['regex_result'];
       $actions['_affect_entity_by_domain']['duplicatewith'] = 'entities_id';
 
       $actions['_affect_entity_by_completename']['name']          = __('Entity from complete name');
       $actions['_affect_entity_by_completename']['type']          = 'text';
-      $actions['_affect_entity_by_completename']['force_actions'] = array('regex_result');
+      $actions['_affect_entity_by_completename']['force_actions'] = ['regex_result'];
       $actions['_affect_entity_by_completename']['duplicatewith'] = 'entities_id';
 
       $actions['profiles_id']['name']                       = _n('Profile', 'Profiles', Session::getPluralNumber());
@@ -335,23 +321,65 @@ class RuleRight extends Rule {
       $actions['_ignore_user_import']['type']               = 'yesonly';
       $actions['_ignore_user_import']['table']              = '';
 
+      $actions['_entities_id_default']['table']             = 'glpi_entities';
+      $actions['_entities_id_default']['field']             = 'name';
+      $actions['_entities_id_default']['name']              = __('Default entity');
+      $actions['_entities_id_default']['linkfield']         = 'entities_id';
+      $actions['_entities_id_default']['type']              = 'dropdown';
+
+      $actions['groups_id']['table']                        = 'glpi_groups';
+      $actions['groups_id']['field']                        = 'name';
+      $actions['groups_id']['name']                         = __('Default group');
+      $actions['groups_id']['linkfield']                    = 'groups_id';
+      $actions['groups_id']['type']                         = 'dropdown';
+      $actions['groups_id']['condition']                    = ['is_usergroup' => 1];
+
+      $actions['_profiles_id_default']['table']             = 'glpi_profiles';
+      $actions['_profiles_id_default']['field']             = 'name';
+      $actions['_profiles_id_default']['name']              = __('Default profile');
+      $actions['_profiles_id_default']['linkfield']         = 'profiles_id';
+      $actions['_profiles_id_default']['type']              = 'dropdown';
+
+      $actions['timezone']['name']                          = __('Timezone');
+      $actions['timezone']['type']                          = 'timezone';
+
       return $actions;
    }
 
+   function displayAdditionalRuleAction(array $action, $value = '') {
+      global $DB;
+
+      switch ($action['type']) {
+         case 'timezone' :
+
+            $timezones = $DB->getTimezones();
+            Dropdown::showFromArray(
+               'value',
+               $timezones, [
+                  'display_emptychoice' => true
+               ]
+            );
+            return true;
+      }
+      return false;
+   }
+
+
 
    /**
-    * Get all ldap rules criterias from the DB and add them into the RULES_CRITERIAS
+    * Get all ldap rules criteria from the DB and add them into the RULES_CRITERIAS
     *
-    * @param &$criterias
+    * @param &$criteria
    **/
-   function addSpecificCriteriasToArray(&$criterias) {
+   function addSpecificCriteriasToArray(&$criteria) {
 
-      $criterias['ldap'] = __('LDAP criteria');
-      foreach (getAllDatasFromTable('glpi_rulerightparameters', '', true) as $datas) {
-         $criterias[$datas["value"]]['name']      = $datas["name"];
-         $criterias[$datas["value"]]['field']     = $datas["value"];
-         $criterias[$datas["value"]]['linkfield'] = '';
-         $criterias[$datas["value"]]['table']     = '';
+      $criteria['ldap'] = __('LDAP criteria');
+      $all = getAllDataFromTable('glpi_rulerightparameters', [], true);
+      foreach ($all as $data) {
+         $criteria[$data["value"]]['name']      = $data["name"];
+         $criteria[$data["value"]]['field']     = $data["value"];
+         $criteria[$data["value"]]['linkfield'] = '';
+         $criteria[$data["value"]]['table']     = '';
       }
    }
 

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,30 +30,7 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
-include ('../inc/includes.php');
-
-Session::checkRight("config", UPDATE);
-
-Html::header(MailCollector::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "mailcollector");
-
-if (!Toolbox::canUseImapPop()) {
-   echo "<div class='center'>";
-   echo "<table class='tab_cadre_fixe'>";
-   echo "<tr><th colspan='2'>" . _n('Receiver', 'Receivers', 2)."</th></tr>";
-   echo "<tr class='tab_bg_2'>";
-   echo "<td class='center red'>" . __('Your PHP parser was compiled without the IMAP functions');
-   echo "</td></tr></table>";
-   echo "</div>";
-   Html::footer();
-   exit();
-
-} else {
-   $mailcollector = new MailCollector();
-   $mailcollector->title();
-   Search::show('MailCollector');
-   Html::footer();
-}
+//fully migrated to new UI, just redirect
+$itemtype = 'MailCollector';
+$route    = 'list';
+header("Location: ../public/index.php?uiredirect=true&route=$route&itemtype=$itemtype");

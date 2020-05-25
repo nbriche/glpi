@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 header("Content-Type: text/html; charset=UTF-8");
@@ -44,8 +40,8 @@ if (!isset($_POST["itemtype"]) || !($item = getItemForItemtype($_POST['itemtype'
 }
 
 if (InfoCom::canApplyOn($_POST["itemtype"])) {
-   Session::checkSeveralRightsOr(array($_POST["itemtype"] => UPDATE,
-                                       "infocom"          => UPDATE));
+   Session::checkSeveralRightsOr([$_POST["itemtype"] => UPDATE,
+                                       "infocom"          => UPDATE]);
 } else {
    $item->checkGlobal(UPDATE);
 }
@@ -56,7 +52,7 @@ if (isset($_POST['inline']) && $_POST['inline']) {
 }
 $submitname = _sx('button', 'Post');
 if (isset($_POST['submitname']) && $_POST['submitname']) {
-   $submitname= stripslashes($_POST['submitname']);
+   $submitname= $_POST['submitname'];
 }
 
 
@@ -69,9 +65,6 @@ if (isset($_POST["itemtype"])
 
    $search            = $search[$_POST["id_field"]];
 
-   $FIELDNAME_PRINTED = false;
-   $USE_TABLE         = false;
-
    echo "<table class='tab_glpi' width='100%'><tr><td>";
 
    $plugdisplay = false;
@@ -80,8 +73,8 @@ if (isset($_POST["itemtype"])
       // Specific for plugin which add link to core object
        || ($plug = isPluginItemType(getItemTypeForTable($search['table'])))) {
       $plugdisplay = Plugin::doOneHook($plug['plugin'], 'MassiveActionsFieldsDisplay',
-                                       array('itemtype' => $_POST["itemtype"],
-                                             'options'  => $search));
+                                       ['itemtype' => $_POST["itemtype"],
+                                             'options'  => $search]);
    }
 
    $fieldname = '';
@@ -93,8 +86,8 @@ if (isset($_POST["itemtype"])
       $fieldname = $search["linkfield"];
    }
    if (!$plugdisplay) {
-      $options = array();
-      $values  = array();
+      $options = [];
+      $values  = [];
       // For ticket template or aditional options of massive actions
       if (isset($_POST['options'])) {
          $options = $_POST['options'];
@@ -106,9 +99,7 @@ if (isset($_POST["itemtype"])
       echo $item->getValueToSelect($search, $fieldname, $values, $options);
    }
 
-   if (!$FIELDNAME_PRINTED) {
-      echo "<input type='hidden' name='field' value='$fieldname'>";
-   }
+   echo "<input type='hidden' name='field' value='$fieldname'>";
    echo "</td>";
    if ($inline) {
       echo "<td><input type='submit' name='massiveaction' class='submit' value='$submitname'></td>";

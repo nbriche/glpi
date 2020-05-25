@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -28,11 +28,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
-*/
-
-/** @file
-* @brief
-*/
+* */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -49,19 +45,19 @@ class FQDN extends CommonDropdown {
    public $can_be_translated = false;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Internet domain', 'Internet domains', $nb);
    }
 
 
    function getAdditionalFields() {
 
-      return array(array('name'    => 'fqdn',
+      return [['name'    => 'fqdn',
                          'label'   => __('FQDN'),
                          'type'    => 'text',
                          'comment'
                           => __('Fully Qualified Domain Name. Use the classical notation (labels separated by dots). For example: indepnet.net'),
-                         'list'    => true));
+                         'list'    => true]];
    }
 
 
@@ -109,9 +105,9 @@ class FQDN extends CommonDropdown {
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addStandardTab('NetworkName', $ong, $options);
       $this->addStandardTab('NetworkAlias', $ong, $options);
       $this->addStandardTab('Log', $ong, $options);
@@ -141,7 +137,7 @@ class FQDN extends CommonDropdown {
     * @return if $wildcard_search == false : the id of the fqdn, -1 if not found or several answers
     *         if $wildcard_search == true : an array of the id of the fqdn
    **/
-   static function getFQDNIDByFQDN($fqdn, $wildcard_search=false) {
+   static function getFQDNIDByFQDN($fqdn, $wildcard_search = false) {
       global $DB;
 
       if (empty($fqdn)) {
@@ -155,17 +151,19 @@ class FQDN extends CommonDropdown {
          if ($count == 0) {
             $fqdn = '%'.$fqdn.'%';
          }
-         $relation = "LIKE '$fqdn'";
+         $relation = ['LIKE', $fqdn];
       } else {
-         $relation = "= '$fqdn'";
+         $relation = $fqdn;
       }
 
-      $query = "SELECT `id`
-                FROM `glpi_fqdns`
-                WHERE `fqdn` $relation ";
+      $iterator = $DB->request([
+         'SELECT' => 'id',
+         'FROM'   => self::getTable(),
+         'WHERE'  => ['fqdn' => $relation]
+      ]);
 
-      $fqdns_id_list = array();
-      foreach ($DB->request($query) as $line) {
+      $fqdns_id_list = [];
+      while ($line = $iterator->next()) {
          $fqdns_id_list[] = $line['id'];
       }
 
@@ -195,8 +193,8 @@ class FQDN extends CommonDropdown {
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '11',

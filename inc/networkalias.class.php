@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -28,11 +28,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
-*/
-
-/** @file
-* @brief
-*/
+* */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -41,7 +37,7 @@ if (!defined('GLPI_ROOT')) {
 /**
  *  NetworkAlias Class
  *
- * @since version 0.84
+ * @since 0.84
 **
  */
 class NetworkAlias extends FQDNLabel {
@@ -54,14 +50,14 @@ class NetworkAlias extends FQDNLabel {
    static public $checkParentRights = CommonDBConnexity::HAVE_SAME_RIGHT_ON_ITEM;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Network alias', 'Network aliases', $nb);
    }
 
 
-   function defineTabs($options=array()) {
+   function defineTabs($options = []) {
 
-      $ong  = array();
+      $ong  = [];
       $this->addDefaultFormTab($ong);
 
       return $ong;
@@ -97,7 +93,7 @@ class NetworkAlias extends FQDNLabel {
     *
     * @return Nothing (display)
    **/
-   function showForm ($ID, $options=array()) {
+   function showForm ($ID, $options = []) {
 
       // Show only simple form to add / edit
       $showsimple = false;
@@ -134,10 +130,10 @@ class NetworkAlias extends FQDNLabel {
       echo "<tr class='tab_bg_1'>";
       echo "<td>".FQDN::getTypeName()."</td><td>";
       Dropdown::show(getItemTypeForTable(getTableNameForForeignKeyField("fqdns_id")),
-                     array('value'        => $this->fields["fqdns_id"],
+                     ['value'        => $this->fields["fqdns_id"],
                            'name'         => 'fqdns_id',
                            'entity'       => $this->getEntityID(),
-                           'displaywith'  => array('view')));
+                           'displaywith'  => ['view']]);
       echo "</td>";
       echo "<td>".__('Comments')."</td>";
       echo "<td><textarea cols='45' rows='4' name='comment' >".$this->fields["comment"];
@@ -150,7 +146,7 @@ class NetworkAlias extends FQDNLabel {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $itemtype
     * @param $base                  HTMLTableBase object
@@ -159,8 +155,8 @@ class NetworkAlias extends FQDNLabel {
     * @param $options      array
    **/
    static function getHTMLTableHeader($itemtype, HTMLTableBase $base,
-                                      HTMLTableSuperHeader $super=NULL,
-                                      HTMLTableHeader $father=NULL, array $options=array()) {
+                                      HTMLTableSuperHeader $super = null,
+                                      HTMLTableHeader $father = null, array $options = []) {
 
       $column_name = __CLASS__;
       if (isset($options['dont_display'][$column_name])) {
@@ -181,15 +177,15 @@ class NetworkAlias extends FQDNLabel {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $row                HTMLTableRow object (default NULL)
     * @param $item               CommonDBTM object (default NULL)
     * @param $father             HTMLTableCell object (default NULL)
     * @param $options   array
    **/
-   static function getHTMLTableCellsForItem(HTMLTableRow $row=NULL, CommonDBTM $item=NULL,
-                                            HTMLTableCell $father=NULL, array $options=array()) {
+   static function getHTMLTableCellsForItem(HTMLTableRow $row = null, CommonDBTM $item = null,
+                                            HTMLTableCell $father = null, array $options = []) {
       global $DB, $CFG_GLPI;
 
       if (empty($item)) {
@@ -216,14 +212,15 @@ class NetworkAlias extends FQDNLabel {
       $canedit              = (isset($options['canedit']) && $options['canedit']);
       $createRow            = (isset($options['createRow']) && $options['createRow']);
       $options['createRow'] = false;
-
-      $query                = "SELECT `id`
-                               FROM `glpi_networkaliases`
-                               WHERE `networknames_id` = '".$item->getID()."'";
-
       $alias                = new self();
 
-      foreach ($DB->request($query) as $line) {
+      $iterator = $DB->request([
+         'SELECT' => 'id',
+         'FROM'   => 'glpi_networkaliases',
+         'WHERE'  => ['networknames_id' => $item->getID()]
+      ]);
+
+      while ($line = $iterator->next()) {
          if ($alias->getFromDB($line["id"])) {
 
             if ($createRow) {
@@ -247,7 +244,7 @@ class NetworkAlias extends FQDNLabel {
     * @param $item                     NetworkName object
     * @param $withtemplate   integer   withtemplate param (default 0)
    **/
-   static function showForNetworkName(NetworkName $item, $withtemplate=0) {
+   static function showForNetworkName(NetworkName $item, $withtemplate = 0) {
       global $DB, $CFG_GLPI;
 
       $ID = $item->getID();
@@ -258,26 +255,25 @@ class NetworkAlias extends FQDNLabel {
       $canedit = $item->canEdit($ID);
       $rand    = mt_rand();
 
-      $query = "SELECT *
-                FROM `glpi_networkaliases`
-                WHERE `networknames_id` = '$ID'";
+      $iterator = $DB->request([
+         'FROM'   => 'glpi_networkaliases',
+         'WHERE'  => ['networknames_id' => $ID]
+      ]);
+      $number = count($iterator);
 
-      $result  = $DB->query($query);
-      $aliases = array();
-      if ($number = $DB->numrows($result)) {
-         while ($line = $DB->fetch_assoc($result)) {
-            $aliases[$line["id"]] = $line;
-         }
+      $aliases = [];
+      while ($line = $iterator->next()) {
+         $aliases[$line["id"]] = $line;
       }
 
       if ($canedit) {
          echo "\n<div class='firstbloc'>";
          echo "<script type='text/javascript' >\n";
          echo "function viewAddAlias$rand() {\n";
-         $params = array('type'            => __CLASS__,
+         $params = ['type'            => __CLASS__,
                          'parenttype'      => 'NetworkName',
                          'networknames_id' => $ID,
-                         'id'              => -1);
+                         'id'              => -1];
          Ajax::updateItemJsCode("viewnetworkalias$rand",
                                 $CFG_GLPI["root_doc"]."/ajax/viewsubitem.php", $params);
          echo "};";
@@ -291,8 +287,8 @@ class NetworkAlias extends FQDNLabel {
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $number,
-                                      'container'     => 'mass'.__CLASS__.$rand);
+         $massiveactionparams = ['num_displayed' => min($_SESSION['glpilist_limit'], $number),
+                                      'container'     => 'mass'.__CLASS__.$rand];
          Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
@@ -313,7 +309,7 @@ class NetworkAlias extends FQDNLabel {
       $header_end .= "</tr>";
       echo $header_begin.$header_top.$header_end;
 
-      $used = array();
+      $used = [];
       foreach ($aliases as $data) {
          $showviewjs = ($canedit
                         ? "style='cursor:pointer' onClick=\"viewEditAlias".$data['id']."$rand();\""
@@ -332,16 +328,16 @@ class NetworkAlias extends FQDNLabel {
          if ($canedit) {
             echo "\n<script type='text/javascript' >\n";
             echo "function viewEditAlias". $data["id"]."$rand() {\n";
-            $params = array('type'             => __CLASS__,
+            $params = ['type'             => __CLASS__,
                             'parenttype'       => 'NetworkName',
                             'networknames_id'  => $ID,
-                            'id'               => $data["id"]);
+                            'id'               => $data["id"]];
             Ajax::updateItemJsCode("viewnetworkalias$rand",
                                    $CFG_GLPI["root_doc"]."/ajax/viewsubitem.php", $params);
             echo "};";
             echo "</script>\n";
          }
-         echo "<a href='".static::getFormURL()."?id=".$data["id"]."'>".$name."</a>";
+         echo "<a href='".static::getFormURLWithID($data["id"])."'>".$name."</a>";
          echo "</td>";
          echo "<td class='center' $showviewjs>".Dropdown::getDropdownName("glpi_fqdns",
                                                                           $data["fqdns_id"]);
@@ -412,22 +408,33 @@ class NetworkAlias extends FQDNLabel {
                                         sprintf(__('%1$s = %2$s'),
                                                 self::getTypeName(1), $item->fields['name']));
 
-         $query = "SELECT `glpi_networkaliases`.`id` AS alias_id,
-                          `glpi_networkaliases`.`name` AS alias,
-                          `glpi_networknames`.`id` AS address_id,
-                          `glpi_networkaliases`.`comment` AS comment
-                   FROM `glpi_networkaliases`, `glpi_networknames`
-                   WHERE `glpi_networkaliases`.`fqdns_id` = '".$item->getID()."'
-                         AND  `glpi_networknames`.`id` = `glpi_networkaliases`.`networknames_id`
-                   ORDER BY `$order`
-                   LIMIT ".$_SESSION['glpilist_limit']."
-                   OFFSET $start";
+         $iterator = $DB->request([
+            'SELECT'    => [
+               'glpi_networkaliases.id AS alias_id',
+               'glpi_networkaliases.name AS alias',
+               'glpi_networknames.id AS address_id',
+               'glpi_networkaliases.comment AS comment'
+            ],
+            'FROM'      => 'glpi_networkaliases',
+            'INNER JOIN' => [
+               'glpi_networknames'  => [
+                  'ON' => [
+                     'glpi_networkaliases'   => 'networknames_id',
+                     'glpi_networknames'     => 'id'
+                  ]
+               ]
+            ],
+            'WHERE'     => ['glpi_networkaliases.fqdns_id' => $item->getID()],
+            'ORDERBY'   => $order,
+            'LIMIT'     => $_SESSION['glpilist_limit'],
+            'START'     => $start
+         ]);
 
-         foreach ($DB->request($query) as $data) {
+         while ($data = $iterator->next()) {
             Session::addToNavigateListItems($alias->getType(), $data["alias_id"]);
             if ($address->getFromDB($data["address_id"])) {
                echo "<tr class='tab_bg_1'>";
-               echo "<td><a href='".$alias->getFormURL().'?id='.$data['alias_id']."'>" .
+               echo "<td><a href='".$alias->getFormURLWithID($data['alias_id'])."'>" .
                           $data['alias']. "</a></td>";
                echo "<td><a href='".$address->getLinkURL()."'>".$address->getInternetName().
                     "</a></td>";
@@ -444,7 +451,7 @@ class NetworkAlias extends FQDNLabel {
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($item->getType()) {
          case 'NetworkName' :
@@ -458,7 +465,7 @@ class NetworkAlias extends FQDNLabel {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if ($item->getID()
           && $item->can($item->getField('id'), READ)) {
@@ -481,8 +488,8 @@ class NetworkAlias extends FQDNLabel {
    }
 
 
-   function getSearchOptionsNew() {
-      $tab = parent::getSearchOptionsNew();
+   function rawSearchOptions() {
+      $tab = parent::rawSearchOptions();
 
       $tab[] = [
          'id'                 => '12',

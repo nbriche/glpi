@@ -1,7 +1,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -33,14 +33,14 @@
 
 body {
    background-color:#1B2F62;
-   font-family: Verdana;
+   font-family: Verdana, sans-serif;
    color:#FFF;
 }
 
 
 #principal {
    width:760px;
-   font-family: Verdana;
+   font-family: Verdana, sans-serif;
    font-size:12px;
    text-align: center;
    margin: auto;
@@ -109,10 +109,6 @@ th {
    vertical-align:bottom;
 }
 
-.tab_cadre {  }
-
-.tab_bg_1 {  }
-
 .tab_check {
    padding:10px;
    background-color: #FFF;
@@ -133,6 +129,10 @@ th {
 
 .red {
    color:red;
+}
+.migred {
+   color: white;
+   background-color: red;
 }
 .green {
    color:green;
@@ -190,7 +190,7 @@ span.vsubmit, a.vsubmit {
    padding: 5px;
    cursor:pointer;
    height: auto;
-   font: bold 12px Arial, Helvetica;
+   font: bold 12px Arial, Helvetica, sans-serif;
    color: #8f5a0a;
    background-color: #FEC95C;
    border: 0;
@@ -274,4 +274,13 @@ a.vsubmit:hover {
    border-radius: 50%;
    background-color: #FEC95C;
    opacity: 0;
+}
+
+.ui-widget {
+   font-size: 12px;
+}
+
+/* Language dropdown */
+.select2-container ul {
+   color: #000;
 }

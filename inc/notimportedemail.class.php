@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,9 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -44,9 +41,11 @@ class NotImportedEmail extends CommonDBTM {
 
    static $rightname = 'config';
 
-   const MATCH_NO_RULE = 0;
-   const USER_UNKNOWN  = 1;
-   const FAILED_INSERT = 2;
+   const MATCH_NO_RULE     = 0;
+   const USER_UNKNOWN      = 1;
+   const FAILED_OPERATION  = 2;
+   const FAILED_INSERT     = self::FAILED_OPERATION;
+   const NOT_ENOUGH_RIGHTS = 3;
 
 
    function getForbiddenStandardMassiveAction() {
@@ -59,7 +58,7 @@ class NotImportedEmail extends CommonDBTM {
    }
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Refused email', 'Refused emails', $nb);
    }
 
@@ -67,7 +66,7 @@ class NotImportedEmail extends CommonDBTM {
    /**
     * @see CommonDBTM::getSpecificMassiveActions()
     **/
-   function getSpecificMassiveActions($checkitem=NULL) {
+   function getSpecificMassiveActions($checkitem = null) {
 
       $isadmin = static::canUpdate();
       $actions = parent::getSpecificMassiveActions($checkitem);
@@ -82,7 +81,7 @@ class NotImportedEmail extends CommonDBTM {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonDBTM::showMassiveActionsSubForm()
    **/
@@ -92,7 +91,7 @@ class NotImportedEmail extends CommonDBTM {
          case 'import_email' :
             Entity::dropdown();
             echo "<br><br>";
-            echo Html::submit(_x('button', 'Import'), array('name' => 'massiveaction'));
+            echo Html::submit(_x('button', 'Import'), ['name' => 'massiveaction']);
             return true;
       }
       return parent::showMassiveActionsSubForm($ma);
@@ -100,7 +99,7 @@ class NotImportedEmail extends CommonDBTM {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
     *
     * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
@@ -130,7 +129,7 @@ class NotImportedEmail extends CommonDBTM {
    }
 
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
       $tab = [];
 
       $tab[] = [
@@ -211,8 +210,7 @@ class NotImportedEmail extends CommonDBTM {
    static function deleteLog() {
       global $DB;
 
-      $query = "TRUNCATE `glpi_notimportedemails`";
-      $DB->query($query);
+      $DB->truncate('glpi_notimportedemails');
    }
 
 
@@ -236,31 +234,34 @@ class NotImportedEmail extends CommonDBTM {
    **/
    static function getAllReasons() {
 
-      return array(self::MATCH_NO_RULE => __('Unable to affect the email to an entity'),
-                   self::USER_UNKNOWN  => __('Email not found. Impossible import'),
-                   self::FAILED_INSERT => __('Failed operation'));
+      return [
+         self::MATCH_NO_RULE     => __('Unable to affect the email to an entity'),
+         self::USER_UNKNOWN      => __('Email not found. Impossible import'),
+         self::FAILED_OPERATION  => __('Failed operation'),
+         self::NOT_ENOUGH_RIGHTS => __('Not enough rights'),
+      ];
    }
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field
     * @param $values
     * @param $options   array
    **/
-   static function getSpecificValueToDisplay($field, $values, array $options=array()) {
+   static function getSpecificValueToDisplay($field, $values, array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       switch ($field) {
          case 'reason' :
             return self::getReason($values[$field]);
 
          case 'messageid' :
-            $clean = array('<' => '',
-                           '>' => '');
+            $clean = ['<' => '',
+                           '>' => ''];
             return strtr($values[$field], $clean);
       }
       return parent::getSpecificValueToDisplay($field, $values, $options);
@@ -268,17 +269,17 @@ class NotImportedEmail extends CommonDBTM {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $field
     * @param $name               (default '')
     * @param $values             (default '')
     * @param $options      array
    **/
-   static function getSpecificValueToSelect($field, $name='', $values='', array $options=array()) {
+   static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = []) {
 
       if (!is_array($values)) {
-         $values = array($field => $values);
+         $values = [$field => $values];
       }
       $options['display'] = false;
 

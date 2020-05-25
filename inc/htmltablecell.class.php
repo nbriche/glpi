@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -44,14 +40,14 @@ class HTMLTableCellFatherCoherentHeader  extends Exception {}
 class HTMLTableCellWithoutFather         extends Exception {}
 
 /**
- * @since version 0.84
+ * @since 0.84
 **/
 class HTMLTableCell extends HTMLTableEntity {
 
    private $row;
    private $header;
    private $father;
-   private $sons = array();
+   private $sons = [];
    private $item;
 
    // List of rows that have specific attributs
@@ -64,8 +60,8 @@ class HTMLTableCell extends HTMLTableEntity {
     * @param $father    HTMLTableCell object (default NULL)
     * @param $item      CommonDBTM object: The item associated with the current cell (default NULL)
    **/
-   function __construct($row, $header, $content, HTMLTableCell $father=NULL,
-                        CommonDBTM $item=NULL) {
+   function __construct($row, $header, $content, HTMLTableCell $father = null,
+                        CommonDBTM $item = null) {
 
       parent::__construct($content);
       $this->row        = $row;
@@ -75,7 +71,7 @@ class HTMLTableCell extends HTMLTableEntity {
       if (!empty($item)) {
          $this->item = clone $item;
       } else {
-         $this->item = NULL;
+         $this->item = null;
       }
 
       if (!is_null($this->father)) {
@@ -158,7 +154,7 @@ class HTMLTableCell extends HTMLTableEntity {
    function addSon(HTMLTableCell $son, HTMLTableHeader $sons_header) {
 
       if (!isset($this->sons[$sons_header->getName()])) {
-         $this->sons[$sons_header->getName()] = array();
+         $this->sons[$sons_header->getName()] = [];
       }
       $this->sons[$sons_header->getName()][] = $son;
    }
@@ -250,7 +246,7 @@ class HTMLTableCell extends HTMLTableEntity {
     * @param $index
     * @param $options   array
    **/
-   function displayCell($index, array $options=array()) {
+   function displayCell($index, array $options = []) {
 
       if (($index >= $this->start)
           && ($index < ($this->start + $this->numberOfLines))) {

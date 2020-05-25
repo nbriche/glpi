@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,11 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
-
 
 include ('../inc/includes.php');
 
@@ -67,12 +62,12 @@ Report::title();
 echo "<div class='center'><form method='post' name='form' action='".$_SERVER['PHP_SELF']."'>";
 echo "<table class='tab_cadre'><tr class='tab_bg_2'>";
 echo "<td class='right'>".__('Start date')."</td><td>";
-Html::showDateField("date1", array('value' => $_POST["date1"]));
+Html::showDateField("date1", ['value' => $_POST["date1"]]);
 echo "</td><td rowspan='2' class='center'>";
 echo "<input type='submit' class='submit' name='submit' value=\"".__s('Display report')."\"></td>".
      "</tr>";
 echo "<tr class='tab_bg_2'><td class='right'>".__('End date')."</td><td>";
-Html::showDateField("date2", array('value' => $_POST["date2"]));
+Html::showDateField("date2", ['value' => $_POST["date2"]]);
 echo "</td></tr>";
 echo "</table>";
 Html::closeForm();
@@ -81,48 +76,76 @@ echo "</div>";
 
 $valeurtot           = 0;
 $valeurnettetot      = 0;
-$valeurnettegraphtot = array();
-$valeurgraphtot      = array();
+$valeurnettegraphtot = [];
+$valeurgraphtot      = [];
 
 
 /** Display an infocom report
  *
- * @param $itemtype  item type
- * @param $begin     begin date
- * @param $end       end date
+ * @param string $itemtype  item type
+ * @param string $begin     begin date
+ * @param string $end       end date
 **/
 function display_infocoms_report($itemtype, $begin, $end) {
    global $DB, $valeurtot, $valeurnettetot, $valeurnettegraphtot, $valeurgraphtot, $CFG_GLPI, $stat, $chart_opts;
 
    $itemtable = getTableForItemType($itemtype);
-   $query = "SELECT `glpi_infocoms`.*,
-                    `$itemtable`.`name` AS name,
-                    `$itemtable`.`ticket_tco`,
-                    `glpi_entities`.`completename` AS entname,
-                    `glpi_entities`.`id` AS entID
-             FROM `glpi_infocoms`
-             INNER JOIN `$itemtable` ON (`$itemtable`.`id` = `glpi_infocoms`.`items_id`
-                                         AND `glpi_infocoms`.`itemtype` = '$itemtype')
-             LEFT JOIN `glpi_entities` ON (`$itemtable`.`entities_id` = `glpi_entities`.`id`)
-             WHERE `$itemtable`.`is_template` = '0' ".
-                   getEntitiesRestrictRequest("AND", $itemtable);
+   $criteria = [
+      'SELECT'       => [
+         'glpi_infocoms.*',
+         "$itemtable.name AS name",
+         "$itemtable.ticket_tco",
+         'glpi_entities.completename AS entname',
+         'glpi_entities.id AS entID'
+
+      ],
+      'FROM'         => 'glpi_infocoms',
+      'INNER JOIN'   => [
+         $itemtable  => [
+            'ON'  => [
+               'glpi_infocoms'   => 'items_id',
+               $itemtable        => 'id', [
+                  'AND' => [
+                     'glpi_infocoms.itemtype'   => $itemtype
+                  ]
+               ]
+            ]
+         ]
+      ],
+      'LEFT JOIN'    => [
+         'glpi_entities'   => [
+            'ON'  => [
+               'glpi_entities'   => 'id',
+               $itemtable        => 'entities_id'
+            ]
+         ]
+      ],
+      'WHERE'        => ["$itemtable.is_template" => 0] + getEntitiesRestrictCriteria($itemtable),
+      'ORDERBY'      => ['entname ASC', 'buy_date', 'use_date']
+   ];
 
    if (!empty($begin)) {
-      $query .= " AND (`glpi_infocoms`.`buy_date` >= '$begin'
-                       OR `glpi_infocoms`.`use_date` >= '$begin') ";
+      $criteria['WHERE'][] = [
+         'OR'  => [
+            'glpi_infocoms.buy_date'   => ['>=', $begin],
+            'glpi_infocoms.use_date'   => ['>=', $begin]
+         ]
+      ];
    }
 
    if (!empty($end)) {
-      $query .= " AND (`glpi_infocoms`.`buy_date` <= '$end'
-                       OR `glpi_infocoms`.`use_date` <= '$end') ";
+      $criteria['WHERE'][] = [
+         'OR'  => [
+            'glpi_infocoms.buy_date'   => ['<=', $end],
+            'glpi_infocoms.use_date'   => ['<=', $end]
+         ]
+      ];
    }
 
-   $query .= " ORDER BY entname ASC, `buy_date`, `use_date`";
-
    $display_entity = Session::isMultiEntitiesMode();
+   $iterator = $DB->request($criteria);
 
-   $result = $DB->query($query);
-   if (($DB->numrows($result) > 0)
+   if (count($iterator)
        && ($item = getItemForItemtype($itemtype))) {
 
       echo "<h2>".$item->getTypeName(1)."</h2>";
@@ -138,10 +161,10 @@ function display_infocoms_report($itemtype, $begin, $end) {
 
       $valeursoustot      = 0;
       $valeurnettesoustot = 0;
-      $valeurnettegraph   = array();
-      $valeurgraph        = array();
+      $valeurnettegraph   = [];
+      $valeurgraph        = [];
 
-      while ($line=$DB->fetch_assoc($result)) {
+      while ($line = $iterator->next()) {
          if (isset($line["is_global"]) && $line["is_global"]
              && $item->getFromDB($line["items_id"])) {
             $line["value"] *= Computer_Item::countForItem($item);
@@ -264,7 +287,7 @@ function display_infocoms_report($itemtype, $begin, $end) {
    return false;
 }
 
-$types = array('Computer', 'Monitor', 'NetworkEquipment', 'Peripheral', 'Phone', 'Printer');
+$types = ['Computer', 'Monitor', 'NetworkEquipment', 'Peripheral', 'Phone', 'Printer'];
 
 $i = 0;
 echo "<table><tr><td class='top'>";

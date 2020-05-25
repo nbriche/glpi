@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -52,7 +48,7 @@ class Calendar_Holiday extends CommonDBRelation {
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
    **/
    function getForbiddenStandardMassiveAction() {
 
@@ -68,7 +64,7 @@ class Calendar_Holiday extends CommonDBRelation {
     * @param $calendar Calendar object
    **/
    static function showForCalendar(Calendar $calendar) {
-      global $DB, $CFG_GLPI;
+      global $DB;
 
       $ID = $calendar->getField('id');
       if (!$calendar->can($ID, READ)) {
@@ -79,22 +75,33 @@ class Calendar_Holiday extends CommonDBRelation {
 
       $rand    = mt_rand();
 
-      $query = "SELECT DISTINCT `glpi_calendars_holidays`.`id` AS linkID,
-                                `glpi_holidays`.*
-                FROM `glpi_calendars_holidays`
-                LEFT JOIN `glpi_holidays`
-                     ON (`glpi_calendars_holidays`.`holidays_id` = `glpi_holidays`.`id`)
-                WHERE `glpi_calendars_holidays`.`calendars_id` = '$ID'
-                ORDER BY `glpi_holidays`.`name`";
-      $result = $DB->query($query);
+      $iterator = $DB->request([
+         'SELECT ' => [
+            'glpi_calendars_holidays.id AS linkid',
+            'glpi_holidays.*'
+         ],
+         'DISTINCT'        => true,
+         'FROM'            => 'glpi_calendars_holidays',
+         'LEFT JOIN'       => [
+            'glpi_holidays'   => [
+               'ON' => [
+                  'glpi_calendars_holidays'  => 'holidays_id',
+                  'glpi_holidays'            => 'id'
+               ]
+            ]
+         ],
+         'WHERE'           => [
+            'glpi_calendars_holidays.calendars_id' => $ID
+         ],
+         'ORDERBY'         => 'glpi_holidays.name'
+      ]);
 
-      $holidays = array();
-      $used     = array();
-      if ($numrows = $DB->numrows($result)) {
-         while ($data = $DB->fetch_assoc($result)) {
-            $holidays[$data['id']] = $data;
-            $used[$data['id']]     = $data['id'];
-         }
+      $numrows = count($iterator);
+      $holidays = [];
+      $used     = [];
+      while ($data = $iterator->next()) {
+         $holidays[$data['id']] = $data;
+         $used[$data['id']]     = $data['id'];
       }
 
       if ($canedit) {
@@ -106,8 +113,8 @@ class Calendar_Holiday extends CommonDBRelation {
          echo "<tr class='tab_bg_1'><th colspan='7'>".__('Add a close time')."</tr>";
          echo "<tr class='tab_bg_2'><td class='right'  colspan='4'>";
          echo "<input type='hidden' name='calendars_id' value='$ID'>";
-         Holiday::dropdown(array('used'   => $used,
-                                 'entity' => $calendar->fields["entities_id"]));
+         Holiday::dropdown(['used'   => $used,
+                                 'entity' => $calendar->fields["entities_id"]]);
          echo "</td><td class='center'>";
          echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
          echo "</td></tr>";
@@ -120,15 +127,15 @@ class Calendar_Holiday extends CommonDBRelation {
 
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $numrows,
-                           'container'     => 'mass'.__CLASS__.$rand);
+         $massiveactionparams = ['num_displayed' => min($_SESSION['glpilist_limit'], $numrows),
+                           'container'     => 'mass'.__CLASS__.$rand];
          Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
       echo "<tr>";
       if ($canedit && $numrows) {
          echo "<th width='10'>";
-         Html::checkAllAsCheckbox('mass'.__CLASS__.$rand);
+         echo Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
          echo "</th>";
       }
       echo "<th>".__('Name')."</th>";
@@ -137,7 +144,7 @@ class Calendar_Holiday extends CommonDBRelation {
       echo "<th>".__('Recurrent')."</th>";
       echo "</tr>";
 
-      $used = array();
+      $used = [];
 
       if ($numrows) {
 
@@ -151,7 +158,7 @@ class Calendar_Holiday extends CommonDBRelation {
             echo "<tr class='tab_bg_1'>";
             if ($canedit) {
                echo "<td>";
-               Html::showMassiveActionCheckBox(__CLASS__, $data["linkID"]);
+               Html::showMassiveActionCheckBox(__CLASS__, $data["linkid"]);
                echo "</td>";
             }
             echo "<td><a href='".Toolbox::getItemTypeFormURL('Holiday')."?id=".$data['id']."'>".
@@ -182,11 +189,16 @@ class Calendar_Holiday extends CommonDBRelation {
    static function cloneCalendar($oldid, $newid) {
       global $DB;
 
-      $query = "SELECT *
-                FROM `glpi_calendars_holidays`
-                WHERE `calendars_id` = '$oldid'";
+      $result = $DB->request(
+         [
+            'FROM'   => self::getTable(),
+            'WHERE'  => [
+               'calendars_id' => $oldid,
+            ]
+         ]
+      );
 
-      foreach ($DB->request($query) as $data) {
+      foreach ($result as $data) {
          $ch                   = new self();
          unset($data['id']);
          $data['calendars_id'] = $newid;
@@ -197,7 +209,7 @@ class Calendar_Holiday extends CommonDBRelation {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate) {
          $nb = 0;
@@ -214,7 +226,7 @@ class Calendar_Holiday extends CommonDBRelation {
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       if ($item->getType()=='Calendar') {
          self::showForCalendar($item);
@@ -222,3 +234,4 @@ class Calendar_Holiday extends CommonDBRelation {
       return true;
    }
 }
+

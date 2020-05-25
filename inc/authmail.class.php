@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 /**
  *  Class used to manage Auth mail config
  */
@@ -45,7 +41,7 @@ class AuthMail extends CommonDBTM {
 
    static $rightname = 'config';
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return _n('Mail server', 'Mail servers', $nb);
    }
 
@@ -73,9 +69,9 @@ class AuthMail extends CommonDBTM {
       return $input;
    }
 
-   function defineTabs($options = array()) {
+   function defineTabs($options = []) {
 
-      $ong = array();
+      $ong = [];
       $this->addDefaultFormTab($ong);
       $this->addStandardTab(__CLASS__, $ong, $options);
       $this->addStandardTab('Log', $ong, $options);
@@ -83,7 +79,7 @@ class AuthMail extends CommonDBTM {
       return $ong;
    }
 
-   function getSearchOptionsNew() {
+   function rawSearchOptions() {
       $tab = [];
 
       $tab[] = [
@@ -162,64 +158,49 @@ class AuthMail extends CommonDBTM {
     *
     * @return void (display)
     */
-   function showForm($ID, $options=array()) {
+   function showForm($ID, $options = []) {
 
       if (!Config::canUpdate()) {
          return false;
       }
-      $spotted = false;
       if (empty($ID)) {
-         if ($this->getEmpty()) {
-            $spotted = true;
-         }
+         $this->getEmpty();
       } else {
-         if ($this->getFromDB($ID)) {
-            $spotted = true;
-         }
+         $this->getFromDB($ID);
       }
 
-      if (Toolbox::canUseImapPop()) {
-         $options['colspan'] = 1;
-         $this->showFormHeader($options);
+      $options['colspan'] = 1;
+      $this->showFormHeader($options);
 
-         echo "<tr class='tab_bg_1'><td>" . __('Name') . "</td>";
-         echo "<td><input size='30' type='text' name='name' value='". $this->fields["name"] ."'>";
-         echo "</td></tr>";
+      echo "<tr class='tab_bg_1'><td>" . __('Name') . "</td>";
+      echo "<td><input size='30' type='text' name='name' value='". $this->fields["name"] ."'>";
+      echo "</td></tr>";
 
-         echo "<tr class='tab_bg_1'>";
-         echo "<td>" . __('Active') . "</td>";
-         echo "<td colspan='3'>";
-         Dropdown::showYesNo('is_active', $this->fields['is_active']);
-         echo "</td></tr>";
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>" . __('Active') . "</td>";
+      echo "<td colspan='3'>";
+      Dropdown::showYesNo('is_active', $this->fields['is_active']);
+      echo "</td></tr>";
 
-         echo "<tr class='tab_bg_1'>";
-         echo "<td>". __('Email domain Name (users email will be login@domain)') ."</td>";
-         echo "<td><input size='30' type='text' name='host' value='" . $this->fields["host"] . "'>";
-         echo "</td></tr>";
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>". __('Email domain Name (users email will be login@domain)') ."</td>";
+      echo "<td><input size='30' type='text' name='host' value='" . $this->fields["host"] . "'>";
+      echo "</td></tr>";
 
-         Toolbox::showMailServerConfig($this->fields["connect_string"]);
+      Toolbox::showMailServerConfig($this->fields["connect_string"]);
 
-         echo "<tr class='tab_bg_1'><td>" . __('Comments') . "</td>";
-         echo "<td>";
-         echo "<textarea cols='40' rows='4' name='comment'>".$this->fields["comment"]."</textarea>";
-         if ($ID>0) {
-            echo "<br>";
-            //TRANS: %s is the datetime of update
-            printf(__('Last update on %s'), Html::convDateTime($this->fields["date_mod"]));
-         }
-
-         echo "</td></tr>";
-
-         $this->showFormButtons($options);
-
-      } else {
-         echo "<div class='center'>&nbsp;<table class='tab_cadre_fixe'>";
-         echo "<tr><th colspan='2'>" . __('Email server configuration') . "</th></tr>";
-         echo "<tr class='tab_bg_2'><td class='center'>";
-         echo "<p class='red'>".__('Your PHP parser was compiled without the IMAP functions')."</p>";
-         echo "<p>". __('Impossible to use email server as external source of connection')."</p>";
-         echo "</td></tr></table></div>";
+      echo "<tr class='tab_bg_1'><td>" . __('Comments') . "</td>";
+      echo "<td>";
+      echo "<textarea cols='40' rows='4' name='comment'>".$this->fields["comment"]."</textarea>";
+      if ($ID>0) {
+         echo "<br>";
+         //TRANS: %s is the datetime of update
+         printf(__('Last update on %s'), Html::convDateTime($this->fields["date_mod"]));
       }
+
+      echo "</td></tr>";
+
+      $this->showFormButtons($options);
    }
 
    /**
@@ -259,7 +240,7 @@ class AuthMail extends CommonDBTM {
     * @return boolean
     */
    static function useAuthMail() {
-      return (countElementsInTable('glpi_authmails', "`is_active`") > 0);
+      return (countElementsInTable('glpi_authmails', ['is_active' => 1]) > 0);
    }
 
 
@@ -293,12 +274,14 @@ class AuthMail extends CommonDBTM {
    static function mailAuth($auth, $login, $password, $mail_method) {
 
       if (isset($mail_method["connect_string"]) && !empty($mail_method["connect_string"])) {
-         $auth->auth_succeded = $auth->connection_imap($mail_method["connect_string"],
-                                                       Toolbox::decodeFromUtf8($login),
-                                                       Toolbox::decodeFromUtf8($password));
+         $auth->auth_succeded = $auth->connection_imap(
+            $mail_method["connect_string"],
+            $login,
+            $password
+         );
          if ($auth->auth_succeded) {
             $auth->extauth      = 1;
-            $auth->user_present = $auth->user->getFromDBbyName(addslashes($login));
+            $auth->user_present = $auth->user->getFromDBbyName($login);
             $auth->user->getFromIMAP($mail_method, Toolbox::decodeFromUtf8($login));
             //Update the authentication method for the current user
             $auth->user->fields["authtype"] = Auth::MAIL;
@@ -321,7 +304,7 @@ class AuthMail extends CommonDBTM {
     *
     * @return object identification object
     */
-   static function tryMailAuth($auth, $login, $password, $auths_id=0, $break=true) {
+   static function tryMailAuth($auth, $login, $password, $auths_id = 0, $break = true) {
 
       if ($auths_id <= 0) {
          foreach ($auth->authtypes["mail"] as $mail_method) {
@@ -348,7 +331,7 @@ class AuthMail extends CommonDBTM {
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate && $item->can($item->getField('id'), READ)) {
-         $ong = array();
+         $ong = [];
          $ong[1] = _sx('button', 'Test');    // test connexion
 
          return $ong;
@@ -356,7 +339,7 @@ class AuthMail extends CommonDBTM {
       return '';
    }
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       switch ($tabnum) {
          case 1 :

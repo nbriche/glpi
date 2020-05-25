@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,6 +29,11 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
+
+if (PHP_SAPI != 'cli') {
+   echo "This script must be run from command line";
+   exit();
+}
 
 /**
  * An utility script to convert old getSearchOptions array to new ones,
@@ -133,10 +138,10 @@ function display($array, $table, $pad = 20, $tab = '         ') {
 }
 
 $commondbtm = new CommonDBTM();
-$commonopts = $commondbtm->getSearchOptions();
+$commonopts = $commondbtm->searchOptions();
 
 $item = new $itemtype();
-$opts = $item->getSearchOptions();
+$opts = $item->searchOptions();
 
 $commonopts[1]['table'] = $item->getTable();
 //do not proceed if item class does not define its own getSearchOptions method

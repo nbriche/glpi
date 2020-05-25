@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -46,12 +42,7 @@ class Stat extends CommonGLPI {
    static $rightname = 'statistic';
 
 
-   static function canView() {
-      return Session::haveRight(self::$rightname, READ);
-   }
-
-
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       return __('Statistics');
    }
 
@@ -59,7 +50,7 @@ class Stat extends CommonGLPI {
    /**
     * @see CommonGLPI::getMenuShorcut()
     *
-    * @since version 0.85
+    * @since 0.85
    **/
    static function getMenuShorcut() {
       return 'a';
@@ -73,14 +64,13 @@ class Stat extends CommonGLPI {
     * @param $type
     * @param $parent    (default 0)
    **/
-   static function getItems($itemtype, $date1, $date2, $type, $parent=0) {
+   static function getItems($itemtype, $date1, $date2, $type, $parent = 0) {
       global $CFG_GLPI, $DB;
 
       if (!$item = getItemForItemtype($itemtype)) {
          return;
       }
-      $val  = array();
-      $cond = '';
+      $val  = [];
 
       switch ($type) {
          case "technicien" :
@@ -106,77 +96,98 @@ class Stat extends CommonGLPI {
          case 'group_tree' :
          case 'groups_tree_assign' :
             // Get all groups
-            $query = "SELECT `id`, `name`
-                      FROM `glpi_groups`".
-                      getEntitiesRestrictRequest(" WHERE", "glpi_groups", '', '', true)."
-                            AND (`id` = $parent OR `groups_id` = '$parent')
-                            AND ".(($type == 'group_tree') ? '`is_requester`' : '`is_assign`')."
-                      ORDER BY `completename`";
+            $is_field = ($type == 'group_tree') ? 'is_requester' : 'is_assign';
+            $iterator = $DB->request([
+               'SELECT' => ['id', 'name'],
+               'FROM'   => 'glpi_groups',
+               'WHERE'  => [
+                  'OR'  => [
+                     'id'        => $parent,
+                     'groups_id' => $parent
+                  ],
+                  $is_field   => 1
+               ] + getEntitiesRestrictCriteria("glpi_groups", '', '', true),
+               'ORDER'  => 'completename'
+            ]);
 
-            $result = $DB->query($query);
-            $val    = array();
-            if ($DB->numrows($result) >= 1) {
-               while ($line = $DB->fetch_assoc($result)) {
-                  $tmp['id']   = $line["id"];
-                  $tmp['link'] = $line["name"];
-                  $val[]       = $tmp;
-               }
+            $val    = [];
+            while ($line = $iterator->next()) {
+               $val[] = [
+                  'id'     => $line['id'],
+                  'link'   => $line['name']
+               ];
             }
             break;
 
          case "itilcategories_tree" :
-            $cond = "AND (`id` = '$parent'
-                          OR `itilcategories_id` = '$parent')";
-            // nobreak
-
          case "itilcategories_id" :
+            $is_tree = $type == 'itilcategories_tree';
             // Get all ticket categories for tree merge management
-            $query = "SELECT DISTINCT `glpi_itilcategories`.`id`,
-                             `glpi_itilcategories`.`".($cond?'name':'completename')."` AS category
-                      FROM `glpi_itilcategories`".
-                      getEntitiesRestrictRequest(" WHERE", "glpi_itilcategories", '', '', true)."
-                            $cond
-                      ORDER BY `completename`";
+            $criteria = [
+               'SELECT'    => [
+                  'glpi_itilcategories.id',
+                  'glpi_itilcategories. ' . ($is_tree ? 'name' : 'completename') . 'AS category'
+               ],
+               'DISTINCT'  => true,
+               'FROM'      => 'glpi_itilcategories',
+               'WHERE'     => getEntitiesRestrictCriteria('glpi_itilcategories', '', '', true),
+               'ORDERBY'   => 'completename'
+            ];
 
-            $result = $DB->query($query);
-            $val    = array();
-            if ($DB->numrows($result) >= 1) {
-               while ($line = $DB->fetch_assoc($result)) {
-                  $tmp['id']   = $line["id"];
-                  $tmp['link'] = $line["category"];
-                  $val[]       = $tmp;
-               }
+            if ($is_tree) {
+               $criteria['WHERE']['OR'] = [
+                  'id'                 => $parent,
+                  'itilcategories_id'  => $parent
+               ];
+            }
+
+            $iterator = $DB->request($criteria);
+
+            $val    = [];
+            while ($line = $iterator->next()) {
+               $val[] = [
+                  'id'     => $line['id'],
+                  'link'   => $line['category']
+               ];
             }
             break;
 
          case 'locations_tree' :
-            $cond = "AND (`id` = '$parent'
-                          OR `locations_id` = '$parent')";
-            // nobreak
-
          case 'locations_id' :
+            $is_tree = $type == 'locations_tree';
             // Get all locations for tree merge management
-            $query = "SELECT DISTINCT `glpi_locations`.`id`,
-                             `glpi_locations`.`".($cond?'name':'completename')."` AS location
-                      FROM `glpi_locations`".
-                      getEntitiesRestrictRequest(' WHERE', 'glpi_locations', '', '', true)."
-                            $cond
-                      ORDER BY `completename`";
+            $criteria = [
+               'SELECT'    => [
+                  'glpi_locations.id',
+                  'glpi_locations. ' . ($is_tree ? 'name' : 'completename') . 'AS location'
+               ],
+               'DISTINCT'  => true,
+               'FROM'      => 'glpi_locations',
+               'WHERE'     => getEntitiesRestrictCriteria('glpi_locations', '', '', true),
+               'ORDERBY'   => 'completename'
+            ];
 
-            $result = $DB->query($query);
-            $val    = array();
-            if ($DB->numrows($result) >= 1) {
-               while ($line = $DB->fetch_assoc($result)) {
-                  $tmp['id']   = $line['id'];
-                  $tmp['link'] = $line['location'];
-                  $val[]       = $tmp;
-               }
+            if ($is_tree) {
+               $criteria['WHERE']['OR'] = [
+                  'id'           => $parent,
+                  'locations_id' => $parent
+               ];
+            }
+
+            $iterator = $DB->request($criteria);
+
+            $val    = [];
+            while ($line = $iterator->next()) {
+               $val[] = [
+                  'id'     => $line['id'],
+                  'link'   => $line['location']
+               ];
             }
             break;
 
          case "type" :
             $types = $item->getTypes();
-            $val   = array();
+            $val   = [];
             foreach ($types as $id => $v) {
                $tmp['id']   = $id;
                $tmp['link'] = $v;
@@ -227,20 +238,21 @@ class Stat extends CommonGLPI {
                $device_table = $item->getTable();
 
                //select devices IDs (table row)
-               $query = "SELECT `id`, `designation`
-                         FROM `".$device_table."`
-                         ORDER BY `designation`";
-               $result = $DB->query($query);
+               $iterator = $DB->request([
+                  'SELECT' => [
+                     'id',
+                     'designation'
+                  ],
+                  'FROM'   => $device_table,
+                  'ORDER'  => 'designation'
+               ]);
 
-               if ($DB->numrows($result) >= 1) {
-                  $i = 0;
-                  while ($line = $DB->fetch_assoc($result)) {
-                     $val[$i]['id']   = $line['id'];
-                     $val[$i]['link'] = $line['designation'];
-                     $i++;
-                  }
+               while ($line = $iterator->next()) {
+                  $val[] = [
+                     'id'     => $line['id'],
+                     'link'   => $line['designation']
+                  ];
                }
-
             } else {
                // Dropdown case for computers
                $field = "name";
@@ -249,26 +261,25 @@ class Stat extends CommonGLPI {
                    && ($item instanceof CommonTreeDropdown)) {
                   $field = "completename";
                }
-               $where = '';
-               $order = " ORDER BY `$field`";
+
+               $criteria = [
+                  'FROM'   => $table,
+                  'ORDER'  => $field
+               ];
+
                if ($item->isEntityAssign()) {
-                  $where = getEntitiesRestrictRequest(" WHERE", $table);
-                  $order = " ORDER BY `entities_id`, `$field`";
+                  $criteria['ORDER'] = ['entities_id', $field];
+                  $criteria['WHERE'] = getEntitiesRestrictCriteria($table);
                }
 
-               $query = "SELECT *
-                         FROM `$table`
-                         $where
-                         $order";
+               $iterator = $DB->request($criteria);
 
-               $val    = array();
-               $result = $DB->query($query);
-               if ($DB->numrows($result) > 0) {
-                  while ($line = $DB->fetch_assoc($result)) {
-                     $tmp['id']   = $line["id"];
-                     $tmp['link'] = $line[$field];
-                     $val[]       = $tmp;
-                  }
+               $val    = [];
+               while ($line = $iterator->next()) {
+                  $val[] = [
+                     'id'     => $line['id'],
+                     'link'   => $line[$field]
+                  ];
                }
             }
       }
@@ -285,9 +296,9 @@ class Stat extends CommonGLPI {
     * @param $value     array
     * @param $value2             (default '')
    **/
-   static function getData($itemtype, $type, $date1, $date2, $start, array $value, $value2="") {
+   static function getData($itemtype, $type, $date1, $date2, $start, array $value, $value2 = "") {
 
-      $export_data = array();
+      $export_data = [];
 
       if (is_array($value)) {
          $end_display = $start+$_SESSION['glpilist_limit'];
@@ -342,9 +353,9 @@ class Stat extends CommonGLPI {
     * @param $value     array
     * @param $value2          (default '')
     *
-    * @since version 0.85 (before show with same parameters)
+    * @since 0.85 (before show with same parameters)
    **/
-   static function showTable($itemtype, $type, $date1, $date2, $start, array $value, $value2="") {
+   static function showTable($itemtype, $type, $date1, $date2, $start, array $value, $value2 = "") {
       global $CFG_GLPI;
 
       // Set display type for export if define
@@ -511,7 +522,7 @@ class Stat extends CommonGLPI {
                   $link = "<a href='stat.graph.php?id=".$value[$i]['id'].
                             "&amp;date1=$date1&amp;date2=$date2&amp;itemtype=$itemtype&amp;type=$type".
                             (!empty($value2)?"&amp;champ=$value2":"")."'>".
-                          "<img src='".$CFG_GLPI["root_doc"]."/pics/stats_item.png' alt='' title=''>".
+                          "<img src='".$CFG_GLPI["root_doc"]."/pics/stats_item.png' alt=''>".
                           "</a>";
                }
                echo Search::showItem($output_type, $link, $item_num, $row_num);
@@ -591,6 +602,8 @@ class Stat extends CommonGLPI {
                   || ($output_type == Search::PDF_OUTPUT_LANDSCAPE)
                   || ($output_type == Search::PDF_OUTPUT_PORTRAIT)) {
                   $timedisplay = Html::timestampToString($timedisplay, 0, false);
+               } else if ($output_type == Search::CSV_OUTPUT) {
+                  $timedisplay = Html::timestampToCsvString($timedisplay);
                }
                echo Search::showItem($output_type, $timedisplay, $item_num, $row_num);
             }
@@ -611,6 +624,8 @@ class Stat extends CommonGLPI {
                 || ($output_type == Search::PDF_OUTPUT_LANDSCAPE)
                 || ($output_type == Search::PDF_OUTPUT_PORTRAIT)) {
                $timedisplay = Html::timestampToString($timedisplay, 0, false);
+            } else if ($output_type == Search::CSV_OUTPUT) {
+               $timedisplay = Html::timestampToCsvString($timedisplay);
             }
             echo Search::showItem($output_type, $timedisplay, $item_num, $row_num);
 
@@ -630,6 +645,8 @@ class Stat extends CommonGLPI {
                 || ($output_type == Search::PDF_OUTPUT_LANDSCAPE)
                 || ($output_type == Search::PDF_OUTPUT_PORTRAIT)) {
                $timedisplay = Html::timestampToString($timedisplay, 0, false);
+            } else if ($output_type == Search::CSV_OUTPUT) {
+               $timedisplay = Html::timestampToCsvString($timedisplay);
             }
             echo Search::showItem($output_type, $timedisplay, $item_num, $row_num);
 
@@ -655,6 +672,8 @@ class Stat extends CommonGLPI {
                 || ($output_type == Search::PDF_OUTPUT_LANDSCAPE)
                 || ($output_type == Search::PDF_OUTPUT_PORTRAIT)) {
                $timedisplay = Html::timestampToString($timedisplay, 0, false);
+            } else if ($output_type == Search::CSV_OUTPUT) {
+               $timedisplay = Html::timestampToCsvString($timedisplay);
             }
             echo Search::showItem($output_type, $timedisplay, $item_num, $row_num);
             //Le temps total de l'intervention reelle - The total actiontime to resolv
@@ -664,13 +683,15 @@ class Stat extends CommonGLPI {
                 || ($output_type == Search::PDF_OUTPUT_LANDSCAPE)
                 || ($output_type == Search::PDF_OUTPUT_PORTRAIT)) {
                $timedisplay = Html::timestampToString($timedisplay, 0, false);
+            } else if ($output_type == Search::CSV_OUTPUT) {
+               $timedisplay = Html::timestampToCsvString($timedisplay);
             }
             echo Search::showItem($output_type, $timedisplay, $item_num, $row_num);
 
             echo Search::showEndLine($output_type);
          }
          // Display footer
-         echo Search::showFooter($output_type);
+         echo Search::showFooter($output_type, '', $numrows);
 
       } else {
          echo __('No statistics are available');
@@ -690,28 +711,30 @@ class Stat extends CommonGLPI {
     * @param $param              (default '')
     * @param $value              (default '')
     * @param $value2             (default '')
+    *
+    * @return array
     */
-   static function constructEntryValues($itemtype, $type, $begin="", $end="", $param="", $value="",
-                                        $value2="") {
+   static function constructEntryValues($itemtype, $type, $begin = "", $end = "", $param = "", $value = "",
+                                        $value2 = "") {
       global $DB;
 
       if (!$item = getItemForItemtype($itemtype)) {
-         return;
+         return [];
       }
       $table          = $item->getTable();
       $fkfield        = $item->getForeignKeyField();
 
       if (!($userlinkclass = getItemForItemtype($item->userlinkclass))) {
-         return;
+         return [];
       }
       $userlinktable  = $userlinkclass->getTable();
       if (!$grouplinkclass = getItemForItemtype($item->grouplinkclass)) {
-         return;
+         return [];
       }
       $grouplinktable = $grouplinkclass->getTable();
 
       if (!($supplierlinkclass = getItemForItemtype($item->supplierlinkclass))) {
-         return;
+         return [];
       }
       $supplierlinktable = $supplierlinkclass->getTable();
 
@@ -720,70 +743,102 @@ class Stat extends CommonGLPI {
       $closed_status  = $item->getClosedStatusArray();
       $solved_status  = array_merge($closed_status, $item->getSolvedStatusArray());
 
-      $query             = "";
-      $WHERE             = "WHERE NOT `$table`.`is_deleted` ".
-                                 getEntitiesRestrictRequest("AND", $table);
-      $LEFTJOIN          = "";
-      $LEFTJOINUSER      = "LEFT JOIN `$userlinktable`
-                              ON (`$userlinktable`.`$fkfield` = `$table`.`id`)";
-      $LEFTJOINGROUP     = "LEFT JOIN `$grouplinktable`
-                              ON (`$grouplinktable`.`$fkfield` = `$table`.`id`)";
-      $LEFTJOINSUPPLIER  = "LEFT JOIN `$supplierlinktable`
-                              ON (`$supplierlinktable`.`$fkfield` = `$table`.`id`)";
+      $criteria = [];
+      $WHERE           = [
+         "$table.is_deleted" => 0
+      ] + getEntitiesRestrictCriteria($table);
+      $LEFTJOIN          = [];
+      $INNERJOIN         = [];
+      $LEFTJOINUSER      = [
+         $userlinktable => [
+            'ON' => [
+               $userlinktable => $fkfield,
+               $table         => 'id'
+            ]
+         ]
+      ];
+      $LEFTJOINGROUP    = [
+         $grouplinktable => [
+            'ON' => [
+               $grouplinktable   => $fkfield,
+               $table            => 'id'
+            ]
+         ]
+      ];
+      $LEFTJOINSUPPLIER = [
+         $supplierlinktable => [
+            'ON' => [
+               $supplierlinktable   => $fkfield,
+               $table               => 'id'
+            ]
+         ]
+      ];
 
       switch ($param) {
          case "technicien" :
             $LEFTJOIN = $LEFTJOINUSER;
-            $WHERE   .= " AND (`$userlinktable`.`users_id` = '$value'
-                               AND `$userlinktable`.`type`='".CommonITILActor::ASSIGN."')";
+            $WHERE["$userlinktable.users_id"] = $value;
+            $WHERE["$userlinktable.type"] = CommonITILActor::ASSIGN;
             break;
 
          case "technicien_followup" :
-            $WHERE   .= " AND `$tasktable`.`users_id` = '$value'";
-            $LEFTJOIN = " LEFT JOIN `$tasktable`
-                              ON (`$tasktable`.`$fkfield` = `$table`.`id`)";
+            $WHERE["$tasktable.users_id"] = $value;
+            $LEFTJOIN = [
+               $tasktable => [
+                  'ON' => [
+                     $tasktable  => $fkfield,
+                     $table      => 'id'
+                  ]
+               ]
+            ];
             break;
 
          case "user" :
             $LEFTJOIN = $LEFTJOINUSER;
-            $WHERE   .= " AND (`$userlinktable`.`users_id` = '$value'
-                               AND `$userlinktable`.`type` ='".CommonITILActor::REQUESTER."')";
+            $WHERE["$userlinktable.users_id"] = $value;
+            $WHERE["$userlinktable.type"] = CommonITILActor::REQUESTER;
             break;
 
          case "usertitles_id" :
             $LEFTJOIN  = $LEFTJOINUSER;
-            $LEFTJOIN .= " LEFT JOIN `glpi_users`
-                              ON (`glpi_users`.`id` = `$userlinktable`.`users_id`)";
-            $WHERE    .= " AND (`glpi_users`.`usertitles_id` = '$value'
-                                AND `$userlinktable`.`type` = '".CommonITILActor::REQUESTER."')";
+            $LEFTJOIN['glpi_users'] = [
+               'ON' => [
+                  $userlinktable => 'users_id',
+                  'glpi_users'   => 'id'
+               ]
+            ];
+            $WHERE["glpi_users.usertitles_id"] = $value;
+            $WHERE["$userlinktable.type"] = CommonITILActor::REQUESTER;
             break;
 
          case "usercategories_id" :
             $LEFTJOIN  = $LEFTJOINUSER;
-            $LEFTJOIN .= " LEFT JOIN `glpi_users`
-                              ON (`glpi_users`.`id` = `$userlinktable`.`users_id`)";
-            $WHERE    .= " AND (`glpi_users`.`usercategories_id` = '$value'
-                                AND `$userlinktable`.`type` = '".CommonITILActor::REQUESTER."')";
+            $LEFTJOIN['glpi_users'] = [
+               'ON' => [
+                  $userlinktable => 'users_id',
+                  'glpi_users'   => 'id'
+               ]
+            ];
+            $WHERE["glpi_users.usercategories_id"] = $value;
+            $WHERE["$userlinktable.type"] = CommonITILActor::REQUESTER;
             break;
 
          case "itilcategories_tree" :
             if ($value == $value2) {
-               $categories = array($value);
+               $categories = [$value];
             } else {
                $categories = getSonsOf("glpi_itilcategories", $value);
             }
-            $condition  = implode("','", $categories);
-            $WHERE     .= " AND `$table`.`itilcategories_id` IN ('$condition')";
+            $WHERE["$table.itilcategories_id"] = $categories;
             break;
 
          case 'locations_tree' :
             if ($value == $value2) {
-               $categories = array($value);
+               $locations = [$value];
             } else {
-               $categories = getSonsOf('glpi_locations', $value);
+               $locations = getSonsOf('glpi_locations', $value);
             }
-            $condition  = implode("','", $categories);
-            $WHERE     .= " AND `$table`.`locations_id` IN ('$condition')";
+            $WHERE["$table.locations_id"] = $locations;
             break;
 
          case 'group_tree' :
@@ -791,37 +846,35 @@ class Stat extends CommonGLPI {
             $grptype = (($param == 'group_tree') ? CommonITILActor::REQUESTER
                                                  : CommonITILActor::ASSIGN);
             if ($value == $value2) {
-               $groups = array($value);
+               $groups = [$value];
             } else {
                $groups = getSonsOf("glpi_groups", $value);
             }
-            $condition = implode("','", $groups);
 
             $LEFTJOIN  = $LEFTJOINGROUP;
-            $WHERE    .= " AND (`$grouplinktable`.`groups_id` IN ('$condition')
-                                AND `$grouplinktable`.`type` = '$grptype')";
+            $WHERE["$grouplinktable.groups_id"] = $groups;
+            $WHERE["$grouplinktable.type"] = $grptype;
             break;
 
          case "group" :
             $LEFTJOIN = $LEFTJOINGROUP;
-            $WHERE   .= " AND (`$grouplinktable`.`groups_id` = '$value'
-                               AND `$grouplinktable`.`type` = '".CommonITILActor::REQUESTER."')";
+            $WHERE["$grouplinktable.groups_id"] = $value;
+            $WHERE["$grouplinktable.type"] = CommonITILActor::REQUESTER;
             break;
 
          case "groups_id_assign" :
             $LEFTJOIN = $LEFTJOINGROUP;
-            $WHERE   .= " AND (`$grouplinktable`.`groups_id` = '$value'
-                               AND `$grouplinktable`.`type` = '".CommonITILActor::ASSIGN."')";
+            $WHERE["$grouplinktable.groups_id"] = $value;
+            $WHERE["$grouplinktable.type"] = CommonITILActor::ASSIGN;
             break;
 
          case "suppliers_id_assign" :
             $LEFTJOIN = $LEFTJOINSUPPLIER;
-            $WHERE   .= " AND (`$supplierlinktable`.`suppliers_id` = '$value'
-                               AND `$supplierlinktable`.`type` = '".CommonITILActor::ASSIGN."')";
+            $WHERE["$supplierlinktable.suppliers_id"] = $value;
+            $WHERE["$supplierlinktable.type"] = CommonITILActor::ASSIGN;
             break;
 
          case "requesttypes_id" :
-         case "solutiontypes_id" :
          case "urgency" :
          case "impact" :
          case "priority" :
@@ -829,136 +882,244 @@ class Stat extends CommonGLPI {
          case "type" :
          case "itilcategories_id" :
          case 'locations_id' :
-            $WHERE .= " AND `$table`.`$param` = '$value'";
+            $WHERE["$table.$param"] = $value;
+            break;
+
+         case "solutiontypes_id" :
+            $LEFTJOIN = [
+               'glpi_itilsolutions' => [
+                  'ON' => [
+                     'glpi_itilsolutions'   => 'items_id',
+                     'glpi_tickets'               => 'id', [
+                        'AND' => [
+                           'glpi_itilsolutions.itemtype' => 'Ticket'
+                        ]
+                     ]
+                  ]
+               ]
+            ];
+            $WHERE["glpi_itilsolutions.$param"] = $value;
             break;
 
          case "device":
             $devtable = getTableForItemType('Computer_'.$value2);
             $fkname   = getForeignKeyFieldForTable(getTableForItemType($value2));
             //select computers IDs that are using this device;
-            $LEFTJOIN = '';
             $linkdetable = $table;
             if ($itemtype == 'Ticket') {
                $linkedtable = 'glpi_items_tickets';
-               $LEFTJOIN .= " LEFT JOIN `glpi_items_tickets`
-                                 ON (`glpi_tickets`.`id` = `glpi_items_tickets`.`tickets_id`)";
+               $LEFTJOIN = [
+                  'glpi_items_tickets' => [
+                     'ON' => [
+                        'glpi_items_tickets' => 'tickets_id',
+                        'glpi_tickets'       => 'id', [
+                           'AND' => [
+                              "$linkdetable.itemtype" => 'Computer'
+                           ]
+                        ]
+                     ]
+                  ]
+               ];
+
             }
-            $LEFTJOIN .= " INNER JOIN `glpi_computers`
-                              ON (`glpi_computers`.`id` = `$linkedtable`.`items_id`
-                                  AND `$linkedtable`.`itemtype` = 'Computer')
-                          INNER JOIN `$devtable`
-                              ON (`glpi_computers`.`id` = `$devtable`.`computers_id`
-                                  AND `$devtable`.`$fkname` = '$value')";
-            $WHERE   .= " AND `glpi_computers`.`is_template` <> '1' ";
+            $INNERJOIN = [
+               'glpi_computers'  => [
+                  'ON' => [
+                     'glpi_computers'  => 'id',
+                     $linkedtable      => 'items_id'
+                  ]
+               ],
+               $devtable         => [
+                  'ON' => [
+                     'glpi_computers'  => 'id',
+                     $devtable         => 'computers_id', [
+                        'AND' => [
+                           "$devtable.$fkname" => $value
+                        ]
+                     ]
+                  ]
+               ]
+            ];
+
+            $WHERE["glpi_computers.is_template"] = 0;
             break;
 
          case "comp_champ" :
             $ftable   = getTableForItemType($value2);
             $champ    = getForeignKeyFieldForTable($ftable);
-                  $LEFTJOIN = '';
             $linkdetable = $table;
             if ($itemtype == 'Ticket') {
                $linkedtable = 'glpi_items_tickets';
-               $LEFTJOIN .= " LEFT JOIN `glpi_items_tickets`
-                                 ON (`glpi_tickets`.`id` = `glpi_items_tickets`.`tickets_id`)";
+               $LEFTJOIN = [
+                  'glpi_items_tickets' => [
+                     'ON' => [
+                        'glpi_items_tickets' => 'tickets_id',
+                        'glpi_tickets'       => 'id', [
+                           'AND' => [
+                              "$linkedtable.itemtype" => 'Computer'
+                           ]
+                        ]
+                     ]
+                  ]
+               ];
             }
-            $LEFTJOIN .= " INNER JOIN `glpi_computers`
-                              ON (`glpi_computers`.`id` = `$linkedtable`.`items_id`
-                                  AND `$linkedtable`.`itemtype` = 'Computer')";
-            $WHERE   .= " AND `glpi_computers`.`$champ` = '$value'
-                          AND `glpi_computers`.`is_template` <> '1'";
+            $INNERJOIN = [
+               'glpi_computers' => [
+                  'ON' => [
+                     'glpi_computers'  => 'id',
+                     $linkedtable      => 'items_id'
+                  ]
+               ]
+            ];
+
+            $WHERE["glpi_computers.is_template"] = 0;
+            if (substr($champ, 0, strlen('operatingsystem')) === 'operatingsystem') {
+               $INNERJOIN['glpi_items_operatingsystems'] = [
+                  'ON' => [
+                     'glpi_computers'              => 'id',
+                     'glpi_items_operatingsystems' => 'items_id', [
+                        'AND' => [
+                           "glpi_items_operatingsystems.itemtype" => 'Computer'
+                        ]
+                     ]
+                  ]
+               ];
+               $WHERE["glpi_items_operatingsystems.$champ"] = $value;
+            } else {
+               $WHERE["glpi_computers.$champ"] = $value;
+            }
             break;
       }
 
       switch ($type) {
          case "inter_total" :
-            $WHERE .= " AND ".getDateRequest("`$table`.`date`", $begin, $end);
+            $WHERE[] = getDateCriteria("$table.date", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`date`),'%Y-%m')
-                                  AS date_unix,
-                             COUNT(`$table`.`id`) AS total_visites
-                       FROM `$table`
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`date`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.date")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'COUNT'  => "$table.id AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.date"
+            ];
             break;
 
          case "inter_solved" :
-            $WHERE .= " AND `$table`.`status` IN ('".implode("','", $solved_status)."')
-                        AND `$table`.`solvedate` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`solvedate`", $begin, $end);
+            $WHERE["$table.status"] = $solved_status;
+            $WHERE[] = ['NOT' => ["$table.solvedate" => null]];
+            $WHERE[] = getDateCriteria("$table.solvedate", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`solvedate`),'%Y-%m')
-                                 AS date_unix,
-                              COUNT(`$table`.`id`) AS total_visites
-                       FROM `$table`
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`solvedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.solvedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'COUNT'  => "$table.id AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.solvedate"
+            ];
             break;
 
          case "inter_solved_late" :
-            $WHERE .= " AND `$table`.`status` IN ('".implode("','", $solved_status)."')
-                        AND `$table`.`solvedate` IS NOT NULL
-                        AND `$table`.`due_date` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`solvedate`", $begin, $end)."
-                        AND `$table`.`solvedate` > `$table`.`due_date`";
+            $WHERE["$table.status"] = $solved_status;
+            $WHERE[] = [
+               'NOT' => [
+                  "$table.solvedate"         => null,
+                  "$table.time_to_resolve"   => null
+               ]
+            ];
+            $WHERE[] = getDateCriteria("$table.solvedate", $begin, $end);
+            $WHERE[] = new QueryExpression("$table.solvedate > $table.time_to_resolve");
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`solvedate`),'%Y-%m')
-                                 AS date_unix,
-                              COUNT(`$table`.`id`) AS total_visites
-                       FROM `$table`
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`solvedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.solvedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'COUNT'  => "$table.id AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.solvedate"
+            ];
             break;
 
          case "inter_closed" :
-            $WHERE .= " AND `$table`.`status` IN ('".implode("','", $closed_status)."')
-                        AND `$table`.`closedate` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`closedate`", $begin, $end);
+            $WHERE["$table.status"] = $closed_status;
+            $WHERE[] = ['NOT' => ["$table.closedate" => null]];
+            $WHERE[] = getDateCriteria("$table.closedate", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`closedate`),'%Y-%m')
-                                 AS date_unix,
-                              COUNT(`$table`.`id`) AS total_visites
-                       FROM `$table`
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`closedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.closedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'COUNT'  => "$table.id AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.closedate"
+            ];
             break;
 
          case "inter_avgsolvedtime" :
-            $WHERE .= " AND `$table`.`status` IN ('".implode("','", $solved_status)."')
-                        AND `$table`.`solvedate` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`solvedate`", $begin, $end);
+            $WHERE["$table.status"] = $solved_status;
+            $WHERE[] = ['NOT' => ["$table.solvedate" => null]];
+            $WHERE[] = getDateCriteria("$table.solvedate", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`solvedate`),'%Y-%m')
-                                 AS date_unix,
-                              AVG(solve_delay_stat) AS total_visites
-                       FROM `$table`
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`solvedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.solvedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'AVG' => "solve_delay_stat AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.solvedate"
+            ];
             break;
 
          case "inter_avgclosedtime" :
-            $WHERE .= " AND  `$table`.`status` IN ('".implode("','", $closed_status)."')
-                        AND `$table`.`closedate` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`closedate`", $begin, $end);
+            $WHERE["$table.status"] = $closed_status;
+            $WHERE[] = ['NOT' => ["$table.closedate" => null]];
+            $WHERE[] = getDateCriteria("$table.closedate", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`closedate`),'%Y-%m')
-                                 AS date_unix,
-                              AVG(close_delay_stat) AS total_visites
-                       FROM `$table`
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`closedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.closedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'AVG'  => "close_delay_stat AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.closedate"
+            ];
             break;
 
          case "inter_avgactiontime" :
@@ -967,103 +1128,159 @@ class Stat extends CommonGLPI {
             } else {
                $actiontime_table = $table;
             }
-            $WHERE .= " AND `$actiontime_table`.`actiontime` > '0'
-                        AND ".getDateRequest("`$table`.`solvedate`", $begin, $end);
+            $WHERE["$actiontime_table.actiontime"] = ['>', 0];
+            $WHERE[] = getDateCriteria("$table.solvedate", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`solvedate`),'%Y-%m')
-                                 AS date_unix,
-                              AVG(`$actiontime_table`.`actiontime`) AS total_visites
-                       FROM `$table`
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`solvedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.solvedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'AVG'  => "$actiontime_table.actiontime AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.solvedate"
+            ];
             break;
 
          case "inter_avgtakeaccount" :
-            $WHERE .= " AND `$table`.`status` IN ('".implode("','", $solved_status)."')
-                        AND `$table`.`solvedate` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`solvedate`", $begin, $end);
+            $WHERE["$table.status"] = $solved_status;
+            $WHERE[] = ['NOT' => ["$table.solvedate" => null]];
+            $WHERE[] = getDateCriteria("$table.solvedate", $begin, $end);
 
-            $query  = "SELECT `$table`.`id`,
-                              FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`solvedate`),'%Y-%m')
-                                 AS date_unix,
-                              AVG(`$table`.`takeintoaccount_delay_stat`) AS total_visites
-                       FROM `$table`
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`solvedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.solvedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'AVG'  => "$table.takeintoaccount_delay_stat AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.solvedate"
+            ];
             break;
 
          case "inter_opensatisfaction" :
-            $WHERE .= " AND `$table`.`status` IN ('".implode("','", $closed_status)."')
-                        AND `$table`.`closedate` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`closedate`", $begin, $end);
+            $WHERE["$table.status"] = $closed_status;
+            $WHERE[] = ['NOT' => ["$table.closedate" => null]];
+            $WHERE[] = getDateCriteria("$table.closedate", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`closedate`),'%Y-%m')
-                                 AS date_unix,
-                              COUNT(`$table`.`id`) AS total_visites
-                       FROM `$table`
-                       INNER JOIN `glpi_ticketsatisfactions`
-                           ON (`$table`.`id` = `glpi_ticketsatisfactions`.`tickets_id`)
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`closedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.closedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $INNERJOIN['glpi_ticketsatisfactions'] = [
+               'ON' => [
+                  'glpi_ticketsatisfactions' => 'tickets_id',
+                  $table                     => 'id'
+               ]
+            ];
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'COUNT'  => "$table.id AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.closedate"
+            ];
             break;
 
          case "inter_answersatisfaction" :
-            $WHERE .= " AND `$table`.`status` IN ('".implode("','", $closed_status)."')
-                        AND `$table`.`closedate` IS NOT NULL
-                        AND `glpi_ticketsatisfactions`.`date_answered` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`closedate`", $begin, $end);
+            $WHERE["$table.status"] = $closed_status;
+            $WHERE[] = [
+               'NOT' => [
+                  "$table.closedate"                        => null,
+                  "glpi_ticketsatisfactions.date_answered"  => null
+               ]
+            ];
+            $WHERE[] = getDateCriteria("$table.closedate", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`closedate`),'%Y-%m')
-                                 AS date_unix,
-                              COUNT(`$table`.`id`) AS total_visites
-                       FROM `$table`
-                       INNER JOIN `glpi_ticketsatisfactions`
-                           ON (`$table`.`id` = `glpi_ticketsatisfactions`.`tickets_id`)
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`closedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.closedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $INNERJOIN['glpi_ticketsatisfactions'] = [
+               'ON' => [
+                  'glpi_ticketsatisfactions' => 'tickets_id',
+                  $table                     => 'id'
+               ]
+            ];
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'COUNT'  => "$table.id AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.closedate"
+            ];
             break;
 
          case "inter_avgsatisfaction" :
-            $WHERE .= " AND `glpi_ticketsatisfactions`.`date_answered` IS NOT NULL
-                        AND `$table`.`status` IN ('".implode("','", $closed_status)."')
-                        AND `$table`.`closedate` IS NOT NULL
-                        AND ".getDateRequest("`$table`.`closedate`", $begin, $end);
+            $WHERE["$table.status"] = $closed_status;
+            $WHERE[] = [
+               'NOT' => [
+                  "$table.closedate" => null,
+                  "glpi_ticketsatisfactions.date_answered" => null
+               ]
+            ];
+            $WHERE[] = getDateCriteria("$table.closedate", $begin, $end);
 
-            $query  = "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(`$table`.`closedate`),'%Y-%m')
-                                 AS date_unix,
-                              AVG(`glpi_ticketsatisfactions`.`satisfaction`) AS total_visites
-                       FROM `$table`
-                       INNER JOIN `glpi_ticketsatisfactions`
-                           ON (`$table`.`id` = `glpi_ticketsatisfactions`.`tickets_id`)
-                       $LEFTJOIN
-                       $WHERE
-                       GROUP BY date_unix
-                       ORDER BY `$table`.`closedate`";
+            $date_unix = new QueryExpression(
+               "FROM_UNIXTIME(UNIX_TIMESTAMP(".$DB->quoteName("$table.closedate")."),'%Y-%m') AS ".$DB->quoteName('date_unix')
+            );
+
+            $INNERJOIN['glpi_ticketsatisfactions'] = [
+               'ON' => [
+                  'glpi_ticketsatisfactions' => 'tickets_id',
+                  $table                     => 'id'
+               ]
+            ];
+
+            $criteria = [
+               'SELECT'    => [
+                  $date_unix,
+                  'AVG'  => "glpi_ticketsatisfactions.satisfaction AS total_visites"
+               ],
+               'FROM'      => $table,
+               'WHERE'     => $WHERE,
+               'GROUPBY'   => 'date_unix',
+               'ORDERBY'   => "$table.closedate"
+            ];
             break;
       }
 
-      $entrees = array();
-      $count   = array();
-      if (empty($query)) {
-         return array();
+      if (count($LEFTJOIN)) {
+         $criteria['LEFT JOIN'] = $LEFTJOIN;
       }
 
-      $result = $DB->query($query);
-      if ($result
-          && ($DB->numrows($result) > 0)) {
-         while ($row = $DB->fetch_assoc($result)) {
-            $date             = $row['date_unix'];
-            //$visites = round($row['total_visites']);
-            $entrees["$date"] = $row['total_visites'];
-         }
+      if (count($INNERJOIN)) {
+         $criteria['INNER JOIN'] = $INNERJOIN;
+      }
+
+      $entrees = [];
+      if (!count($criteria)) {
+         return [];
+      }
+
+      $iterator = $DB->request($criteria);
+      while ($row = $iterator->next()) {
+         $date             = $row['date_unix'];
+         //$visites = round($row['total_visites']);
+         $entrees["$date"] = $row['total_visites'];
       }
 
       $end_time   = strtotime(date("Y-m", strtotime($end))."-01");
@@ -1097,7 +1314,7 @@ class Stat extends CommonGLPI {
       $view_entities = Session::isMultiEntitiesMode();
 
       if ($view_entities) {
-         $entities = getAllDatasFromTable('glpi_entities');
+         $entities = getAllDataFromTable('glpi_entities');
       }
 
       $output_type = Search::HTML_OUTPUT;
@@ -1115,22 +1332,34 @@ class Stat extends CommonGLPI {
       }
       $date1 .= " 00:00:00";
 
-      $query = "SELECT `glpi_items_tickets`.`itemtype`,
-                       `glpi_items_tickets`.`items_id`,
-                       COUNT(*) AS NB
-                FROM `glpi_tickets`
-                LEFT JOIN `glpi_items_tickets`
-                   ON (`glpi_tickets`.`id` = `glpi_items_tickets`.`tickets_id`)
-                WHERE `date` <= '$date2'
-                      AND `glpi_tickets`.`date` >= '$date1' ".
-                      getEntitiesRestrictRequest("AND", "glpi_tickets")."
-                      AND `glpi_items_tickets`.`itemtype` <> ''
-                      AND `glpi_items_tickets`.`items_id` > 0
-                GROUP BY `glpi_items_tickets`.`itemtype`, `glpi_items_tickets`.`items_id`
-                ORDER BY NB DESC";
-
-      $result  = $DB->query($query);
-      $numrows = $DB->numrows($result);
+      $iterator = $DB->request([
+         'SELECT' => [
+            'glpi_items_tickets.itemtype',
+            'glpi_items_tickets.items_id',
+            'COUNT'  => '* AS NB'
+         ],
+         'FROM'   => 'glpi_tickets',
+         'LEFT JOIN' => [
+            'glpi_items_tickets' => [
+               'ON' => [
+                  'glpi_items_tickets' => 'tickets_id',
+                  'glpi_tickets'       => 'id'
+               ]
+            ]
+         ],
+         'WHERE'  => [
+            'date'                        => ['<=', $date2],
+            'glpi_tickets.date'           => ['>=', $date1],
+            'glpi_items_tickets.itemtype' => ['<>', ''],
+            'glpi_items_tickets.items_id' => ['>', 0]
+         ] + getEntitiesRestrictCriteria('glpi_tickets'),
+         'GROUP'  => [
+            'glpi_items_tickets.itemtype',
+            'glpi_items_tickets.items_id'
+         ],
+         'ORDER'  => 'NB DESC'
+      ]);
+      $numrows = count($iterator);
 
       if ($numrows > 0) {
          if ($output_type == Search::HTML_OUTPUT) {
@@ -1155,8 +1384,6 @@ class Stat extends CommonGLPI {
          echo Search::showHeaderItem($output_type, __('Number of tickets'), $header_num);
          echo Search::showEndLine($output_type);
 
-         $DB->data_seek($result, $start);
-
          $i = $start;
          if (isset($_GET['export_all'])) {
             $start = 0;
@@ -1165,7 +1392,7 @@ class Stat extends CommonGLPI {
          for ($i=$start; ($i<$numrows) && ($i<$end_display); $i++) {
             $item_num = 1;
             // Get data and increment loop variables
-            $data = $DB->fetch_assoc($result);
+            $data = $iterator->next();
             if (!($item = getItemForItemtype($data["itemtype"]))) {
                continue;
             }
@@ -1198,7 +1425,129 @@ class Stat extends CommonGLPI {
 
 
    /**
-    * @since version 0.84
+    * List of available stats entries
+    *
+    * @since 10.0.0
+    *
+    * @return array
+    */
+   static function getStatsList() {
+      global $PLUGIN_HOOKS, $CFG_GLPI;
+
+      $opt_list["Ticket"] = __('Tickets');
+
+      $stat_list["Ticket"]["Ticket_Global"] = [
+         'name'      => __('Global'),
+         'mode'      => 'global',
+         'itemtype'  => 'Ticket',
+         "file"      => "stat.global.php?itemtype=Ticket"
+      ];
+      $stat_list["Ticket"]["Ticket_Ticket"] = [
+         'name'      => __('By ticket'),
+         'mode'      => 'tracking',
+         'itemtype'  => 'Ticket',
+         "file"      => "stat.tracking.php?itemtype=Ticket"
+      ];
+      $stat_list["Ticket"]["Ticket_Location"] = [
+         'name'      => __('By hardware characteristics'),
+         'mode'      => 'location',
+         'itemtype'  => 'Ticket',
+         "file"      => "stat.location.php?itemtype=Ticket"
+      ];
+      $stat_list["Ticket"]["Ticket_Item"] = [
+         'name'      => __('By hardware'),
+         'mode'      => 'item',
+         "file"      => "stat.item.php"
+      ];
+
+      if (Problem::canView()) {
+         $opt_list["Problem"] = _n('Problem', 'Problems', Session::getPluralNumber());
+
+         $stat_list["Problem"]["Problem_Global"] = [
+            'name'      => __('Global'),
+            'mode'      => 'global',
+            'itemtype'  => 'Problem',
+            "file"      => "stat.global.php?itemtype=Problem"
+         ];
+         $stat_list["Problem"]["Problem_Problem"] = [
+            'name'      => __('By problem'),
+            'mode'      => 'tracking',
+            'itemtype'  => 'Problem',
+            "file"      => "stat.tracking.php?itemtype=Problem"
+         ];
+      }
+
+      if (Change::canView()) {
+         $opt_list["Change"] = _n('Change', 'Changes', Session::getPluralNumber());
+
+         $stat_list["Change"]["Change_Global"] = [
+            'name'      => __('Global'),
+            'mode'      => 'global',
+            'itemtype'  => 'Change',
+            "file"      => "stat.global.php?itemtype=Change"
+         ];
+         $stat_list["Change"]["Change_Change"] = [
+            'name'      => __('By change'),
+            'mode'      => 'tracking',
+            'itemtype'  => 'Change',
+            "file"      => "stat.tracking.php?itemtype=Change"
+         ];
+      }
+
+      $values   = [];
+
+      $i        = 0;
+      $selected = -1;
+      foreach ($opt_list as $opt => $group) {
+         foreach ($stat_list[$opt] as $data) {
+            $name    = $data['name'];
+            $file    = $data['file'];
+            $comment ="";
+            if (isset($data['comment'])) {
+               $comment = $data['comment'];
+            }
+            $key                  = $CFG_GLPI["root_doc"]."/front/".$file;
+            $values[$group][$key] = $name;
+            /*if (stripos($_SERVER['REQUEST_URI'], $key) !== false) {
+               $selected = $key;
+            }*/
+         }
+      }
+
+      // Manage plugins
+      $names    = [];
+      $optgroup = [];
+      if (isset($PLUGIN_HOOKS["stats"]) && is_array($PLUGIN_HOOKS["stats"])) {
+         foreach ($PLUGIN_HOOKS["stats"] as $plug => $pages) {
+            if (is_array($pages) && count($pages)) {
+               foreach ($pages as $page => $name) {
+                  $names[$plug.'/'.$page] = ["name" => $name,
+                                                  "plug" => $plug];
+                  $optgroup[$plug] = Plugin::getInfo($plug, 'name');
+               }
+            }
+         }
+         asort($names);
+      }
+
+      foreach ($optgroup as $opt => $title) {
+         $group = $title;
+         foreach ($names as $key => $val) {
+            if ($opt == $val["plug"]) {
+               $file                  = $CFG_GLPI["root_doc"]."/plugins/".$key;
+               $values[$group][$file] = $val["name"];
+               /*if (stripos($_SERVER['REQUEST_URI'], $file) !== false) {
+                  $selected = $file;
+               }*/
+            }
+         }
+      }
+
+      return $values;
+   }
+
+   /**
+    * @since 0.84
    **/
    static function title() {
       global $PLUGIN_HOOKS, $CFG_GLPI;
@@ -1237,18 +1586,18 @@ class Stat extends CommonGLPI {
       echo "<tr><th colspan='2'>".__('Select statistics to be displayed')."</th></tr>";
       echo "<tr class='tab_bg_1'><td class='center'>";
 
-      $values   = array($CFG_GLPI["root_doc"].'/front/stat.php' => Dropdown::EMPTY_VALUE);
+      $values   = [$CFG_GLPI["root_doc"].'/front/stat.php' => Dropdown::EMPTY_VALUE];
 
       $i        = 0;
       $selected = -1;
       $count    = count($stat_list);
       foreach ($opt_list as $opt => $group) {
-         while ($data = each($stat_list[$opt])) {
-            $name    = $data[1]["name"];
-            $file    = $data[1]["file"];
+         foreach ($stat_list[$opt] as $data) {
+            $name    = $data['name'];
+            $file    = $data['file'];
             $comment ="";
-            if (isset($data[1]["comment"])) {
-               $comment = $data[1]["comment"];
+            if (isset($data['comment'])) {
+               $comment = $data['comment'];
             }
             $key                  = $CFG_GLPI["root_doc"]."/front/".$file;
             $values[$group][$key] = $name;
@@ -1259,14 +1608,17 @@ class Stat extends CommonGLPI {
       }
 
       // Manage plugins
-      $names    = array();
-      $optgroup = array();
+      $names    = [];
+      $optgroup = [];
       if (isset($PLUGIN_HOOKS["stats"]) && is_array($PLUGIN_HOOKS["stats"])) {
          foreach ($PLUGIN_HOOKS["stats"] as $plug => $pages) {
+            if (!Plugin::isPluginLoaded($plug)) {
+               continue;
+            }
             if (is_array($pages) && count($pages)) {
                foreach ($pages as $page => $name) {
-                  $names[$plug.'/'.$page] = array("name" => $name,
-                                                  "plug" => $plug);
+                  $names[$plug.'/'.$page] = ["name" => $name,
+                                                  "plug" => $plug];
                   $optgroup[$plug] = Plugin::getInfo($plug, 'name');
                }
             }
@@ -1288,8 +1640,8 @@ class Stat extends CommonGLPI {
       }
 
       Dropdown::showFromArray('statmenu', $values,
-                              array('on_change' => "window.location.href=this.options[this.selectedIndex].value",
-                                    'value'     => $selected));
+                              ['on_change' => "window.location.href=this.options[this.selectedIndex].value",
+                                    'value'     => $selected]);
       echo "</td>";
       echo "</tr>";
       echo "</table>";
@@ -1297,9 +1649,9 @@ class Stat extends CommonGLPI {
 
 
    /**
-    * @since version 0.85
+    * @since 0.85
    **/
-   function getRights($interface='central') {
+   function getRights($interface = 'central') {
 
       $values[READ] = __('Read');
       return $values;
@@ -1315,19 +1667,21 @@ class Stat extends CommonGLPI {
     *                    ['name' => 'a name', 'data' => []],
     *                    ['name' => 'another name', 'data' => []]
     *                 ]
-    * @param integer  $witdh    Graph width. Defaults to 900
+    * @param array    $options  Options
     * @param boolean  $display  Whether to display directly; defauts to true
     *
     * @return void
     */
    public function displayLineGraph($title, $labels, $series, $options = null, $display = true) {
+      global $CFG_GLPI;
 
       $param = [
          'width'   => 900,
          'height'  => 300,
          'tooltip' => true,
          'legend'  => true,
-         'animate' => true
+         'animate' => true,
+         'csv'     => true
       ];
 
       if (is_array($options) && count($options)) {
@@ -1338,7 +1692,15 @@ class Stat extends CommonGLPI {
 
       $slug = str_replace('-', '_', Toolbox::slugify($title));
       $this->checkEmptyLabels($labels);
-      $out = "<h2 class='center'>$title</h2>";
+      $out = "<h2 class='center'>$title";
+      if ($param['csv']) {
+         $csvfilename = $this->generateCsvFile($labels, $series, $options);
+         $out .= " <a href='".$CFG_GLPI['root_doc'].
+            "/front/graph.send.php?file=$csvfilename' title='".__s('CSV').
+            "' class='pointer fa fa-file-alt'><span class='sr-only'>".__('CSV').
+            "</span></a>";
+      }
+      $out .= "</h2>";
       $out .= "<div id='$slug' class='chart'></div>";
       Html::requireJs('charts');
       $out .= "<script type='text/javascript'>
@@ -1430,14 +1792,35 @@ class Stat extends CommonGLPI {
     *                    ['name' => 'a name', 'data' => []],
     *                    ['name' => 'another name', 'data' => []]
     *                 ]
+    * @param array    $options  Options
     * @param boolean  $display  Whether to display directly; defauts to true
     *
     * @return void
     */
-   public function displayPieGraph($title, $labels, $series, $display = true) {
+   public function displayPieGraph($title, $labels, $series, $options = [], $display = true) {
+      global $CFG_GLPI;
+      $param = [
+         'csv'     => true
+      ];
+
+      if (is_array($options) && count($options)) {
+         foreach ($options as $key => $val) {
+            $param[$key] = $val;
+         }
+      }
+
       $slug = str_replace('-', '_', Toolbox::slugify($title));
       $this->checkEmptyLabels($labels);
-      $out = "<h2 class='center'>$title</h2>";
+      $out = "<h2 class='center'>$title";
+      if ($param['csv']) {
+         $options['title'] = $title;
+         $csvfilename = $this->generateCsvFile($labels, $series, $options);
+         $out .= " <a href='".$CFG_GLPI['root_doc'].
+            "/front/graph.send.php?file=$csvfilename' title='".__s('CSV').
+            "' class='pointer fa fa-file-alt'><span class='sr-only'>".__('CSV').
+            "</span></a>";
+      }
+      $out .= "</h2>";
       $out .= "<div id='$slug' class='chart'></div>";
       $out .= "<script type='text/javascript'>
                   $(function() {
@@ -1533,10 +1916,10 @@ class Stat extends CommonGLPI {
       $out .= "<tr class='tab_bg_2'><td class='right'>".__('Start date')."</td><td>";
       $out .= Html::showDateField(
          'date1',
-         array(
+         [
             'value'   => $date1,
             'display' => false
-         )
+         ]
       );
       $out .= "</td><td rowspan='2' class='center'>";
       $out .= "<input type='submit' class='submit' value='".__s('Display report')."'></td></tr>";
@@ -1544,10 +1927,10 @@ class Stat extends CommonGLPI {
       $out .= "<tr class='tab_bg_2'><td class='right'>".__('End date')."</td><td>";
       $out .= Html::showDateField(
          'date2',
-         array(
+         [
             'value'   => $date2,
             'display' => false
-         )
+         ]
       );
       $out .= "</td></tr>";
       $out .= "</table></div>";
@@ -1575,4 +1958,71 @@ class Stat extends CommonGLPI {
          }
       }
    }
+
+   /**
+    * Generates te CSV file
+    *
+    * @param array  $labels  Labels
+    * @param array  $series  Series
+    * @param array  $options Options
+    *
+    * @return string filename
+    */
+   private function generateCsvFile($labels, $series, $options = []) {
+      $uid = Session::getLoginUserID(false);
+      $csvfilename = $uid.'_'.mt_rand().'.csv';
+
+      // Render CSV
+      if ($fp = fopen(GLPI_GRAPH_DIR.'/'.$csvfilename, 'w')) {
+         // reformat datas
+         $values  = [];
+         $headers = [];
+         $row_num = 0;
+         foreach ($series as $serie) {
+            $data = $serie['data'];
+            //$labels[$row_num] = $label;
+            if (is_array($data) && count($data)) {
+               $headers[$row_num] = $serie['name'];
+               foreach ($data as $key => $val) {
+                  if (!isset($values[$key])) {
+                     $values[$key] = [];
+                  }
+                  if (isset($options['datatype']) && $options['datatype'] == 'average') {
+                     $val = round($val, 2);
+                  }
+                  $values[$key][$row_num] = $val;
+               }
+            } else {
+               $values[$serie['name']][] = $data;
+            }
+            $row_num++;
+         }
+         ksort($values);
+
+         if (!count($headers) && $options['title']) {
+            $headers[] = $options['title'];
+         }
+
+         // Print labels
+         fwrite($fp, $_SESSION["glpicsv_delimiter"]);
+         foreach ($headers as $val) {
+            fwrite($fp, $val.$_SESSION["glpicsv_delimiter"]);
+         }
+         fwrite($fp, "\n");
+
+         //print values
+         foreach ($values as $key => $data) {
+            fwrite($fp, $key.$_SESSION["glpicsv_delimiter"]);
+            foreach ($data as $value) {
+               fwrite($fp, $value.$_SESSION["glpicsv_delimiter"]);
+            }
+            fwrite($fp, "\n");
+         }
+
+         fclose($fp);
+         return $csvfilename;
+      }
+      return false;
+   }
 }
+

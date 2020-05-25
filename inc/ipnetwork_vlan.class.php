@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,17 +30,13 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
 
 /**
- * @since version 0.84
+ * @since 0.84
 **/
 class IPNetwork_Vlan extends CommonDBRelation {
 
@@ -67,8 +63,10 @@ class IPNetwork_Vlan extends CommonDBRelation {
    **/
    function unassignVlan($portID, $vlanID) {
 
-      $this->getFromDBByQuery("WHERE `ipnetworks_id` = '$portID'
-                                     AND `vlans_id` = '$vlanID'");
+      $this->getFromDBByCrit([
+         'ipnetworks_id'   => $portID,
+         'vlans_id'        => $vlanID
+      ]);
 
       return $this->delete($this->fields);
    }
@@ -80,8 +78,8 @@ class IPNetwork_Vlan extends CommonDBRelation {
    **/
    function assignVlan($port, $vlan) {
 
-      $input = array('ipnetworks_id' => $port,
-                     'vlans_id'      => $vlan);
+      $input = ['ipnetworks_id' => $port,
+                     'vlans_id'      => $vlan];
 
       return $this->add($input);
    }
@@ -101,21 +99,29 @@ class IPNetwork_Vlan extends CommonDBRelation {
       $canedit = $port->canEdit($ID);
       $rand    = mt_rand();
 
-      $query = "SELECT `".self::getTable()."`.id as assocID,
-                       `glpi_vlans`.*
-                FROM `".self::getTable()."`
-                LEFT JOIN `glpi_vlans`
-                        ON (`".self::getTable()."`.`vlans_id` = `glpi_vlans`.`id`)
-                WHERE `ipnetworks_id` = '$ID'";
+      $iterator = $DB->request([
+         'SELECT'    => [
+            self::getTable() . '.id AS assocID',
+            'glpi_vlans.*'
+         ],
+         'FROM'      => self::getTable(),
+         'LEFT JOIN' => [
+            'glpi_vlans'   => [
+               'ON' => [
+                  self::getTable()  => 'vlans_id',
+                  'glpi_vlans'      => 'id'
+               ]
+            ]
+         ],
+         'WHERE'     => ['ipnetworks_id' => $ID]
+      ]);
 
-      $result = $DB->query($query);
-      $vlans  = array();
-      $used   = array();
-      if ($number = $DB->numrows($result)) {
-         while ($line = $DB->fetch_assoc($result)) {
-            $used[$line["id"]]       = $line["id"];
-            $vlans[$line["assocID"]] = $line;
-         }
+      $vlans  = [];
+      $used   = [];
+      $number = count($iterator);
+      while ($line = $iterator->next()) {
+         $used[$line["id"]]       = $line["id"];
+         $vlans[$line["assocID"]] = $line;
       }
 
       if ($canedit) {
@@ -126,7 +132,7 @@ class IPNetwork_Vlan extends CommonDBRelation {
 
          echo "<tr class='tab_bg_1'><td class='center'>";
          echo "<input type='hidden' name='ipnetworks_id' value='$ID'>";
-         Vlan::dropdown(array('used' => $used));
+         Vlan::dropdown(['used' => $used]);
          echo "&nbsp;<input type='submit' name='add' value='"._sx('button', 'Associate').
                       "' class='submit'>";
          echo "</td></tr>\n";
@@ -139,8 +145,8 @@ class IPNetwork_Vlan extends CommonDBRelation {
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $number,
-                                      'container'     => 'mass'.__CLASS__.$rand);
+         $massiveactionparams = ['num_displayed' => min($_SESSION['glpilist_limit'], $number),
+                                      'container'     => 'mass'.__CLASS__.$rand];
          Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
@@ -161,7 +167,7 @@ class IPNetwork_Vlan extends CommonDBRelation {
       $header_end .= "</tr>";
       echo $header_begin.$header_top.$header_end;
 
-      $used = array();
+      $used = [];
       foreach ($vlans as $data) {
          echo "<tr class='tab_bg_1'>";
          if ($canedit) {
@@ -201,11 +207,13 @@ class IPNetwork_Vlan extends CommonDBRelation {
    static function getVlansForIPNetwork($portID) {
       global $DB;
 
-      $vlans = array();
-      $query = "SELECT `vlans_id`
-                FROM `".self::getTable()."`
-                WHERE `ipnetworks_id` = '$portID'";
-      foreach ($DB->request($query) as $data) {
+      $vlans = [];
+      $iterator = $DB->request([
+         'SELECT' => 'vlans_id',
+         'FROM'   => self::getTable(),
+         'WHERE'  => ['ipnetworks_id' => $portID]
+      ]);
+      while ($data = $iterator->next()) {
          $vlans[$data['vlans_id']] = $data['vlans_id'];
       }
 
@@ -213,7 +221,7 @@ class IPNetwork_Vlan extends CommonDBRelation {
    }
 
 
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (!$withtemplate) {
          $nb = 0;
@@ -230,7 +238,7 @@ class IPNetwork_Vlan extends CommonDBRelation {
    }
 
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
 
       if ($item->getType()=='IPNetwork') {
          self::showForIPNetwork($item);

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
@@ -41,7 +37,7 @@ if (!defined('GLPI_ROOT')) {
 /**
  * Notepad class
  *
- * @since version 0.85
+ * @since 0.85
 **/
 class Notepad extends CommonDBChild {
 
@@ -53,14 +49,14 @@ class Notepad extends CommonDBChild {
    static public $logs_for_parent = true;
 
 
-   static function getTypeName($nb=0) {
+   static function getTypeName($nb = 0) {
       //TRANS: Always plural
       return _n('Note', 'Notes', $nb);
    }
 
 
    function getLogTypeID() {
-      return array($this->fields['itemtype'], $this->fields['items_id']);
+      return [$this->fields['itemtype'], $this->fields['items_id']];
    }
 
 
@@ -99,11 +95,38 @@ class Notepad extends CommonDBChild {
       return $input;
    }
 
+   /**
+    * Duplicate all notepads from a item template to his clone
+    *
+    * @since 9.2
+    *
+    * @param string $itemtype      itemtype of the item
+    * @param integer $oldid        ID of the item to clone
+    * @param integer $newid        ID of the item cloned
+    **/
+   static function cloneItem ($itemtype, $oldid, $newid) {
+      global $DB;
+
+      $iterator = $DB->request([
+         'FROM'   => self::getTable(),
+         'WHERE'  => [
+            'items_id'  => $oldid,
+            'itemtype'  => $itemtype
+         ]
+      ]);
+
+      while ($data = $iterator->next()) {
+         $cd               = new self();
+         unset($data['id']);
+         $data['items_id'] = $newid;
+         $cd->add($data);
+      }
+   }
 
    /**
     * @see CommonGLPI::getTabNameForItem()
    **/
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
 
       if (Session::haveRight($item::$rightname, READNOTE)) {
          $nb = 0;
@@ -121,8 +144,8 @@ class Notepad extends CommonDBChild {
     * @param $tabnum          (default 1)
     * @param $withtemplate    (default 0)
    **/
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
-      static::showForItem($item);
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
+      static::showForItem($item, $withtemplate);
    }
 
 
@@ -145,41 +168,60 @@ class Notepad extends CommonDBChild {
    static function getAllForItem(CommonDBTM $item) {
       global $DB;
 
-      $data = array();
-      $query = "SELECT `glpi_notepads`.*, `glpi_users`.`picture`
-                FROM `glpi_notepads`
-                LEFT JOIN `glpi_users` ON (`glpi_notepads`.`users_id_lastupdater` = `glpi_users`.`id`)
-                WHERE `glpi_notepads`.`itemtype` = '".$item->getType()."'
-                     AND `glpi_notepads`.`items_id` = '".$item->getID()."'
-                ORDER BY `date_mod` DESC";
+      $data = [];
+      $iterator = $DB->request([
+         'SELECT'    => [
+            'glpi_notepads.*',
+            'glpi_users.picture'
+         ],
+         'FROM'      => self::getTable(),
+         'LEFT JOIN' => [
+            'glpi_users'   => [
+               'ON' => [
+                  self::getTable()  => 'users_id_lastupdater',
+                  'glpi_users'      => 'id'
+               ]
+            ]
+         ],
+         'WHERE'     => [
+            'itemtype'  => $item->getType(),
+            'items_id'  => $item->getID()
+         ],
+         'ORDERBY'   => 'date_mod DESC'
+      ]);
 
-      foreach ($DB->request($query) as $note) {
+      while ($note = $iterator->next()) {
          $data[] = $note;
       }
       return $data;
    }
 
+   public function rawSearchOptions() {
+      $so = self::rawSearchOptionsToAdd();
+      foreach ($so as &$s) {
+         if ($s['id'] == 200) {
+               $s['name'] = __('Content');
+         } else if ($s['id'] == 'notepad') {
+            $s['id'] = 'common';
+         }
+      }
+      return $so;
+   }
 
-   /**
-    * Get the Search options to add to an item for the given Type
-    *
-    * @return a *not indexed* array of search options
-    * More information on https://forge.indepnet.net/wiki/glpi/SearchEngine
-    * @since 9.2
-   **/
-   static public function getSearchOptionsToAddNew() {
+   static public function rawSearchOptionsToAdd() {
       $tab = [];
+      $name = _n('Note', 'Notes', Session::getPluralNumber());
 
       $tab[] = [
          'id'                 => 'notepad',
-         'name'               => _n('Note', 'Notes', Session::getPluralNumber())
+         'name'               => $name
       ];
 
       $tab[] = [
          'id'                 => '200',
          'table'              => 'glpi_notepads',
          'field'              => 'content',
-         'name'               => _n('Note', 'Notes', Session::getPluralNumber()),
+         'name'               => $name,
          'datatype'           => 'text',
          'joinparams'         => [
             'jointype'           => 'itemtype_item'
@@ -259,9 +301,9 @@ class Notepad extends CommonDBChild {
     * Show notepads for an item
     *
     * @param $item                  CommonDBTM object
-    * @param $withtemplate integer  template or basic item (default '')
+    * @param $withtemplate integer  template or basic item (default 0)
    **/
-   static function showForItem(CommonDBTM $item, $withtemplate='') {
+   static function showForItem(CommonDBTM $item, $withtemplate = 0) {
       global $CFG_GLPI;
 
       if (!Session::haveRight($item::$rightname, READNOTE)) {
@@ -276,14 +318,15 @@ class Notepad extends CommonDBChild {
          $showuserlink = 1;
       }
 
-      if ($canedit) {
+      if ($canedit
+          && !(!empty($withtemplate) && ($withtemplate == 2))) {
          echo "<div class='boxnote center'>";
 
          echo "<div class='boxnoteleft'></div>";
          echo "<form name='addnote_form$rand' id='addnote_form$rand' ";
          echo " method='post' action='".Toolbox::getItemTypeFormURL('Notepad')."'>";
-         echo Html::hidden('itemtype', array('value' => $item->getType()));
-         echo Html::hidden('items_id', array('value' => $item->getID()));
+         echo Html::hidden('itemtype', ['value' => $item->getType()]);
+         echo Html::hidden('items_id', ['value' => $item->getID()]);
 
          echo "<div class='boxnotecontent'>";
          echo "<div class='floatleft'>";
@@ -292,7 +335,7 @@ class Notepad extends CommonDBChild {
          echo "</div>"; // box notecontent
 
          echo "<div class='boxnoteright'><br>";
-         echo Html::submit(_x('button', 'Add'), array('name' => 'add'));
+         echo Html::submit(_x('button', 'Add'), ['name' => 'add']);
          echo "</div>";
 
          Html::closeForm();
@@ -347,10 +390,10 @@ class Notepad extends CommonDBChild {
             echo "<div class='boxnoteright'>";
             if ($canedit) {
                Html::showSimpleForm(Toolbox::getItemTypeFormURL('Notepad'),
-                                    array('purge' => 'purge'),
+                                    ['purge' => 'purge'],
                                     _x('button', 'Delete permanently'),
-                                    array('id'   => $note['id']),
-                                    $CFG_GLPI["root_doc"]."/pics/delete.png",
+                                    ['id'   => $note['id']],
+                                    'fa-times-circle',
                                     '',
                                      __('Confirm the final deletion?'));
             }
@@ -364,12 +407,12 @@ class Notepad extends CommonDBChild {
 
                 echo "<div class='boxnoteleft'></div>";
                 echo "<div class='boxnotecontent'>";
-                echo Html::hidden('id', array('value' => $note['id']));
+                echo Html::hidden('id', ['value' => $note['id']]);
                 echo "<textarea name='content' rows=5 cols=100>".$note['content']."</textarea>";
                 echo "</div>"; // boxnotecontent
 
                 echo "<div class='boxnoteright'><br>";
-                echo Html::submit(_x('button', 'Update'), array('name' => 'update'));
+                echo Html::submit(_x('button', 'Update'), ['name' => 'update']);
                 echo "</div>"; // boxnoteright
 
                 Html::closeForm();

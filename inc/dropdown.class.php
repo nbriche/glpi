@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -29,10 +29,6 @@
  * along with GLPI. If not, see <http://www.gnu.org/licenses/>.
  * ---------------------------------------------------------------------
  */
-
-/** @file
-* @brief
-*/
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
@@ -65,7 +61,7 @@ class Dropdown {
     *                                    (default empty)
     *    - on_change            : string / value to transmit to "onChange"
     *    - rand                 : integer / already computed rand value
-    *    - condition            : string / aditional SQL condition to limit display
+    *    - condition            : array / aditional SQL condition to limit display
     *    - displaywith          : array / array of field to display with request
     *    - emptylabel           : Empty choice's label (default self::EMPTY_VALUE)
     *    - display_emptychoice  : Display emptychoice ? (default true)
@@ -78,8 +74,10 @@ class Dropdown {
     *                                       the dropdown
     *
     * @return boolean : false if error and random id if OK
+    *
+    * @since 9.5.0 Usage of string in condition option is removed
    **/
-   static function show($itemtype, $options=array()) {
+   static function show($itemtype, $options = []) {
       global $DB, $CFG_GLPI;
 
       if ($itemtype && !($item = getItemForItemtype($itemtype))) {
@@ -95,12 +93,12 @@ class Dropdown {
       $params['entity_sons']          = false;
       $params['toupdate']             = '';
       $params['width']                = '';
-      $params['used']                 = array();
-      $params['toadd']                = array();
+      $params['used']                 = [];
+      $params['toadd']                = [];
       $params['on_change']            = '';
-      $params['condition']            = '';
+      $params['condition']            = [];
       $params['rand']                 = mt_rand();
-      $params['displaywith']          = array();
+      $params['displaywith']          = [];
       //Parameters about choice 0
       //Empty choice's label
       $params['emptylabel']           = self::EMPTY_VALUE;
@@ -109,7 +107,7 @@ class Dropdown {
       $params['display']              = true;
       $params['permit_select_parent'] = false;
       $params['addicon']              = true;
-      $params['specific_tags']        = array();
+      $params['specific_tags']        = [];
       $params['url']                  = $CFG_GLPI['root_doc']."/ajax/getDropdownValue.php";
 
       if (is_array($options) && count($options)) {
@@ -154,27 +152,29 @@ class Dropdown {
 
       // Manage condition
       if (!empty($params['condition'])) {
+         // Put condition in session and replace it by its key
+         // This is made to prevent passing to many parameters when calling the ajax script
          $params['condition'] = static::addNewCondition($params['condition']);
       }
 
       if (!$item instanceof CommonTreeDropdown) {
          $name = Toolbox::unclean_cross_side_scripting_deep($name);
       }
-      $p = array('value'                => $params['value'],
-                 'valuename'            => $name,
-                 'width'                => $params['width'],
-                 'itemtype'             => $itemtype,
-                 'display_emptychoice'  => $params['display_emptychoice'],
-                 'displaywith'          => $params['displaywith'],
-                 'emptylabel'           => $params['emptylabel'],
-                 'condition'            => $params['condition'],
-                 'used'                 => $params['used'],
-                 'toadd'                => $params['toadd'],
-                 'entity_restrict'      => (is_array($params['entity']) ? json_encode(array_values($params['entity'])) : $params['entity']),
-                 'on_change'            => $params['on_change'],
-                 'permit_select_parent' => $params['permit_select_parent'],
-                 'specific_tags'        => $params['specific_tags'],
-                );
+      $p = ['value'                => $params['value'],
+            'valuename'            => $name,
+            'width'                => $params['width'],
+            'itemtype'             => $itemtype,
+            'display_emptychoice'  => $params['display_emptychoice'],
+            'displaywith'          => $params['displaywith'],
+            'emptylabel'           => $params['emptylabel'],
+            'condition'            => $params['condition'],
+            'used'                 => $params['used'],
+            'toadd'                => $params['toadd'],
+            'entity_restrict'      => (is_array($params['entity']) ? json_encode(array_values($params['entity'])) : $params['entity']),
+            'on_change'            => $params['on_change'],
+            'permit_select_parent' => $params['permit_select_parent'],
+            'specific_tags'        => $params['specific_tags'],
+      ];
 
       $output = "<span class='no-wrap'>";
       $output.= Html::jsAjaxDropdown($params['name'], $field_id,
@@ -185,9 +185,9 @@ class Dropdown {
          $comment_id      = Html::cleanId("comment_".$params['name'].$params['rand']);
          $link_id         = Html::cleanId("comment_link_".$params['name'].$params['rand']);
          $kblink_id       = Html::cleanId("kb_link_".$params['name'].$params['rand']);
-         $options_tooltip = array('contentid' => $comment_id,
+         $options_tooltip = ['contentid' => $comment_id,
                                   'linkid'    => $link_id,
-                                  'display'   => false);
+                                  'display'   => false];
 
          if ($item->canView()) {
             if ($params['value']
@@ -197,13 +197,12 @@ class Dropdown {
             } else {
                $options_tooltip['link']       = $item->getSearchURL();
             }
-            $options_tooltip['linktarget'] = '_blank';
          }
 
          if (empty($comment)) {
-            $comment = sprintf(
-               __('Show %1$s'),
-               mb_strtolower(
+            $comment = Toolbox::ucfirst(
+               sprintf(
+                  __('Show %1$s'),
                   $item::getTypeName(Session::getPluralNumber())
                )
             );
@@ -215,13 +214,14 @@ class Dropdown {
              && !isset($_REQUEST['_in_modal'])
              && $params['addicon']) {
 
-               $output .= "<img alt='' title=\"".__s('Add')."\" src='".$CFG_GLPI["root_doc"].
-                            "/pics/add_dropdown.png' style='cursor:pointer; margin-left:2px;'
-                            onClick=\"".Html::jsGetElementbyID('add_dropdown'.$params['rand']).".dialog('open');\">";
-               $output .= Ajax::createIframeModalWindow('add_dropdown'.$params['rand'],
+               $output .= "<span class='fa fa-plus-circle pointer' title=\"".__s('Add')."\"
+                            onClick=\"".Html::jsGetElementbyID('add_'.$field_id).".dialog('open');\"
+                           ><span class='sr-only'>" . __s('Add') . "</span></span>";
+               $output .= Ajax::createIframeModalWindow('add_'.$field_id,
                                                         $item->getFormURL(),
-                                                        array('display' => false));
+                                                        ['display' => false]);
          }
+
          // Display specific Links
          if ($itemtype == "Supplier") {
             if ($item->getFromDB($params['value'])) {
@@ -229,8 +229,12 @@ class Dropdown {
             }
          }
 
-         $paramscomment = array('value' => '__VALUE__',
-                                'table' => $table);
+         if ($itemtype == 'Location') {
+            $output .= "<span class='fa fa-globe-americas pointer' title='".__s('Display on map')."' onclick='showMapForLocation(this)' data-fid='$field_id'></span>";
+         }
+
+         $paramscomment = ['value' => '__VALUE__',
+                                'table' => $table];
          if ($item->isField('knowbaseitemcategories_id')
              && Session::haveRight('knowbase', READ)) {
 
@@ -254,19 +258,27 @@ class Dropdown {
                                                   $paramscomment, false);
       }
       $output .= Ajax::commonDropdownUpdateItem($params, false);
+      $output .= "</span>";
       if ($params['display']) {
          echo $output;
          return $params['rand'];
       }
-      $output .= "</span>";
       return $output;
    }
 
-   static function addNewCondition($condition) {
-       $condition = Toolbox::cleanNewLines($condition);
-       $sha1=sha1($condition);
-       $_SESSION['glpicondition'][$sha1] = $condition;
-       return $sha1;
+   /**
+    * Add new condition
+    *
+    * @todo should not use session to pass query parameters...
+    *
+    * @param array $condition Condition to add
+    *
+    * @return string
+    */
+   static function addNewCondition(array $condition) {
+      $sha1 = sha1(serialize($condition));
+      $_SESSION['glpicondition'][$sha1] = $condition;
+      return $sha1;
    }
 
    /**
@@ -282,10 +294,16 @@ class Dropdown {
     *
     * @return string the value of the dropdown or &nbsp; if not exists
    **/
-   static function getDropdownName($table, $id, $withcomment=0, $translate=true, $tooltip=true) {
+   static function getDropdownName($table, $id, $withcomment = 0, $translate = true, $tooltip = true) {
       global $DB, $CFG_GLPI;
 
+      $dft_retval = "&nbsp;";
+
       $item = getItemForItemtype(getItemTypeForTable($table));
+
+      if (!is_object($item)) {
+         return $dft_retval;
+      }
 
       if ($item instanceof CommonTreeDropdown) {
          return getTreeValueCompleteName($table, $id, $withcomment, $translate, $tooltip);
@@ -295,33 +313,57 @@ class Dropdown {
       $comment = "";
 
       if ($id) {
-         $SELECTNAME    = "'' AS transname";
-         $SELECTCOMMENT = "'' AS transcomment";
-         $JOIN          = '';
+         $SELECTNAME    = new \QueryExpression("'' AS ". $DB->quoteName('transname'));
+         $SELECTCOMMENT = new \QueryExpression("'' AS " . $DB->quoteName('transcomment'));
+         $JOIN          = [];
+         $JOINS         = [];
          if ($translate) {
             if (Session::haveTranslations(getItemTypeForTable($table), 'name')) {
-               $SELECTNAME = "`namet`.`value` AS transname";
-               $JOIN       .= " LEFT JOIN `glpi_dropdowntranslations` AS namet
-                                 ON (`namet`.`itemtype` = '".getItemTypeForTable($table)."'
-                                     AND `namet`.`items_id` = `$table`.`id`
-                                     AND `namet`.`language` = '".$_SESSION['glpilanguage']."'
-                                     AND `namet`.`field` = 'name')";
+               $SELECTNAME = 'namet.value AS transname';
+               $JOINS['glpi_dropdowntranslations AS namet'] = [
+                  'ON' => [
+                     'namet'  => 'items_id',
+                     $table   => 'id', [
+                        'AND' => [
+                           'namet.itemtype'  => getItemTypeForTable($table),
+                           'namet.language'  => $_SESSION['glpilanguage'],
+                           'namet.field'     => 'name'
+                        ]
+                     ]
+                  ]
+               ];
             }
             if (Session::haveTranslations(getItemTypeForTable($table), 'comment')) {
-               $SELECTCOMMENT = "`namec`.`value` AS transcomment";
-               $JOIN          .= " LEFT JOIN `glpi_dropdowntranslations` AS namec
-                                    ON (`namec`.`itemtype` = '".getItemTypeForTable($table)."'
-                                        AND `namec`.`items_id` = `$table`.`id`
-                                        AND `namec`.`language` = '".$_SESSION['glpilanguage']."'
-                                              AND `namec`.`field` = 'comment')";
+               $SELECTCOMMENT = 'namec.value AS transcomment';
+               $JOINS['glpi_dropdowntranslations AS namec'] = [
+                  'ON' => [
+                     'namec'  => 'items_id',
+                     $table   => 'id', [
+                        'AND' => [
+                           'namec.itemtype'  => getItemTypeForTable($table),
+                           'namec.language'  => $_SESSION['glpilanguage'],
+                           'namec.field'     => 'comment'
+                        ]
+                     ]
+                  ]
+               ];
             }
 
+            if (count($JOINS)) {
+               $JOIN = ['LEFT JOIN' => $JOINS];
+            }
          }
 
-         $query = "SELECT `$table`.*, $SELECTNAME, $SELECTCOMMENT
-                   FROM `$table`
-                   $JOIN
-                   WHERE `$table`.`id` = '$id'";
+         $criteria = [
+            'SELECT' => [
+               "$table.*",
+               $SELECTNAME,
+               $SELECTCOMMENT
+            ],
+            'FROM'   => $table,
+            'WHERE'  => ["$table.id" => $id]
+         ] + $JOIN;
+         $iterator = $DB->request($criteria);
 
          /// TODO review comment management...
          /// TODO getDropdownName need to return only name
@@ -330,126 +372,121 @@ class Dropdown {
          /// TODO CommonDBTM : review getComments to be recursive and add informations from class hierarchy
          /// getUserName have the same system : clean it too
          /// Need to study the problem
-         if ($result = $DB->query($query)) {
-            if ($DB->numrows($result) != 0) {
-               $data = $DB->fetch_assoc($result);
-               if ($translate && !empty($data['transname'])) {
-                  $name = $data['transname'];
+         if (count($iterator)) {
+            $data = $iterator->next();
+            if ($translate && !empty($data['transname'])) {
+               $name = $data['transname'];
+            } else {
+               $name = $data[$item->getNameField()];
+            }
+            if (isset($data["comment"])) {
+               if ($translate && !empty($data['transcomment'])) {
+                  $comment = $data['transcomment'];
                } else {
-                  $name = $data["name"];
+                  $comment = $data["comment"];
                }
-               if (isset($data["comment"])) {
-                  if ($translate && !empty($data['transcomment'])) {
-                     $comment = $data['transcomment'];
-                  } else {
-                     $comment = $data["comment"];
+            }
+
+            switch ($table) {
+               case "glpi_computers" :
+                  if (empty($name)) {
+                     $name = "($id)";
                   }
-               }
+                  break;
 
-               switch ($table) {
-                  case "glpi_computers" :
-                     if (empty($name)) {
-                        $name = "($id)";
+               case "glpi_contacts" :
+                  //TRANS: %1$s is the name, %2$s is the firstname
+                  $name = sprintf(__('%1$s %2$s'), $name, $data["firstname"]);
+                  if ($tooltip) {
+                     if (!empty($data["phone"])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Phone'),
+                                                   "</span>".$data['phone']);
                      }
-                     break;
-
-                  case "glpi_contacts" :
-                     //TRANS: %1$s is the name, %2$s is the firstname
-                     $name = sprintf(__('%1$s %2$s'), $name, $data["firstname"]);
-                     if ($tooltip) {
-                        if (!empty($data["phone"])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Phone'),
-                                                      "</span>".$data['phone']);
-                        }
-                        if (!empty($data["phone2"])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'),
-                                                      "<span class='b'>".__('Phone 2'),
-                                                      "</span>".$data['phone2']);
-                        }
-                        if (!empty($data["mobile"])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'),
-                                                      "<span class='b'>".__('Mobile phone'),
-                                                      "</span>".$data['mobile']);
-                        }
-                        if (!empty($data["fax"])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Fax'),
-                                                      "</span>".$data['fax']);
-                        }
-                        if (!empty($data["email"])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Email'),
-                                                      "</span>".$data['email']);
-                        }
+                     if (!empty($data["phone2"])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'),
+                                                   "<span class='b'>".__('Phone 2'),
+                                                   "</span>".$data['phone2']);
                      }
-                     break;
-
-                  case "glpi_suppliers" :
-                     if ($tooltip) {
-                        if (!empty($data["phonenumber"])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Phone'),
-                                                      "</span>".$data['phonenumber']);
-                        }
-                        if (!empty($data["fax"])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Fax'),
-                                                      "</span>".$data['fax']);
-                        }
-                        if (!empty($data["email"])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Email'),
-                                                      "</span>".$data['email']);
-                        }
+                     if (!empty($data["mobile"])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'),
+                                                   "<span class='b'>".__('Mobile phone'),
+                                                   "</span>".$data['mobile']);
                      }
-                     break;
-
-                  case "glpi_netpoints" :
-                     $name = sprintf(__('%1$s (%2$s)'), $name,
-                                     self::getDropdownName("glpi_locations",
-                                                           $data["locations_id"], false, $translate));
-                     break;
-
-                  case "glpi_budgets" :
-                     if ($tooltip) {
-                        if (!empty($data['locations_id'])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'),
-                                                      "<span class='b'>".__('Location')."</span>",
-                                                      self::getDropdownName("glpi_locations",
-                                                                            $data["locations_id"],
-                                                                            false, $translate));
-
-                        }
-                        if (!empty($data['budgettypes_id'])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Type')."</span>",
-                                        self::getDropdownName("glpi_budgettypes",
-                                                              $data["budgettypes_id"], false, $translate));
-
-                        }
-                        if (!empty($data['begin_date'])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'),
-                                                      "<span class='b'>".__('Start date')."</span>",
-                                                      Html::convDateTime($data["begin_date"]));
-
-                        }
-                        if (!empty($data['end_date'])) {
-                           $comment .= "<br>".sprintf(__('%1$s: %2$s'),
-                                                      "<span class='b'>".__('End date')."</span>",
-                                                      Html::convDateTime($data["end_date"]));
-                        }
+                     if (!empty($data["fax"])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Fax'),
+                                                   "</span>".$data['fax']);
                      }
-               }
+                     if (!empty($data["email"])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Email'),
+                                                   "</span>".$data['email']);
+                     }
+                  }
+                  break;
+
+               case "glpi_suppliers" :
+                  if ($tooltip) {
+                     if (!empty($data["phonenumber"])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Phone'),
+                                                   "</span>".$data['phonenumber']);
+                     }
+                     if (!empty($data["fax"])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Fax'),
+                                                   "</span>".$data['fax']);
+                     }
+                     if (!empty($data["email"])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Email'),
+                                                   "</span>".$data['email']);
+                     }
+                  }
+                  break;
+
+               case "glpi_netpoints" :
+                  $name = sprintf(__('%1$s (%2$s)'), $name,
+                                    self::getDropdownName("glpi_locations",
+                                                         $data["locations_id"], false, $translate));
+                  break;
+
+               case "glpi_budgets" :
+                  if ($tooltip) {
+                     if (!empty($data['locations_id'])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'),
+                                                   "<span class='b'>".__('Location')."</span>",
+                                                   self::getDropdownName("glpi_locations",
+                                                                           $data["locations_id"],
+                                                                           false, $translate));
+
+                     }
+                     if (!empty($data['budgettypes_id'])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'), "<span class='b'>".__('Type')."</span>",
+                                       self::getDropdownName("glpi_budgettypes",
+                                                            $data["budgettypes_id"], false, $translate));
+
+                     }
+                     if (!empty($data['begin_date'])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'),
+                                                   "<span class='b'>".__('Start date')."</span>",
+                                                   Html::convDateTime($data["begin_date"]));
+
+                     }
+                     if (!empty($data['end_date'])) {
+                        $comment .= "<br>".sprintf(__('%1$s: %2$s'),
+                                                   "<span class='b'>".__('End date')."</span>",
+                                                   Html::convDateTime($data["end_date"]));
+                     }
+                  }
             }
          }
       }
 
       if (empty($name)) {
-         $name = "&nbsp;";
+         $name = $dft_retval;
       }
-      /*
-      if (!$item instanceof CommonTreeDropdown) {
-         $search  = array("/\&lt;/","/\&gt;/");
-         $replace = array("<",">");
-         $name    = preg_replace($search, $replace, $name);
-      }*/
+
       if ($withcomment) {
-         return array('name'     => $name,
-                      'comment'  => $comment);
+         return [
+            'name'      => $name,
+            'comment'   => $comment
+         ];
       }
 
       return $name;
@@ -467,7 +504,7 @@ class Dropdown {
    static function getDropdownArrayNames($table, $ids) {
       global $DB, $CFG_GLPI;
 
-      $tabs = array();
+      $tabs = [];
 
       if (count($ids)) {
          $itemtype = getItemTypeForTable($table);
@@ -477,14 +514,14 @@ class Dropdown {
                $field = 'completename';
             }
 
-            $query = "SELECT `id`, `$field`
-                      FROM `$table`
-                      WHERE `id` IN (".implode(',', $ids).")";
+            $iterator = $DB->request([
+               'SELECT' => ['id', $field],
+               'FROM'   => $table,
+               'WHERE'  => ['id' => $ids]
+            ]);
 
-            if ($result = $DB->query($query)) {
-               while ($data = $DB->fetch_assoc($result)) {
-                  $tabs[$data['id']] = $data[$field];
-               }
+            while ($data = $iterator->next()) {
+               $tabs[$data['id']] = $data[$field];
             }
          }
       }
@@ -508,11 +545,11 @@ class Dropdown {
     *
     * @return nothing (print out an HTML select box)
    **/
-   static function showItemTypes($name, $types=array(), $options=array()) {
+   static function showItemTypes($name, $types = [], $options = []) {
       global $CFG_GLPI;
 
       $params['value']               = '';
-      $params['used']                = array();
+      $params['used']                = [];
       $params['emptylabel']          = self::EMPTY_VALUE;
       $params['display']             = true;
       $params['width']               = '80%';
@@ -525,7 +562,7 @@ class Dropdown {
          }
       }
 
-      $values = array();
+      $values = [];
       if (count($types)) {
          foreach ($types as $type) {
             if ($item = getItemForItemtype($type)) {
@@ -549,7 +586,7 @@ class Dropdown {
     *
     * @return nothing (print out an HTML select box)
    **/
-   static function dropdownUsedItemTypes($name, $itemtype_ref, $options=array()) {
+   static function dropdownUsedItemTypes($name, $itemtype_ref, $options = []) {
       global $DB;
 
       $p['value'] = 0;
@@ -561,16 +598,17 @@ class Dropdown {
          }
       }
 
-      $query = "SELECT DISTINCT `".$p['field']."`
-                FROM `".getTableForItemType($itemtype_ref)."`";
+      $iterator = $DB->request([
+         'SELECT'          => $p['field'],
+         'DISTINCT'        => true,
+         'FROM'            => getTableForItemType($itemtype_ref)
+      ]);
 
-      $tabs = array();
-      if ($result = $DB->query($query)) {
-         while ($data = $DB->fetch_assoc($result)) {
-            $tabs[$data[$p['field']]] = $data[$p['field']];
-         }
+      $tabs = [];
+      while ($data = $iterator->next()) {
+         $tabs[$data[$p['field']]] = $data[$p['field']];
       }
-      return self::showItemTypes($name, $tabs, array('value' => $p['value']));
+      return self::showItemTypes($name, $tabs, ['value' => $p['value']]);
    }
 
 
@@ -584,12 +622,12 @@ class Dropdown {
     *
     * @return nothing (print out an HTML select box)
    **/
-   static function dropdownIcons($myname, $value, $store_path, $display=true) {
+   static function dropdownIcons($myname, $value, $store_path, $display = true) {
 
       $output = '';
       if (is_dir($store_path)) {
          if ($dh = opendir($store_path)) {
-            $files = array();
+            $files = [];
 
             while (($file = readdir($dh)) !== false) {
                $files[] = $file;
@@ -604,8 +642,8 @@ class Dropdown {
                }
             }
             Dropdown::showFromArray($myname, $values,
-                                    array('value'               => $value,
-                                          'display_emptychoice' => true));
+                                    ['value'               => $value,
+                                          'display_emptychoice' => true]);
 
          } else {
             //TRANS: %s is the store path
@@ -630,13 +668,13 @@ class Dropdown {
     * @param $name   select name
     * @param $value  default value (default '')
    **/
-   static function showGMT($name, $value='') {
+   static function showGMT($name, $value = '') {
 
-      $elements = array(-12, -11, -10, -9, -8, -7, -6, -5, -4, -3.5, -3, -2, -1, 0,
+      $elements = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3.5, -3, -2, -1, 0,
                         '+1', '+2', '+3', '+3.5', '+4', '+4.5', '+5', '+5.5', '+6', '+6.5', '+7',
-                        '+8', '+9', '+9.5', '+10', '+11', '+12', '+13');
+                        '+8', '+9', '+9.5', '+10', '+11', '+12', '+13'];
 
-      $values = array();
+      $values = [];
       foreach ($elements as $element) {
          if ($element != 0) {
             $values[$element*HOUR_TIMESTAMP] = sprintf(__('%1$s %2$s'), __('GMT'),
@@ -647,7 +685,7 @@ class Dropdown {
             $values[$element*HOUR_TIMESTAMP] = __('GMT');
          }
       }
-      Dropdown::showFromArray($name, $values, array('value' => $value));
+      Dropdown::showFromArray($name, $values, ['value' => $value]);
    }
 
 
@@ -662,7 +700,7 @@ class Dropdown {
     *
     * @return rand value
    **/
-   static function showYesNo($name, $value=0, $restrict_to=-1, $params=array()) {
+   static function showYesNo($name, $value = 0, $restrict_to = -1, $params = []) {
 
       if (!array_key_exists ('use_checkbox', $params)) {
          // TODO: switch to true when Html::showCheckbox() is validated
@@ -676,8 +714,8 @@ class Dropdown {
             $rand = mt_rand();
          }
 
-         $options = array('name' => $name,
-                          'id'   => Html::cleanId("dropdown_".$name.$rand));
+         $options = ['name' => $name,
+                          'id'   => Html::cleanId("dropdown_".$name.$rand)];
 
          switch ($restrict_to) {
             case 0 :
@@ -696,8 +734,13 @@ class Dropdown {
                break;
          }
 
-         Html::showCheckbox($options);
-         return $rand;
+         $output = Html::getCheckbox($options);
+         if (!isset($options['display']) || $options['display'] == 'true') {
+            echo $output;
+            return $rand;
+         } else {
+            return $output;
+         }
       }
 
       if ($restrict_to != 0) {
@@ -737,19 +780,19 @@ class Dropdown {
    **/
    static function getDeviceItemTypes() {
       global $CFG_GLPI;
-      static $optgroup = NULL;
+      static $optgroup = null;
 
       if (!Session::haveRight('device', READ)) {
-         return array();
+         return [];
       }
 
       if (is_null($optgroup)) {
-         $devices = array();
+         $devices = [];
          foreach (CommonDevice::getDeviceTypes() as $device_type) {
             $devices[$device_type] = $device_type::getTypeName(Session::getPluralNumber());
          }
          asort($devices);
-         $optgroup = array(_n('Component', 'Components', Session::getPluralNumber()) => $devices);
+         $optgroup = [_n('Component', 'Components', Session::getPluralNumber()) => $devices];
       }
       return $optgroup;
    }
@@ -762,11 +805,11 @@ class Dropdown {
    **/
    static function getStandardDropdownItemTypes() {
       global $CFG_GLPI;
-      static $optgroup = NULL;
+      static $optgroup = null;
 
       if (is_null($optgroup)) {
-         $optgroup = array(
-             __('Common') => array(
+         $optgroup = [
+             __('Common') => [
                  'Location'               => _n('Location', 'Locations',
                                                 Session::getPluralNumber()),
                  'State'                  => _n('Status of items',
@@ -777,33 +820,37 @@ class Dropdown {
                  'Blacklist'              => _n('Blacklist', 'Blacklists',
                                                 Session::getPluralNumber()),
                  'BlacklistedMailContent' => __('Blacklisted mail content')
-             ),
+             ],
 
-             __('Assistance') => array(
-                 'ITILCategory'     => _n('Ticket category',
-                                          'Ticket categories',
-                                          Session::getPluralNumber()),
-                 'TaskCategory'     => _n('Task category', 'Task categories',
-                                          Session::getPluralNumber()),
-                 'TaskTemplate'     => _n('Task template', 'Task templates',
-                                          Session::getPluralNumber()),
-                 'SolutionType'     => _n('Solution type', 'Solution types',
-                                          Session::getPluralNumber()),
-                 'RequestType'      => _n('Request source', 'Request sources',
-                                          Session::getPluralNumber()),
-                 'SolutionTemplate' => _n('Solution template',
-                                          'Solution templates',
-                                          Session::getPluralNumber()),
-                 'ProjectState'     => _n('Project state', 'Project states',
-                                          Session::getPluralNumber()),
-                 'ProjectType'      => _n('Project type', 'Project types',
-                                          Session::getPluralNumber()),
-                 'ProjectTaskType'  => _n('Project tasks type',
-                                          'Project tasks types',
-                                          Session::getPluralNumber()),
-             ),
+             __('Assistance') => [
+                 'ITILCategory'        => _n('Ticket category',
+                                             'Ticket categories',
+                                             Session::getPluralNumber()),
+                 'TaskCategory'        => _n('Task category', 'Task categories',
+                                             Session::getPluralNumber()),
+                 'TaskTemplate'        => _n('Task template', 'Task templates',
+                                             Session::getPluralNumber()),
+                 'SolutionType'        => _n('Solution type', 'Solution types',
+                                             Session::getPluralNumber()),
+                 'RequestType'         => _n('Request source', 'Request sources',
+                                             Session::getPluralNumber()),
+                 'ITILFollowupTemplate' => _n('Followup template', 'Followup templates',
+                                             Session::getPluralNumber()),
+                 'SolutionTemplate'    => _n('Solution template',
+                                             'Solution templates',
+                                             Session::getPluralNumber()),
+                 'ProjectState'        => _n('Project state', 'Project states',
+                                             Session::getPluralNumber()),
+                 'ProjectType'         => _n('Project type', 'Project types',
+                                             Session::getPluralNumber()),
+                 'ProjectTaskType'     => _n('Project tasks type',
+                                             'Project tasks types',
+                                             Session::getPluralNumber()),
+                 'ProjectTaskTemplate' => _n('Project task template', 'Project task templates',
+                                             Session::getPluralNumber()),
+             ],
 
-             _n('Type', 'Types', Session::getPluralNumber()) => array(
+             _n('Type', 'Types', Session::getPluralNumber()) => [
                  'ComputerType'         => _n('Computer type',
                                               'Computers types',
                                               Session::getPluralNumber()),
@@ -832,6 +879,8 @@ class Dropdown {
                                               Session::getPluralNumber()),
                  'DeviceGenericType'    => _n('Generic device type', 'Generic device types',
                                               Session::getPluralNumber()),
+                 'DeviceSensorType'     => _n('Sensor type', 'Sensors types',
+                                              Session::getPluralNumber()),
                  'DeviceMemoryType'     => _n('Memory type', 'Memory types',
                                               Session::getPluralNumber()),
                  'SupplierType'         => _n('Third party type',
@@ -847,11 +896,20 @@ class Dropdown {
                                               Session::getPluralNumber()),
                  'Filesystem'           => _n('File system', 'File systems',
                                               Session::getPluralNumber()),
+                 'CertificateType'      => _n('Certificate type', 'Certificate types',
+                                               Session::getPluralNumber()),
                  'BudgetType'           => _n('Budget type', 'Budget types',
-                                              Session::getPluralNumber())
-             ),
+                                              Session::getPluralNumber()),
+                 'DeviceSimcardType'    => _n('Simcard type', 'Simcard types',
+                                              Session::getPluralNumber()),
+                 'LineType'             => _n('Line type', 'Line types',
+                                             Session::getPluralNumber()),
+                 'RackType'             => RackType::getTypeName(Session::getPluralNumber()),
+                 'PDUType'              => PDUType::getTypeName(Session::getPluralNumber()),
+                 'ClusterType'          => ClusterType::getTypeName(Session::getPluralNumber()),
+             ],
 
-             __('Model') => array(
+             __('Model') => [
                  'ComputerModel'         => _n('Computer model',
                                                'Computer models',
                                                Session::getPluralNumber()),
@@ -897,9 +955,14 @@ class Dropdown {
                                                    'Device processor models', Session::getPluralNumber()),
                   'DeviceSoundCardModel'     => _n('Device sound card model',
                                                    'Device sound card models', Session::getPluralNumber()),
-               ),
+                  'DeviceSensorModel'        => _n('Device sensor model',
+                                                   'Device sensor models', Session::getPluralNumber()),
+                  'RackModel'                => RackModel::getTypeName(Session::getPluralNumber()),
+                  'EnclosureModel'           => EnclosureModel::getTypeName(Session::getPluralNumber()),
+                  'PDUModel'                 => PDUModel::getTypeName(Session::getPluralNumber()),
+             ],
 
-             _n('Virtual machine', 'Virtual machines', Session::getPluralNumber()) => array(
+             _n('Virtual machine', 'Virtual machines', Session::getPluralNumber()) => [
                  'VirtualMachineType'   => _n('Virtualization system',
                                               'Virtualization systems',
                                               Session::getPluralNumber()),
@@ -909,9 +972,9 @@ class Dropdown {
                  'VirtualMachineState'  => _n('State of the virtual machine',
                                               'States of the virtual machine',
                                               Session::getPluralNumber())
-             ),
+             ],
 
-             __('Management') => array(
+             __('Management') => [
                  'DocumentCategory' => _n('Document heading',
                                           'Document headings',
                                           Session::getPluralNumber()),
@@ -920,45 +983,55 @@ class Dropdown {
                  'BusinessCriticity' => _n('Business criticity', 'Business criticities',
                                           Session::getPluralNumber())
 
-             ),
+             ],
 
-             __('Tools') => array(
+             __('Tools') => [
                  'KnowbaseItemCategory' => _n('Knowledge base category',
                                               'Knowledge base categories',
                                               Session::getPluralNumber())
-             ),
+             ],
 
-             __('Calendar') => array(
+             __('Calendar') => [
                  'Calendar' => _n('Calendar', 'Calendars',
                                   Session::getPluralNumber()),
                  'Holiday'  => _n('Close time', 'Close times',
                                   Session::getPluralNumber())
-             ),
+             ],
 
-             _n('Operating system', 'Operating systems', Session::getPluralNumber()) => array(
+             _n('Operating system', 'Operating systems', Session::getPluralNumber()) => [
                  'OperatingSystem'    => _n('Operating system',
                                             'Operating systems',
                                             Session::getPluralNumber()),
                  'OperatingSystemVersion'
-                                      => _n('Version of the operating system',
-                                            'Versions of the operating system',
+                                      => _n('Version',
+                                            'Versions',
                                             Session::getPluralNumber()),
                  'OperatingSystemServicePack'
                                       => _n('Service pack', 'Service packs',
                                             Session::getPluralNumber()),
                  'OperatingSystemArchitecture'
-                                      => _n('Operating system architecture',
-                                            'Operating system architectures',
+                                      => _n('Architecture',
+                                            'Architectures',
+                                            Session::getPluralNumber()),
+                 'OperatingSystemEdition'
+                                      => _n('Edition',
+                                            'Editions',
+                                             Session::getPluralNumber()),
+                 'OperatingSystemKernel'
+                                      => _n('Kernel',
+                                            'Kernels',
+                                            Session::getPluralNumber()),
+                 'OperatingSystemKernelVersion'
+                                      => _n('Kernel version',
+                                            'Kernel versions',
                                             Session::getPluralNumber()),
                  'AutoUpdateSystem'   => _n('Update source', 'Update sources',
                                             Session::getPluralNumber())
-             ),
+             ],
 
-             __('Networking') => array(
+             __('Networking') => [
                  'NetworkInterface'         => _n('Network interface',
                                                   'Network interfaces',
-                                                  Session::getPluralNumber()),
-                 'NetworkEquipmentFirmware' => _n('Firmware', 'Firmware',
                                                   Session::getPluralNumber()),
                  'Netpoint'                 => _n('Network outlet', 'Network outlets',
                                                   Session::getPluralNumber()),
@@ -966,10 +1039,12 @@ class Dropdown {
                                                   Session::getPluralNumber()),
                  'Network'                  => _n('Network', 'Networks',
                                                   Session::getPluralNumber()),
-                 'Vlan'                     => __('VLAN')
-             ),
+                 'Vlan'                     => __('VLAN'),
+                 'LineOperator'             => _n('Line operator', 'Line operators',
+                                                  Session::getPluralNumber())
+             ],
 
-             __('Internet') => array(
+             __('Internet') => [
                  'IPNetwork'    => _n('IP network', 'IP networks',
                                       Session::getPluralNumber()),
                  'FQDN'         => _n('Internet domain', 'Internet domains',
@@ -978,39 +1053,42 @@ class Dropdown {
                                       Session::getPluralNumber()),
                  'NetworkName'  => _n('Network name', 'Network names',
                                       Session::getPluralNumber())
-             ),
+             ],
 
-             _n('Software', 'Software', 1) => array(
+             _n('Software', 'Software', 1) => [
                  'SoftwareCategory' => _n('Software category',
                                           'Software categories',
                                           Session::getPluralNumber())
-             ),
+             ],
 
-             __('User') => array(
+             __('User') => [
                  'UserTitle'     => _n('User title', 'Users titles',
                                        Session::getPluralNumber()),
                  'UserCategory'  => _n('User category', 'User categories',
                                        Session::getPluralNumber())
-             ),
+             ],
 
-             __('Authorizations assignment rules') => array(
+             __('Authorizations assignment rules') => [
                  'RuleRightParameter' => _n('LDAP criterion', 'LDAP criteria',
                                             Session::getPluralNumber())
-             ),
+             ],
 
-             __('Fields unicity') => array(
+             __('Fields unicity') => [
                  'Fieldblacklist' => _n('Ignored value for the unicity',
                                         'Ignored values for the unicity',
                                         Session::getPluralNumber())
-             ),
+             ],
 
-             __('External authentications') => array(
+             __('External authentications') => [
                  'SsoVariable' => _n('Field storage of the login in the HTTP request',
                                      'Fields storage of the login in the HTTP request',
                                      Session::getPluralNumber())
-             )
+             ],
+             __('Power management') => [
+               'Plug'=> Plug::getTypeName(Session::getPluralNumber())
+             ]
 
-         ); //end $opt
+         ]; //end $opt
 
          $plugdrop = Plugin::getDropdowns();
 
@@ -1046,7 +1124,7 @@ class Dropdown {
     * @param $optgroup  array    (group of dropdown) of array (itemtype => localized name)
     * @param $value     string   URL of selected current value (default '')
    **/
-   static function showItemTypeMenu($title, $optgroup, $value='') {
+   static function showItemTypeMenu($title, $optgroup, $value = '') {
 
       echo "<table class='tab_cadre' width='50%'>";
       echo "<tr class='tab_bg_1'><td class='b'>&nbsp;".$title."&nbsp; ";
@@ -1063,10 +1141,10 @@ class Dropdown {
          }
       }
       Dropdown::showFromArray('dpmenu', $values,
-                              array('on_change'
+                              ['on_change'
                                        => "var _value = this.options[this.selectedIndex].value; if (_value != 0) {window.location.href=_value;}",
                                     'value'               => $selected,
-                                    'display_emptychoice' => true));
+                                    'display_emptychoice' => true]);
 
       echo "</td></tr>";
       echo "</table><br>";
@@ -1121,10 +1199,10 @@ class Dropdown {
     *    - display_emptychoice : allow selection of no language
     *    - emptylabel          : specific string to empty label if display_emptychoice is true
    **/
-   static function showLanguages($myname, $options=array()) {
+   static function showLanguages($myname, $options = []) {
       global $CFG_GLPI;
 
-      $values = array();
+      $values = [];
       if (isset($options['display_emptychoice']) && ($options['display_emptychoice'])) {
          if (isset($options['emptylabel'])) {
             $values[''] = $options['emptylabel'];
@@ -1134,17 +1212,33 @@ class Dropdown {
          unset($options['display_emptychoice']);
       }
 
+      $values = array_merge($values, self::getLanguages());
+      return self::showFromArray($myname, $values, $options);
+   }
+
+   /**
+    * Get available languages
+    *
+    * @since 10.0.0
+    *
+    * @return array
+    */
+   public static function getLanguages() {
+      global $CFG_GLPI;
+
+      $languages = [];
       foreach ($CFG_GLPI["languages"] as $key => $val) {
          if (isset($val[1]) && is_file(GLPI_ROOT ."/locales/".$val[1])) {
-            $values[$key] = $val[0];
+            $languages[$key] = $val[0];
          }
       }
-      return self::showFromArray($myname, $values, $options);
+
+      return $languages;
    }
 
 
    /**
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $value
    **/
@@ -1174,7 +1268,7 @@ class Dropdown {
     * @since 0.85 update prototype
     *@return Nothing (display)
     **/
-   static function showHours($name, $options=array()) {
+   static function showHours($name, $options = []) {
       global $CFG_GLPI;
 
       $p['value']          = '';
@@ -1212,7 +1306,7 @@ class Dropdown {
          $end        = (int) $plan_end[0];
       }
 
-      $values   = array();
+      $values   = [];
       $selected = '';
 
       for ($i=$begin; $i<$end; $i++) {
@@ -1248,7 +1342,7 @@ class Dropdown {
    /**
     * show a dropdown to selec a type
     *
-    * @since version 0.83
+    * @since 0.83
     *
     * @param $types           Types used (default "state_types") (default '')
     * @param $options   Array of optional options
@@ -1260,7 +1354,7 @@ class Dropdown {
     *
     * @return integer rand for select id
    **/
-   static function showItemType($types='', $options=array()) {
+   static function showItemType($types = '', $options = []) {
       global $CFG_GLPI;
 
       $params['name']                = 'itemtype';
@@ -1285,7 +1379,7 @@ class Dropdown {
       if (!is_array($types)) {
          $types = $CFG_GLPI["state_types"];
       }
-      $options = array();
+      $options = [];
 
       foreach ($types as $type) {
          if ($item = getItemForItemtype($type)) {
@@ -1299,11 +1393,11 @@ class Dropdown {
 
       if (count($options)) {
          return Dropdown::showFromArray($params['name'], $options,
-                                        array('value'               => $params['value'],
+                                        ['value'               => $params['value'],
                                               'on_change'           => $params['on_change'],
                                               'toupdate'            => $params['toupdate'],
                                               'display_emptychoice' => $params['display_emptychoice'],
-                                              'emptylabel'          => $params['emptylabel']));
+                                              'emptylabel'          => $params['emptylabel']]);
       }
       return 0;
    }
@@ -1312,41 +1406,7 @@ class Dropdown {
    /**
     * Make a select box for all items
     *
-    * @deprecated since version 0.85, replaced by self::showSelectItemFromItemtypes()
-    *
-    * @param $myname          select name
-    * @param $value_type      default value for the device type (default 0)
-    * @param $value           default value (default 0)
-    * @param $entity_restrict Restrict to a defined entity (default -1)
-    * @param $types           Types used (default '')
-    * @param $onlyglobal      Restrict to global items (false by default)
-    * @param $checkright      Restrict to items with read rights (false by default)
-    * @param $itemtypename    name used for itemtype select
-    *
-    * @return nothing (print out an HTML select box)
-   **/
-   static function showAllItems($myname, $value_type=0, $value=0, $entity_restrict=-1, $types='',
-                                $onlyglobal=false, $checkright=false, $itemtypename = 'itemtype') {
-      $options = array();
-      $options['itemtype_name']   = $itemtypename;
-      $options['items_id_name']   = $myname;
-      $options['itemtypes']       = $types;
-      $options['entity_restrict'] = $entity_restrict;
-      $options['onlyglobal']      = $onlyglobal;
-      $options['checkright']      = $checkright;
-
-      if ($value > 0) {
-         $options['default']         = $value_type;
-      }
-
-      self::showSelectItemFromItemtypes($options);
-   }
-
-
-   /**
-    * Make a select box for all items
-    *
-    * @since version 0.85
+    * @since 0.85
     *
     * @param $options array:
     *   - itemtype_name        : the name of the field containing the itemtype (default 'itemtype')
@@ -1365,10 +1425,10 @@ class Dropdown {
     *
     * @return randomized value used to generate HTML IDs
    **/
-   static function showSelectItemFromItemtypes(array $options=array()) {
+   static function showSelectItemFromItemtypes(array $options = []) {
       global $CFG_GLPI;
 
-      $params = array();
+      $params = [];
       $params['itemtype_name']       = 'itemtype';
       $params['items_id_name']       = 'items_id';
       $params['itemtypes']           = '';
@@ -1378,7 +1438,7 @@ class Dropdown {
       $params['checkright']          = false;
       $params['showItemSpecificity'] = '';
       $params['emptylabel']          = self::EMPTY_VALUE;
-      $params['used']                = array();
+      $params['used']                = [];
 
       if (is_array($options) && count($options)) {
          foreach ($options as $key => $val) {
@@ -1387,19 +1447,19 @@ class Dropdown {
       }
 
       $rand = self::showItemType($params['itemtypes'],
-                                 array('checkright' => $params['checkright'],
+                                 ['checkright' => $params['checkright'],
                                        'name'       => $params['itemtype_name'],
-                                       'emptylabel' => $params['emptylabel']));
+                                       'emptylabel' => $params['emptylabel']]);
 
       if ($rand) {
-         $p = array('idtable'             => '__VALUE__',
+         $p = ['idtable'             => '__VALUE__',
                     'name'                => $params['items_id_name'],
                     'entity_restrict'     => $params['entity_restrict'],
-                    'showItemSpecificity' => $params['showItemSpecificity']);
+                    'showItemSpecificity' => $params['showItemSpecificity']];
 
          // manage condition
          if ($params['onlyglobal']) {
-            $p['condition'] = static::addNewCondition("`is_global` = 1");
+            $p['condition'] = static::addNewCondition(['is_global' => 1]);
          }
          if ($params['used']) {
             $p['used'] = $params['used'];
@@ -1432,7 +1492,7 @@ class Dropdown {
    /**
     * Dropdown numbers
     *
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $myname          select name
     * @param $options   array of additionnal options :
@@ -1448,20 +1508,23 @@ class Dropdown {
     *     - on_change string / value to transmit to "onChange"
     *     - used      array / Already used items ID: not to display in dropdown (default empty)
    **/
-   static function showNumber($myname, $options=array()) {
+   static function showNumber($myname, $options = []) {
       global $CFG_GLPI;
 
-      $p['value']     = 0;
-      $p['rand']      = mt_rand();
-      $p['min']       = 0;
-      $p['max']       = 100;
-      $p['step']      = 1;
-      $p['toadd']     = array();
-      $p['unit']      = '';
-      $p['display']   = true;
-      $p['width']     = '';
-      $p['on_change'] = '';
-      $p['used']      = array();
+      $p = [
+         'value'           => 0,
+         'rand'            => mt_rand(),
+         'min'             => 0,
+         'max'             => 100,
+         'step'            => 1,
+         'toadd'           => [],
+         'unit'            => '',
+         'display'         => true,
+         'width'           => '',
+         'on_change'       => '',
+         'used'            => [],
+         'specific_tags'   => [],
+      ];
 
       if (is_array($options) && count($options)) {
          foreach ($options as $key => $val) {
@@ -1469,7 +1532,12 @@ class Dropdown {
          }
       }
       if (($p['value'] < $p['min']) && !isset($p['toadd'][$p['value']])) {
-         $p['value'] = $p['min'];
+         $min = $p['min'];
+
+         while (isset($p['used'][$min])) {
+            ++$min;
+         }
+         $p['value'] = $min;
       }
 
       $field_id = Html::cleanId("dropdown_".$myname.$p['rand']);
@@ -1478,7 +1546,7 @@ class Dropdown {
       } else {
          $valuename = $p['toadd'][$p['value']];
       }
-      $param = array('value'               => $p['value'],
+      $param = ['value'               => $p['value'],
                      'valuename'           => $valuename,
                      'width'               => $p['width'],
                      'on_change'           => $p['on_change'],
@@ -1487,7 +1555,8 @@ class Dropdown {
                      'min'                 => $p['min'],
                      'max'                 => $p['max'],
                      'step'                => $p['step'],
-                     'toadd'               => $p['toadd']);
+                     'toadd'               => $p['toadd'],
+                     'specific_tags'       => $p['specific_tags']];
 
       $out   = Html::jsAjaxDropdown($myname, $field_id,
                                     $CFG_GLPI['root_doc']."/ajax/getDropdownNumber.php",
@@ -1504,7 +1573,7 @@ class Dropdown {
    /**
     * Get value with unit / Automatic management of standar unit (year, month, %, ...)
     *
-    * @since version 0.84
+    * @since 0.84
     *
     * @param $value   integer   number of item
     * @param $unit    string    of unit (maybe year, month, day, hour, % for standard management)
@@ -1544,6 +1613,10 @@ class Dropdown {
             //TRANS: %d is a number of milliseconds
             return sprintf(_n('%d millisecond', '%d milliseconds', $value), $value);
 
+         case 'auto':
+               $value = str_replace([' ', '&nbsp;'], ['', ''], $value); // unformat value
+               return Toolbox::getSize($value*1024*1024);
+
          case '%' :
             return sprintf(__('%d%%'), $value);
 
@@ -1556,39 +1629,7 @@ class Dropdown {
    /**
     * Dropdown integers
     *
-    * @param $myname          select name
-    * @param $value           default value
-    * @param $min             min value (default 0)
-    * @param $max             max value (default 100)
-    * @param $step            step used (default 1)
-    * @param $toadd     array of values to add at the beginning
-    * @param $options   array of additionnal options :
-    *                            - unit : string unit to used
-    *                            - display : boolean if false get string
-    * \deprecated since 0.84 use Dropdown::showNumber instead
-   **/
-   static function showInteger($myname, $value, $min=0, $max=100, $step=1, $toadd=array(),
-                               $options=array()) {
-
-      $opt = array('value' => $value,
-                   'min'   => $min,
-                   'max'   => $max,
-                   'step'  => $step,
-                   'toadd' => $toadd);
-      if (count($options)) {
-         foreach ($options as $key => $val) {
-            $opt[$key] = $val;
-         }
-      }
-      return self::showNumber($myname, $opt);
-
-   }
-
-
-   /**
-    * Dropdown integers
-    *
-    * @since version 0.83
+    * @since 0.83
     *
     * @param $myname        select name
     * @param $options array of options
@@ -1602,7 +1643,7 @@ class Dropdown {
     *    - display         : boolean / display or return string
     *    - width           : string / display width of the item
    **/
-   static function showTimeStamp($myname, $options=array()) {
+   static function showTimeStamp($myname, $options = []) {
       global $CFG_GLPI;
 
       $params['value']               = 0;
@@ -1612,7 +1653,7 @@ class Dropdown {
       $params['step']                = $CFG_GLPI["time_step"]*MINUTE_TIMESTAMP;
       $params['emptylabel']          = self::EMPTY_VALUE;
       $params['addfirstminutes']     = false;
-      $params['toadd']               = array();
+      $params['toadd']               = [];
       $params['inhours']             = false;
       $params['display']             = true;
       $params['display_emptychoice'] = true;
@@ -1644,7 +1685,7 @@ class Dropdown {
          $params['value'] = floor(($params['value'])/$params['step'])*$params['step'];
       }
 
-      $values = array();
+      $values = [];
 
       if ($params['value']) {
          $values[$params['value']] = '';
@@ -1706,57 +1747,12 @@ class Dropdown {
          }
       }
       return Dropdown::showFromArray($myname, $values,
-                                     array('value'                => $params['value'],
+                                     ['value'                => $params['value'],
                                             'display'             => $params['display'],
                                             'width'               => $params['width'],
                                             'display_emptychoice' => $params['display_emptychoice'],
                                             'rand'                => $params['rand'],
-                                            'emptylabel'          => $params['emptylabel']));
-   }
-
-
-   /**
-    * Private / Public switch for items which may be assign to a user and/or an entity
-    *
-    * @param $is_private      default is private ?
-    * @param $entity          working entity ID
-    * @param $is_recursive    is the item recursive ?
-   **/
-   static function showPrivatePublicSwitch($is_private, $entity, $is_recursive) {
-      global $CFG_GLPI;
-
-      $rand = mt_rand();
-      echo "<script type='text/javascript' >\n";
-      echo "function setPrivate$rand() {\n";
-
-         $params = array('is_private'   => 1,
-                         'is_recursive' => $is_recursive,
-                         'entities_id'  => $entity,
-                         'rand'         => $rand);
-
-         Ajax::updateItemJsCode('private_switch'.$rand,
-                                $CFG_GLPI["root_doc"]."/ajax/private_public.php", $params);
-      echo "};";
-
-      echo "function setPublic$rand() {\n";
-
-         $params = array('is_private'   => 0,
-                         'is_recursive' => $is_recursive,
-                         'entities_id'  => $entity,
-                         'rand'         => $rand);
-         Ajax::updateItemJsCode('private_switch'.$rand,
-                                $CFG_GLPI["root_doc"]."/ajax/private_public.php", $params);
-      echo "};";
-      echo "</script>";
-
-      echo "<span id='private_switch$rand'>";
-      $_POST['rand']         = $rand;
-      $_POST['is_private']   = $is_private;
-      $_POST['is_recursive'] = $is_recursive;
-      $_POST['entities_id']  = $entity;
-      include (GLPI_ROOT."/ajax/private_public.php");
-      echo "</span>\n";
-      return $rand;
+                                            'emptylabel'          => $params['emptylabel']]);
    }
 
 
@@ -1765,19 +1761,19 @@ class Dropdown {
     *
     * @param $enabled (default 0)
    **/
-   static function showAdvanceDateRestrictionSwitch($enabled=0) {
+   static function showAdvanceDateRestrictionSwitch($enabled = 0) {
       global $CFG_GLPI;
 
       $rand = mt_rand();
       $url  = $CFG_GLPI["root_doc"]."/ajax/ldapdaterestriction.php";
       echo "<script type='text/javascript' >\n";
       echo "function activateRestriction() {\n";
-         $params = array('enabled'=> 1);
+         $params = ['enabled'=> 1];
          Ajax::updateItemJsCode('date_restriction', $url, $params);
       echo "};";
 
       echo "function deactivateRestriction() {\n";
-         $params = array('enabled' => 0);
+         $params = ['enabled' => 0];
          Ajax::updateItemJsCode('date_restriction', $url, $params);
       echo "};";
       echo "</script>";
@@ -1809,7 +1805,7 @@ class Dropdown {
     *    - rand                : specific rand if needed (default is generated one)
     *    - width               : specific width needed (default not set)
     *    - emptylabel          : empty label if empty displayed (default self::EMPTY_VALUE)
-    *    - display_emptychoice : display empty choice (default false)
+    *    - display_emptychoice : display empty choice, cannot be used when "multiple" option set to true (default false)
     *    - tooltip             : string / message to add as tooltip on the dropdown (default '')
     *    - option_tooltips     : array / message to add as tooltip on the dropdown options. Use the same keys as for the $elements parameter, but none is mandotary. Missing keys will just be ignored and no tooltip will be added. To add a tooltip on an option group, is the '__optgroup_label' key inside the array describing option tooltips : 'optgroupname1' => array('__optgroup_label' => 'tooltip for option group') (default empty)
     *
@@ -1819,13 +1815,13 @@ class Dropdown {
     *       'optgroupname2' => array('key3' => 'val3',
     *                                'key4' => 'val4'))
    **/
-   static function showFromArray($name, array $elements, $options=array()) {
+   static function showFromArray($name, array $elements, $options = []) {
 
       $param['value']               = '';
-      $param['values']              = array('');
+      $param['values']              = [''];
       $param['tooltip']             = '';
-      $param['option_tooltips']     = array();
-      $param['used']                = array();
+      $param['option_tooltips']     = [];
+      $param['used']                = [];
       $param['readonly']            = false;
       $param['on_change']           = '';
       $param['width']               = '';
@@ -1836,10 +1832,12 @@ class Dropdown {
       $param['rand']                = mt_rand();
       $param['emptylabel']          = self::EMPTY_VALUE;
       $param['display_emptychoice'] = false;
+      $param['disabled']            = false;
+      $param['noselect2']           = false;
 
       if (is_array($options) && count($options)) {
          if (isset($options['value']) && strlen($options['value'])) {
-            $options['values'] = array($options['value']);
+            $options['values'] = [$options['value']];
             unset($options['value']);
          }
          foreach ($options as $key => $val) {
@@ -1854,7 +1852,7 @@ class Dropdown {
          // If $param['other'] is a string, then we must highlight "other" option
          if (is_string($param['other'])) {
             if (!$param["multiple"]) {
-               $param['values'] = array($other_select_option);
+               $param['values'] = [$other_select_option];
             } else {
                $param['values'][] = $other_select_option;
             }
@@ -1863,8 +1861,8 @@ class Dropdown {
 
       $param['option_tooltips'] = Html::entities_deep($param['option_tooltips']);
 
-      if ($param["display_emptychoice"]) {
-         $elements = array( 0 => $param['emptylabel'] ) + $elements;
+      if ($param["display_emptychoice"] && !$param["multiple"]) {
+         $elements = [ 0 => $param['emptylabel'] ] + $elements;
       }
 
       if ($param["multiple"]) {
@@ -1877,7 +1875,7 @@ class Dropdown {
       // readonly mode
       $field_id = Html::cleanId("dropdown_".$name.$param['rand']);
       if ($param['readonly']) {
-         $to_display = array();
+         $to_display = [];
          foreach ($param['values'] as $value) {
             $output .= "<input type='hidden' name='$field_name' value='$value'>";
             if (isset($elements[$value])) {
@@ -1887,7 +1885,7 @@ class Dropdown {
          $output .= implode('<br>', $to_display);
       } else {
 
-         $output  .= "<select name='$field_name' id='$field_id'";
+         $output  .= "<select name='$field_name' id='$field_id' class='forSelect2'";
 
          if ($param['tooltip']) {
             $output .= ' title="'.Html::entities_deep($param['tooltip']).'"';
@@ -1903,6 +1901,10 @@ class Dropdown {
 
          if ($param["multiple"]) {
             $output .= " multiple";
+         }
+
+         if ($param["disabled"]) {
+            $output .= " disabled='disabled'";
          }
 
          $output .= '>';
@@ -1951,7 +1953,7 @@ class Dropdown {
                $output .= "</optgroup>";
             } else {
                if (!isset($param['used'][$key])) {
-                  $output .= "<option value='".$key."'";
+                  $output .= "<option value='".Html::entities_deep($key)."'";
                   // Do not use in_array : trouble with 0 and empty value
                   foreach ($param['values'] as $value) {
                      if (strcmp($key, $value)===0) {
@@ -1990,8 +1992,10 @@ class Dropdown {
          }
       }
 
-      // Width set on select
-      $output .= Html::jsAdaptDropdown($field_id, array('width' => $param["width"]));
+      if (!$param['noselect2']) {
+         // Width set on select
+         $output .= Html::jsAdaptDropdown($field_id, ['width' => $param["width"]]);
+      }
 
       if ($param["multiple"]) {
          // Hack for All / None because select2 does not provide it
@@ -1999,7 +2003,7 @@ class Dropdown {
          $deselect = __('None');
          $output  .= "<div class='invisible' id='selectallbuttons_$field_id'>";
          $output  .= "<div class='select2-actionable-menu'>";
-         $output  .= "<a class='vsubmit floatleft' ".
+         $output  .= "<a class='vsubmit' ".
                       "onclick=\"selectAll('$field_id');$('#$field_id').select2('close');\">$select".
                      "</a> ";
          $output  .= "<a class='vsubmit floatright' onclick=\"deselectAll('$field_id');\">$deselect".
@@ -2008,9 +2012,9 @@ class Dropdown {
 
          $js = "
          var multichecksappend$field_id = false;
-         $('#$field_id').on('select2-open', function() {
+         $('#$field_id').on('select2:open', function(e) {
             if (!multichecksappend$field_id) {
-               $('#select2-drop').append($('#selectallbuttons_$field_id').html());
+               $('#select2-$field_id-results').parent().append($('#selectallbuttons_$field_id').html());
                multichecksappend$field_id = true;
             }
          });";
@@ -2038,7 +2042,7 @@ class Dropdown {
     * - value value of global state
     * - management_restrict global management restrict mode
    **/
-   static function showGlobalSwitch($ID, $attrs=array()) {
+   static function showGlobalSwitch($ID, $attrs = []) {
       global $CFG_GLPI;
 
       $params['management_restrict'] = 0;
@@ -2059,22 +2063,22 @@ class Dropdown {
          if ($params['management_restrict'] == 2) {
             echo "&nbsp;";
             Html::showSimpleForm($params['target'], 'unglobalize', __('Use unitary management'),
-                                 array('id' => $ID), '', '',
-                                 array(__('Do you really want to use unitary management for this item?'),
-                                       __('Duplicate the element as many times as there are connections')));
+                                 ['id' => $ID], '', '',
+                                 [__('Do you really want to use unitary management for this item?'),
+                                       __('Duplicate the element as many times as there are connections')]);
             echo "&nbsp;";
 
-            echo "<img alt=\"".__s('Duplicate the element as many times as there are connections').
-                 "\" title=\"".__s('Duplicate the element as many times as there are connections').
-                 "\" src='".$CFG_GLPI["root_doc"]."/pics/info-small.png' class='pointer'>";
+            echo "<span class='fa fa-info pointer'".
+                 " title=\"".__s('Duplicate the element as many times as there are connections').
+                 "\"><span class='sr-only'>". __s('Duplicate the element as many times as there are connections') . "</span></span>";
          }
 
       } else {
          if ($params['management_restrict'] == 2) {
             $rand = mt_rand();
-            $values = array(MANAGEMENT_UNITARY => __('Unit management'),
-                            MANAGEMENT_GLOBAL  => __('Global management'));
-            Dropdown::showFromArray($params['name'], $values, array('value' => $params['value']));
+            $values = [MANAGEMENT_UNITARY => __('Unit management'),
+                            MANAGEMENT_GLOBAL  => __('Global management')];
+            Dropdown::showFromArray($params['name'], $values, ['value' => $params['value']]);
          } else {
             // Templates edition
             if (!empty($params['withtemplate'])) {
@@ -2111,18 +2115,17 @@ class Dropdown {
     *
     * This import a new dropdown if it doesn't exist - Play dictionnary if needed
     *
-    * @param $itemtype        string   name of the class
-    * @param $value           string   Value of the new dropdown. (need to be addslashes)
-    * @param $entities_id     integer  entity in case of specific dropdown (default -1)
-    * @param $external_params array    (need to be addslashes)
-    * @param $comment                  (default '') (need to be addslashes)
-    * @param $add                      if true, add it if not found. if false, just check if exists
-    *                                  (true by default)
+    * @param string  $itemtype         name of the class
+    * @param string  $value            Value of the new dropdown.
+    * @param integer entities_id       entity in case of specific dropdown
+    * @param array   $external_params
+    * @param string  $comment
+    * @param boolean $add              if true, add it if not found. if false, just check if exists
     *
     * @return integer : dropdown id.
    **/
-   static function importExternal($itemtype, $value, $entities_id=-1, $external_params=array(),
-                                  $comment='', $add=true) {
+   static function importExternal($itemtype, $value, $entities_id = -1, $external_params = [],
+                                  $comment = '', $add = true) {
 
       if (!($item = getItemForItemtype($itemtype))) {
          return false;
@@ -2137,7 +2140,7 @@ class Dropdown {
     *
     * @return the label corresponding to it, or ""
    **/
-   static function getGlobalSwitch($value=0) {
+   static function getGlobalSwitch($value = 0) {
 
       switch ($value) {
          case 0 :
@@ -2155,7 +2158,7 @@ class Dropdown {
    /**
     * show dropdown for output format
     *
-    * @since version 0.83
+    * @since 0.83
    **/
    static function showOutputFormat() {
       global $CFG_GLPI;
@@ -2170,20 +2173,20 @@ class Dropdown {
       $values['-'.Search::CSV_OUTPUT]           = __('All pages in CSV');
 
       Dropdown::showFromArray('display_type', $values);
-      echo "<input type='image' name='export' class='pointer' src='".
-             $CFG_GLPI["root_doc"] . "/pics/export.png' title=\"" . _sx('button', 'Export') . "\" alt=\"" .
-        _sx('button', 'Export')."\">";
+      echo "<button type='submit' name='export' class='unstyled pointer' ".
+             " title=\"" . _sx('button', 'Export') . "\">" .
+             "<i class='far fa-save'></i><span class='sr-only'>"._sx('button', 'Export')."<span>";
    }
 
 
    /**
     * show dropdown to select list limit
     *
-    * @since version 0.83
+    * @since 0.83
     *
     * @param $onchange  String   optional, for ajax (default '')
    **/
-   static function showListLimit($onchange='', $display=true) {
+   static function showListLimit($onchange = '', $display = true) {
       global $CFG_GLPI;
 
       if (isset($_SESSION['glpilist_limit'])) {
@@ -2192,7 +2195,7 @@ class Dropdown {
          $list_limit = $CFG_GLPI['list_limit'];
       }
 
-      $values = array();
+      $values = [];
 
       for ($i=5; $i<20; $i+=5) {
          $values[$i] = $i;
@@ -2220,9 +2223,1446 @@ class Dropdown {
       }
       ksort($values);
       return self::showFromArray('glpilist_limit', $values,
-                                 array('on_change' => $onchange,
+                                 ['on_change' => $onchange,
                                        'value'     => $list_limit,
-                                       'display'   => $display));
+                                       'display'   => $display]);
    }
 
+   /**
+    * Get dropdown value
+    *
+    * @param array   $post Posted values
+    * @param boolean $json Encode to JSON, default to true
+    *
+    * @return string|array
+    */
+   public static function getDropdownValue($post, $json = true) {
+      global $DB, $CFG_GLPI;
+
+      if (isset($post["entity_restrict"])
+         && !is_array($post["entity_restrict"])
+         && (substr($post["entity_restrict"], 0, 1) === '[')
+         && (substr($post["entity_restrict"], -1) === ']')) {
+         $decoded = Toolbox::jsonDecode($post['entity_restrict']);
+         $entities = [];
+         if (is_array($decoded)) {
+            foreach ($decoded as $value) {
+               $entities[] = (int)$value;
+            }
+         }
+         $post["entity_restrict"] = $entities;
+      }
+      if (isset($post['entity_restrict']) && 'default' === $post['entity_restrict']) {
+         $post['entity_restrict'] = $_SESSION['glpiactiveentities'];
+      }
+
+      // Security
+      if (!($item = getItemForItemtype($post['itemtype']))) {
+         return;
+      }
+      $table = $item->getTable();
+      $datas = [];
+      $search_inst = new Search($item, []);
+
+      $displaywith = false;
+      if (isset($post['displaywith'])) {
+         if (is_array($post['displaywith']) && count($post['displaywith'])) {
+            $table = getTableForItemType($post['itemtype']);
+            foreach ($post['displaywith'] as $key => $value) {
+               if (!$DB->fieldExists($table, $value)) {
+                  unset($post['displaywith'][$key]);
+               }
+            }
+            if (count($post['displaywith'])) {
+               $displaywith = true;
+            }
+         }
+      }
+
+      if (!isset($post['permit_select_parent'])) {
+         $post['permit_select_parent'] = false;
+      }
+
+      if (isset($post['condition']) && !empty($post['condition']) && !is_array($post['condition'])) {
+         // Retreive conditions from SESSION using its key
+         $key = $post['condition'];
+         if (isset($_SESSION['glpicondition']) && isset($_SESSION['glpicondition'][$key])) {
+            $post['condition'] = $_SESSION['glpicondition'][$key];
+         } else {
+            $post['condition'] = [];
+         }
+      }
+
+      if (!isset($post['emptylabel']) || ($post['emptylabel'] == '')) {
+         $post['emptylabel'] = Dropdown::EMPTY_VALUE;
+      }
+
+      $where = [];
+
+      if ($item->maybeDeleted()) {
+         $where["$table.is_deleted"] = 0;
+      }
+      if ($item->maybeTemplate()) {
+         $where["$table.is_template"] = 0;
+      }
+
+      if (!isset($post['page'])) {
+         $post['page']       = 1;
+         $post['page_limit'] = $CFG_GLPI['dropdown_max'];
+      }
+
+      $start = intval(($post['page']-1)*$post['page_limit']);
+      $limit = intval($post['page_limit']);
+
+      if (isset($post['used'])) {
+         $used = $post['used'];
+
+         if (count($used)) {
+            $where['NOT'] = ["$table.id" => $used];
+         }
+      }
+
+      if (isset($post['toadd'])) {
+         $toadd = $post['toadd'];
+      } else {
+         $toadd = [];
+      }
+
+      if (isset($post['condition']) && ($post['condition'] != '')) {
+         $where = array_merge($where, $post['condition']);
+      }
+
+      $one_item = -1;
+      if (isset($post['_one_id'])) {
+         $one_item = $post['_one_id'];
+      }
+
+      // Count real items returned
+      $count = 0;
+
+      if ($item instanceof CommonTreeDropdown) {
+         if ($one_item >= 0) {
+            $where["$table.id"] = $one_item;
+         } else {
+            if (!empty($post['searchText'])) {
+               $search = $search_inst->makeTextSearchValue($post['searchText']);
+
+               $swhere = [
+                  "$table.completename" => ['LIKE', $search],
+               ];
+               if (Session::haveTranslations($post['itemtype'], 'completename')) {
+                  $swhere["namet.value"] = ['LIKE', $search];
+               }
+
+               // search also in displaywith columns
+               if ($displaywith && count($post['displaywith'])) {
+                  foreach ($post['displaywith'] as $with) {
+                     $swhere["$table.$with"] = ['LIKE', $search];
+                  }
+               }
+
+               $where[] = ['OR' => $swhere];
+            }
+         }
+
+         $multi = false;
+
+         // Manage multiple Entities dropdowns
+         $order = ["$table.completename"];
+
+         // No multi if get one item
+         if ($item->isEntityAssign()) {
+            $recur = $item->maybeRecursive();
+
+            // Entities are not really recursive : do not display parents
+            if ($post['itemtype'] == 'Entity') {
+               $recur = false;
+            }
+
+            if (isset($post["entity_restrict"]) && !($post["entity_restrict"] < 0)) {
+               $where = $where + getEntitiesRestrictCriteria(
+                  $table,
+                  '',
+                  $post["entity_restrict"],
+                  $recur
+               );
+
+               if (is_array($post["entity_restrict"]) && (count($post["entity_restrict"]) > 1)) {
+                  $multi = true;
+               }
+            } else {
+               // If private item do not use entity
+               if (!$item->maybePrivate()) {
+                  $where = $where + getEntitiesRestrictCriteria($table, '', '', $recur);
+
+                  if (count($_SESSION['glpiactiveentities']) > 1) {
+                     $multi = true;
+                  }
+               } else {
+                  $multi = false;
+               }
+            }
+
+            // Force recursive items to multi entity view
+            if ($recur) {
+               $multi = true;
+            }
+
+            // no multi view for entitites
+            if ($post['itemtype'] == "Entity") {
+               $multi = false;
+            }
+
+            if ($multi) {
+               array_unshift($order, "$table.entities_id");
+            }
+         }
+
+         $addselect = [];
+         $ljoin = [];
+         if (Session::haveTranslations($post['itemtype'], 'completename')) {
+            $addselect[] = "namet.value AS transcompletename";
+            $ljoin['glpi_dropdowntranslations AS namet'] = [
+               'ON' => [
+                  'namet'  => 'items_id',
+                  $table   => 'id', [
+                     'AND' => [
+                        'namet.itemtype'  => $post['itemtype'],
+                        'namet.language'  => $_SESSION['glpilanguage'],
+                        'namet.field'     => 'completename'
+                     ]
+                  ]
+               ]
+            ];
+         }
+         if (Session::haveTranslations($post['itemtype'], 'name')) {
+            $addselect[] = "namet2.value AS transname";
+            $ljoin['glpi_dropdowntranslations AS namet2'] = [
+               'ON' => [
+                  'namet2' => 'items_id',
+                  $table   => 'id', [
+                     'AND' => [
+                        'namet2.itemtype' => $post['itemtype'],
+                        'namet2.language' => $_SESSION['glpilanguage'],
+                        'namet2.field'    => 'name'
+                     ]
+                  ]
+               ]
+            ];
+         }
+         if (Session::haveTranslations($post['itemtype'], 'comment')) {
+            $addselect[] = "commentt.value AS transcomment";
+            $ljoin['glpi_dropdowntranslations AS commentt'] = [
+               'ON' => [
+                  'commentt'  => 'items_id',
+                  $table      => 'id', [
+                     'AND' => [
+                        'commentt.itemtype'  => $post['itemtype'],
+                        'commentt.language'  => $_SESSION['glpilanguage'],
+                        'commentt.field'     => 'comment'
+                     ]
+                  ]
+               ]
+            ];
+         }
+
+         if ($start > 0 && $multi) {
+            //we want to load last entry of previous page
+            //(and therefore one more result) to check if
+            //entity name must be displayed again
+            --$start;
+            ++$limit;
+         }
+
+         $criteria = [
+            'SELECT' => array_merge(["$table.*"], $addselect),
+            'FROM'   => $table,
+            'WHERE'  => $where,
+            'ORDER'  => $order,
+            'START'  => $start,
+            'LIMIT'  => $limit
+         ];
+         if (count($ljoin)) {
+            $criteria['LEFT JOIN'] = $ljoin;
+         }
+         $iterator = $DB->request($criteria);
+
+         // Empty search text : display first
+         if ($post['page'] == 1 && empty($post['searchText'])) {
+            if ($post['display_emptychoice']) {
+               array_push($datas, ['id'   => 0,
+                                 'text' => $post['emptylabel']]);
+            }
+         }
+
+         if ($post['page'] == 1) {
+            if (count($toadd)) {
+               foreach ($toadd as $key => $val) {
+                  array_push($datas, ['id'   => $key,
+                                    'text' => $val]);
+               }
+            }
+         }
+         $last_level_displayed = [];
+         $datastoadd           = [];
+
+         // Ignore first item for all pages except first page
+         $firstitem = (($post['page'] > 1));
+         if (count($iterator)) {
+            $prev             = -1;
+            $firstitem_entity = -1;
+
+            while ($data = $iterator->next()) {
+               $ID    = $data['id'];
+               $level = $data['level'];
+
+               if (isset($data['transname']) && !empty($data['transname'])) {
+                  $outputval = $data['transname'];
+               } else {
+                  $outputval = $data['name'];
+               }
+
+               if ($multi
+                  && ($data["entities_id"] != $prev)) {
+                  // Do not do it for first item for next page load
+                  if (!$firstitem) {
+                     if ($prev >= 0) {
+                        if (count($datastoadd)) {
+                           array_push($datas,
+                                    ['text'     => Dropdown::getDropdownName("glpi_entities",
+                                                                                    $prev),
+                                          'children' => $datastoadd]);
+                        }
+                     }
+                  }
+                  $prev = $data["entities_id"];
+                  if ($firstitem) {
+                     $firstitem_entity = $prev;
+                  }
+                  // Reset last level displayed :
+                  $datastoadd = [];
+               }
+
+               if ($_SESSION['glpiuse_flat_dropdowntree']) {
+                  if (isset($data['transcompletename']) && !empty($data['transcompletename'])) {
+                     $outputval = $data['transcompletename'];
+                  } else {
+                     $outputval = $data['completename'];
+                  }
+                  $level = 0;
+               } else { // Need to check if parent is the good one
+                        // Do not do if only get one item
+                  if (($level > 1)) {
+                     // Last parent is not the good one need to display arbo
+                     if (!isset($last_level_displayed[$level-1])
+                        || ($last_level_displayed[$level-1] != $data[$item->getForeignKeyField()])) {
+
+                        $work_level    = $level-1;
+                        $work_parentID = $data[$item->getForeignKeyField()];
+                        $parent_datas  = [];
+                        do {
+                           // Get parent
+                           if ($item->getFromDB($work_parentID)) {
+                              // Do not do for first item for next page load
+                              if (!$firstitem) {
+                                 $title = $item->fields['completename'];
+
+                                 $selection_text = $title;
+
+                                 if (isset($item->fields["comment"])) {
+                                    $addcomment
+                                    = DropdownTranslation::getTranslatedValue($ID, $post['itemtype'],
+                                                                              'comment',
+                                                                              $_SESSION['glpilanguage'],
+                                                                              $item->fields['comment']);
+                                    $title = sprintf(__('%1$s - %2$s'), $title, $addcomment);
+                                 }
+                                 $output2 = DropdownTranslation::getTranslatedValue($item->fields['id'],
+                                                                                    $post['itemtype'],
+                                                                                    'name',
+                                                                                    $_SESSION['glpilanguage'],
+                                                                                    $item->fields['name']);
+
+                                 $temp = ['id'       => $work_parentID,
+                                             'text'     => $output2,
+                                             'level'    => (int)$work_level,
+                                             'disabled' => true];
+                                 if ($post['permit_select_parent']) {
+                                    $temp['title'] = $title;
+                                    $temp['selection_text'] = $selection_text;
+                                    unset($temp['disabled']);
+                                 }
+                                 array_unshift($parent_datas, $temp);
+                              }
+                              $last_level_displayed[$work_level] = $item->fields['id'];
+                              $work_level--;
+                              $work_parentID = $item->fields[$item->getForeignKeyField()];
+
+                           } else { // Error getting item : stop
+                              $work_level = -1;
+                           }
+
+                        } while (($work_level >= 1)
+                                 && (!isset($last_level_displayed[$work_level])
+                                    || ($last_level_displayed[$work_level] != $work_parentID)));
+                        // Add parents
+                        foreach ($parent_datas as $val) {
+                           array_push($datastoadd, $val);
+                        }
+                     }
+                  }
+                  $last_level_displayed[$level] = $data['id'];
+               }
+
+               // Do not do for first item for next page load
+               if (!$firstitem) {
+                  if ($_SESSION["glpiis_ids_visible"]
+                     || (Toolbox::strlen($outputval) == 0)) {
+                     $outputval = sprintf(__('%1$s (%2$s)'), $outputval, $ID);
+                  }
+
+                  if (isset($data['transcompletename']) && !empty($data['transcompletename'])) {
+                     $title = $data['transcompletename'];
+                  } else {
+                     $title = $data['completename'];
+                  }
+
+                  $selection_text = $title;
+
+                  if (isset($data["comment"])) {
+                     if (isset($data['transcomment']) && !empty($data['transcomment'])) {
+                        $addcomment = $data['transcomment'];
+                     } else {
+                        $addcomment = $data['comment'];
+                     }
+                     $title = sprintf(__('%1$s - %2$s'), $title, $addcomment);
+                  }
+                  array_push($datastoadd, ['id'             => $ID,
+                                             'text'           => $outputval,
+                                             'level'          => (int)$level,
+                                             'title'          => $title,
+                                             'selection_text' => $selection_text]);
+                  $count++;
+               }
+               $firstitem = false;
+            }
+         }
+
+         if ($multi) {
+            if (count($datastoadd)) {
+               // On paging mode do not add entity information each time
+               if ($prev == $firstitem_entity) {
+                  $datas = array_merge($datas, $datastoadd);
+               } else {
+                  array_push($datas, ['text'     => Dropdown::getDropdownName("glpi_entities", $prev),
+                                          'children' => $datastoadd]);
+               }
+            }
+         } else {
+            if (count($datastoadd)) {
+               $datas = array_merge($datas, $datastoadd);
+            }
+         }
+      } else { // Not a dropdowntree
+         $multi = false;
+         // No multi if get one item
+         if ($item->isEntityAssign()) {
+            $multi = $item->maybeRecursive();
+
+            if (isset($post["entity_restrict"]) && !($post["entity_restrict"] < 0)) {
+               $where = $where + getEntitiesRestrictCriteria(
+                  $table,
+                  "entities_id",
+                  $post["entity_restrict"],
+                  $multi
+               );
+
+               if (is_array($post["entity_restrict"]) && (count($post["entity_restrict"]) > 1)) {
+                  $multi = true;
+               }
+
+            } else {
+               // Do not use entity if may be private
+               if (!$item->maybePrivate()) {
+                  $where = $where + getEntitiesRestrictCriteria($table, '', '', $multi);
+
+                  if (count($_SESSION['glpiactiveentities'])>1) {
+                     $multi = true;
+                  }
+               } else {
+                  $multi = false;
+               }
+            }
+         }
+
+         $field = "name";
+         if ($item instanceof CommonDevice) {
+            $field = "designation";
+         } else if ($item instanceof Item_Devices) {
+            $field = "itemtype";
+         }
+
+         if (!empty($post['searchText'])) {
+            $search = $search_inst->makeTextSearchValue($post['searchText']);
+            $orwhere = ["$table.$field" => ['LIKE', $search]];
+
+            if (Session::haveTranslations($post['itemtype'], $field)) {
+               $orwhere['namet.value'] = ['LIKE', $search];
+            }
+            if ($post['itemtype'] == "SoftwareLicense") {
+               $orwhere['glpi_softwares.name'] = ['LIKE', $search];
+            }
+
+            // search also in displaywith columns
+            if ($displaywith && count($post['displaywith'])) {
+               foreach ($post['displaywith'] as $with) {
+                  $orwhere["$table.$with"] = ['LIKE', $search];
+               }
+            }
+
+            $where[] = ['OR' => $orwhere];
+         }
+         $addselect = [];
+         $ljoin = [];
+         if (Session::haveTranslations($post['itemtype'], $field)) {
+            $addselect[] = "namet.value AS transname";
+            $ljoin['glpi_dropdowntranslations AS namet'] = [
+               'ON' => [
+                  'namet'  => 'items_id',
+                  $table   => 'id', [
+                     'AND' => [
+                        'namet.itemtype'  => $post['itemtype'],
+                        'namet.language'  => $_SESSION['glpilanguage'],
+                        'namet.field'     => $field
+                     ]
+                  ]
+               ]
+            ];
+         }
+         if (Session::haveTranslations($post['itemtype'], 'comment')) {
+            $addselect[] = "commentt.value AS transcomment";
+            $ljoin['glpi_dropdowntranslations AS commentt'] = [
+               'ON' => [
+                  'commentt'  => 'items_id',
+                  $table      => 'id', [
+                     'AND' => [
+                        'commentt.itemtype'  => $post['itemtype'],
+                        'commentt.language'  => $_SESSION['glpilanguage'],
+                        'commentt.field'     => 'comment'
+                     ]
+                  ]
+               ]
+            ];
+         }
+
+         $criteria = [];
+         switch ($post['itemtype']) {
+            case "Contact" :
+               $criteria = [
+                  'SELECT' => [
+                     "$table.entities_id",
+                     new \QueryExpression(
+                        "CONCAT(IFNULL(" . $DB->quoteName('name') . ",''),' ',IFNULL(" .
+                        $DB->quoteName('firstname') . ",'')) AS " . $DB->quoteName($field)
+                     ),
+                     "$table.comment",
+                     "$table.id"
+                  ],
+                  'FROM'   => $table
+               ];
+               break;
+
+            case "SoftwareLicense" :
+               $criteria = [
+                  'SELECT' => [
+                     "$table.*",
+                     new \QueryExpression("CONCAT(glpi_softwares.name,' - ',glpi_softwarelicenses.name) AS $field")
+                  ],
+                  'FROM'   => $table,
+                  'LEFT JOIN' => [
+                     'glpi_softwares'  => [
+                        'ON' => [
+                           'glpi_softwarelicenses' => 'softwares_id',
+                           'glpi_softwares'        => 'id'
+                        ]
+                     ]
+                  ]
+               ];
+               break;
+
+            case "Profile" :
+               $criteria = [
+                  'SELECT'          => "$table.*",
+                  'DISTINCT'        => true,
+                  'FROM'            => $table,
+                  'LEFT JOIN'       => [
+                     'glpi_profilerights' => [
+                        'ON' => [
+                           'glpi_profilerights' => 'profiles_id',
+                           $table               => 'id'
+                        ]
+                     ]
+                  ]
+               ];
+               break;
+
+            case KnowbaseItem::getType():
+               $criteria = [
+                  'SELECT' => array_merge(["$table.*"], $addselect),
+                  'DISTINCT'        => true,
+                  'FROM'            => $table
+               ];
+               if (count($ljoin)) {
+                  $criteria['LEFT JOIN'] = $ljoin;
+               }
+
+               $visibility = KnowbaseItem::getVisibilityCriteria();
+               if (count($visibility['LEFT JOIN'])) {
+                  $criteria['LEFT JOIN'] = array_merge(
+                     (isset($criteria['LEFT JOIN']) ? $criteria['LEFT JOIN'] : []),
+                     $visibility['LEFT JOIN']
+                  );
+                  //Do not use where??
+                  /*if (isset($visibility['WHERE'])) {
+                     $where = $visibility['WHERE'];
+                  }*/
+               }
+               break;
+
+            case Project::getType():
+               $visibility = Project::getVisibilityCriteria();
+               if (count($visibility['LEFT JOIN'])) {
+                  $ljoin = array_merge($ljoin, $visibility['LEFT JOIN']);
+                  if (isset($visibility['WHERE'])) {
+                     $where[] = $visibility['WHERE'];
+                  }
+               }
+               //no break to reach default case.
+
+            default :
+               $criteria = [
+                  'SELECT' => array_merge(["$table.*"], $addselect),
+                  'FROM'   => $table
+               ];
+               if (count($ljoin)) {
+                  $criteria['LEFT JOIN'] = $ljoin;
+               }
+         }
+
+         $criteria = array_merge(
+            $criteria, [
+               'WHERE'  => $where,
+               'START'  => $start,
+               'LIMIT'  => $limit
+            ]
+         );
+
+         if ($multi) {
+            $criteria['ORDERBY'] = ["$table.entities_id", "$table.$field"];
+         } else {
+            $criteria['ORDERBY'] = ["$table.$field"];
+         }
+
+         $iterator = $DB->request($criteria);
+
+         // Display first if no search
+         if ($post['page'] == 1 && empty($post['searchText'])) {
+            if (!isset($post['display_emptychoice']) || $post['display_emptychoice']) {
+               array_push($datas, ['id'    => 0,
+                                 'text'  => $post["emptylabel"]]);
+            }
+         }
+         if ($post['page'] == 1) {
+            if (count($toadd)) {
+               foreach ($toadd as $key => $val) {
+                  array_push($datas, ['id'    => $key,
+                                    'text'  => $val]);
+               }
+            }
+         }
+
+         $datastoadd = [];
+
+         if (count($iterator)) {
+            $prev = -1;
+
+            while ($data = $iterator->next()) {
+               if ($multi
+                  && ($data["entities_id"] != $prev)) {
+                  if ($prev >= 0) {
+                     if (count($datastoadd)) {
+                        array_push($datas,
+                                 ['text'     => Dropdown::getDropdownName("glpi_entities",
+                                                                                 $prev),
+                                       'children' => $datastoadd]);
+                     }
+                  }
+                  $prev       = $data["entities_id"];
+                  $datastoadd = [];
+               }
+
+               if (isset($data['transname']) && !empty($data['transname'])) {
+                  $outputval = $data['transname'];
+               } else if ($field == 'itemtype' && class_exists($data['itemtype'])) {
+                  $tmpitem = new $data[$field]();
+                  if ($tmpitem->getFromDB($data['items_id'])) {
+                     $outputval = sprintf(__('%1$s - %2$s'), $tmpitem->getTypeName(), $tmpitem->getName());
+                  } else {
+                     $outputval = $tmpitem->getTypeName();
+                  }
+               } else {
+                  $outputval = $data[$field];
+               }
+
+               $ID         = $data['id'];
+               $addcomment = "";
+               $title      = $outputval;
+               if (isset($data["comment"])) {
+                  if (isset($data['transcomment']) && !empty($data['transcomment'])) {
+                     $addcomment .= $data['transcomment'];
+                  } else {
+                     $addcomment .= $data["comment"];
+                  }
+
+                  $title = sprintf(__('%1$s - %2$s'), $title, $addcomment);
+               }
+               if ($_SESSION["glpiis_ids_visible"]
+                  || (strlen($outputval) == 0)) {
+                  //TRANS: %1$s is the name, %2$s the ID
+                  $outputval = sprintf(__('%1$s (%2$s)'), $outputval, $ID);
+               }
+               if ($displaywith) {
+                  foreach ($post['displaywith'] as $key) {
+                     if (isset($data[$key])) {
+                        $withoutput = $data[$key];
+                        if (isForeignKeyField($key)) {
+                           $withoutput = Dropdown::getDropdownName(getTableNameForForeignKeyField($key),
+                                                                  $data[$key]);
+                        }
+                        if ((strlen($withoutput) > 0) && ($withoutput != '&nbsp;')) {
+                           $outputval = sprintf(__('%1$s - %2$s'), $outputval, $withoutput);
+                        }
+                     }
+                  }
+               }
+               array_push($datastoadd, ['id'    => $ID,
+                                             'text'  => $outputval,
+                                             'title' => $title]);
+               $count++;
+            }
+            if ($multi) {
+               if (count($datastoadd)) {
+                  array_push($datas, ['text'     => Dropdown::getDropdownName("glpi_entities",
+                                                                                 $prev),
+                                          'children' => $datastoadd]);
+               }
+            } else {
+               if (count($datastoadd)) {
+                  $datas = array_merge($datas, $datastoadd);
+               }
+            }
+         }
+      }
+
+      $ret['results'] = Toolbox::unclean_cross_side_scripting_deep($datas);
+      $ret['count']   = $count;
+
+      return ($json === true) ? json_encode($ret) : $ret;
+   }
+
+   /**
+    * Get dropdown connect
+    *
+    * @param array   $post Posted values
+    * @param boolean $json Encode to JSON, default to true
+    *
+    * @return string|array
+    */
+   public static function getDropdownConnect($post, $json = true) {
+      global $DB, $CFG_GLPI;
+
+      if (!isset($post['fromtype']) || !($fromitem = getItemForItemtype($post['fromtype']))) {
+         return;
+      }
+
+      $fromitem->checkGlobal(UPDATE);
+      $used = [];
+      if (isset( $post["used"])) {
+         $used = $post["used"];
+
+         if (isset($used[$post['itemtype']])) {
+            $used = $used[$post['itemtype']];
+         } else {
+            $used = [];
+         }
+      }
+
+      // Make a select box
+      $table = getTableForItemType($post["itemtype"]);
+      if (!$item = getItemForItemtype($post['itemtype'])) {
+         return;
+      }
+
+      $where = [];
+
+      if ($item->maybeDeleted()) {
+         $where["$table.is_deleted"] = 0;
+      }
+      if ($item->maybeTemplate()) {
+         $where["$table.is_template"] = 0;
+      }
+
+      if (isset($post['searchText']) && (strlen($post['searchText']) > 0)) {
+         $search_inst = new Search($item, []);
+         $search = $search_inst->makeTextSearchValue($post['searchText']);
+         $where['OR'] = [
+            "$table.name"        => ['LIKE', $search],
+            "$table.otherserial" => ['LIKE', $search],
+            "$table.serial"      => ['LIKE', $search]
+         ];
+      }
+
+      $multi = $item->maybeRecursive();
+
+      if (isset($post["entity_restrict"]) && !($post["entity_restrict"] < 0)) {
+         $where = $where + getEntitiesRestrictCriteria($table, '', $post["entity_restrict"], $multi);
+         if (is_array($post["entity_restrict"]) && (count($post["entity_restrict"]) > 1)) {
+            $multi = true;
+         }
+
+      } else {
+         $where = $where + getEntitiesRestrictCriteria($table, '', $_SESSION['glpiactiveentities'], $multi);
+         if (count($_SESSION['glpiactiveentities']) > 1) {
+            $multi = true;
+         }
+      }
+
+      if (!isset($post['page'])) {
+         $post['page']       = 1;
+         $post['page_limit'] = $CFG_GLPI['dropdown_max'];
+      }
+
+      $start = intval(($post['page']-1)*$post['page_limit']);
+      $limit = intval($post['page_limit']);
+
+      if (!isset($post['onlyglobal'])) {
+         $post['onlyglobal'] = false;
+      }
+
+      if ($post["onlyglobal"]
+         && ($post["itemtype"] != 'Computer')) {
+         $where["$table.is_global"] = 1;
+      } else {
+         $where_used = [];
+         if (!empty($used)) {
+            $where_used[] = ['NOT' => ["$table.id" => $used]];
+         }
+
+         if ($post["itemtype"] == 'Computer') {
+            $where = $where + $where_used;
+         } else {
+            $where[] = [
+               'OR' => [
+                  [
+                     'glpi_computers_items.id'  => null
+                  ] + $where_used,
+                  "$table.is_global"            => 1
+               ]
+            ];
+         }
+      }
+
+      $criteria = [
+         'SELECT'          => [
+            "$table.id",
+            "$table.name AS name",
+            "$table.serial AS serial",
+            "$table.otherserial AS otherserial",
+            "$table.entities_id AS entities_id"
+         ],
+         'DISTINCT'        => true,
+         'FROM'            => $table,
+         'WHERE'           => $where,
+         'ORDERBY'         => ['entities_id', 'name ASC'],
+         'LIMIT'           => $limit,
+         'START'           => $start
+      ];
+
+      if (($post["itemtype"] != 'Computer') && !$post["onlyglobal"]) {
+         $criteria['LEFT JOIN'] = [
+            'glpi_computers_items'  => [
+               'ON' => [
+                  $table                  => 'id',
+                  'glpi_computers_items'  => 'items_id', [
+                     'AND' => [
+                        'glpi_computers_items.itemtype'  => $post['itemtype']
+                     ]
+                  ]
+               ]
+            ]
+         ];
+      }
+
+      $iterator = $DB->request($criteria);
+
+      $results = [];
+      // Display first if no search
+      if (empty($post['searchText'])) {
+         array_push(
+            $results, [
+               'id'   => 0,
+               'text' => Dropdown::EMPTY_VALUE
+            ]
+         );
+      }
+      if (count($iterator)) {
+         $prev       = -1;
+         $datatoadd = [];
+
+         while ($data = $iterator->next()) {
+            if ($multi && ($data["entities_id"] != $prev)) {
+               if (count($datatoadd)) {
+                  array_push(
+                     $results, [
+                        'text'      => Dropdown::getDropdownName("glpi_entities", $prev),
+                        'children'  => $datatoadd
+                     ]
+                  );
+               }
+               $prev = $data["entities_id"];
+               // Reset last level displayed :
+               $datatoadd = [];
+            }
+            $output = $data['name'];
+            $ID     = $data['id'];
+
+            if ($_SESSION["glpiis_ids_visible"]
+               || empty($output)) {
+               $output = sprintf(__('%1$s (%2$s)'), $output, $ID);
+            }
+            if (!empty($data['serial'])) {
+               $output = sprintf(__('%1$s - %2$s'), $output, $data["serial"]);
+            }
+            if (!empty($data['otherserial'])) {
+               $output = sprintf(__('%1$s - %2$s'), $output, $data["otherserial"]);
+            }
+            array_push($datatoadd, ['id'    => $ID,
+                                          'text'  => $output]);
+         }
+
+         if ($multi) {
+            if (count($datatoadd)) {
+               array_push(
+                  $results, [
+                     'text'      => Dropdown::getDropdownName("glpi_entities", $prev),
+                     'children'  => $datatoadd
+                  ]
+               );
+            }
+         } else {
+            if (count($datatoadd)) {
+               $results = array_merge($results, $datatoadd);
+            }
+         }
+      }
+
+      $ret['results'] = $results;
+      return ($json === true) ? json_encode($ret) : $ret;
+   }
+
+   /**
+    * Get dropdown find num
+    *
+    * @param array   $post Posted values
+    * @param boolean $json Encode to JSON, default to true
+    *
+    * @return string|array
+    */
+   public static function getDropdownFindNum($post, $json = true) {
+      global $DB, $CFG_GLPI;
+
+      // Security
+      if (!$DB->tableExists($post['table'])) {
+         return;
+      }
+
+      $itemtypeisplugin = isPluginItemType($post['itemtype']);
+
+      if (!$item = getItemForItemtype($post['itemtype'])) {
+         return;
+      }
+
+      $where = [];
+      if (isset($post['used']) && !empty($post['used'])) {
+         $where['NOT'] = ['id' => $post['used']];
+      }
+
+      if ($item->maybeDeleted()) {
+         $where['is_deleted'] = 0;
+      }
+
+      if ($item->maybeTemplate()) {
+         $where['is_template'] = 0;
+      }
+
+      if (isset($_POST['searchText']) && (strlen($post['searchText']) > 0)) {
+         $search_inst = new Search($item, []);
+         $search = ['LIKE', $search_inst->makeTextSearchValue($post['searchText'])];
+         $orwhere =[
+            'name'   => $search,
+            'id'     => $post['searchText']
+         ];
+
+         if ($DB->fieldExists($post['table'], "contact")) {
+            $orwhere['contact'] = $search;
+         }
+         if ($DB->fieldExists($post['table'], "serial")) {
+            $orwhere['serial'] = $search;
+         }
+         if ($DB->fieldExists($post['table'], "otherserial")) {
+            $orwhere['otherserial'] = $search;
+         }
+         $where[] = ['OR' => $orwhere];
+      }
+
+      //If software or plugins : filter to display only the objects that are allowed to be visible in Helpdesk
+      if (in_array($post['itemtype'], $CFG_GLPI["helpdesk_visible_types"])) {
+         $where['is_helpdesk_visible'] = 1;
+      }
+
+      if ($item->isEntityAssign()) {
+         if (isset($post["entity_restrict"]) && ($post["entity_restrict"] >= 0)) {
+            $entity = $post["entity_restrict"];
+         } else {
+            $entity = '';
+         }
+
+         // allow opening ticket on recursive object (printer, software, ...)
+         $recursive = $item->maybeRecursive();
+         $where     = $where + getEntitiesRestrictCriteria($post['table'], '', $entity, $recursive);
+      }
+
+      if (!isset($post['page'])) {
+         $post['page']       = 1;
+         $post['page_limit'] = $CFG_GLPI['dropdown_max'];
+      }
+
+      $start = intval(($post['page']-1)*$post['page_limit']);
+      $limit = intval($post['page_limit']);
+
+      $iterator = $DB->request([
+         'FROM'   => $post['table'],
+         'WHERE'  => $where,
+         'ORDER'  => 'name',
+         'LIMIT'  => $limit,
+         'START'  => $start
+      ]);
+
+      $results = [];
+
+      // Display first if no search
+      if ($post['page'] == 1 && empty($post['searchText'])) {
+         array_push($results, ['id'   => 0,
+                                 'text' => Dropdown::EMPTY_VALUE]);
+      }
+      $count = 0;
+      if (count($iterator)) {
+         while ($data = $iterator->next()) {
+            $output = $data['name'];
+
+            if (isset($data['contact']) && !empty($data['contact'])) {
+               $output = sprintf(__('%1$s - %2$s'), $output, $data['contact']);
+            }
+            if (isset($data['serial']) && !empty($data['serial'])) {
+               $output = sprintf(__('%1$s - %2$s'), $output, $data['serial']);
+            }
+            if (isset($data['otherserial']) && !empty($data['otherserial'])) {
+               $output = sprintf(__('%1$s - %2$s'), $output, $data['otherserial']);
+            }
+
+            if (empty($output)
+               || $_SESSION['glpiis_ids_visible']) {
+               $output = sprintf(__('%1$s (%2$s)'), $output, $data['id']);
+            }
+
+            array_push(
+               $results, [
+                  'id'   => $data['id'],
+                  'text' => $output
+               ]
+            );
+            $count++;
+         }
+      }
+
+      $ret['count']   = $count;
+      $ret['results'] = $results;
+
+      return ($json === true) ? json_encode($ret) : $ret;
+   }
+
+   /**
+    * Get dropdown netpoint
+    *
+    * @param array   $post Posted values
+    * @param boolean $json Encode to JSON, default to true
+    *
+    * @return string|array
+    */
+   public static function getDropdownNetpoint($post, $json = true) {
+      global $DB, $CFG_GLPI;
+
+      // Make a select box with preselected values
+      $results           = [];
+      $location_restrict = false;
+
+      if (!isset($post['page'])) {
+         $post['page']       = 1;
+         $post['page_limit'] = $CFG_GLPI['dropdown_max'];
+      }
+
+      $start = intval(($post['page']-1)*$post['page_limit']);
+      $limit = intval($post['page_limit']);
+
+      $criteria = [
+         'SELECT'    => [
+            'glpi_netpoints.comment AS comment',
+            'glpi_netpoints.id',
+            'glpi_netpoints.name AS netpname',
+            'glpi_locations.completename AS loc'
+         ],
+         'FROM'      => 'glpi_netpoints',
+         'LEFT JOIN' => [
+            'glpi_locations'  => [
+               'ON' => [
+                  'glpi_netpoints'  => 'locations_id',
+                  'glpi_locations'  => 'id'
+               ]
+            ]
+         ],
+         'WHERE'     => [],
+         'ORDERBY'   => [
+            'glpi_locations.completename',
+            'glpi_netpoints.name'
+         ],
+         'START'     => $start,
+         'LIMIT'     => $limit
+      ];
+
+      if (!(isset($post["devtype"])
+            && ($post["devtype"] != 'NetworkEquipment')
+            && isset($post["locations_id"])
+            && ($post["locations_id"] > 0))) {
+
+         if (isset($post["entity_restrict"]) && ($post["entity_restrict"] >= 0)) {
+            $criteria['WHERE']['glpi_netpoints.entities_id'] = $post['entity_restrict'];
+         } else {
+            $criteria['WHERE'] = $criteria['WHERE'] + getEntitiesRestrictCriteria('glpi_locations');
+         }
+      }
+
+      if (isset($post['searchText']) && strlen($post['searchText']) > 0) {
+         $search_inst = new Search(new Netpoint(), []);
+         $search = ['LIKE', $search_inst->makeTextSearchValue($post['searchText'])];
+         $criteria['WHERE']['OR'] = [
+            'glpi_netpoints.name'         => ['LIKE', $search],
+            'glpi_locations.completename' => ['LIKE', $search]
+         ];
+      }
+
+      if (isset($post["devtype"]) && !empty($post["devtype"])) {
+         $criteria['LEFT JOIN']['glpi_networkportethernets'] = [
+            'ON' => [
+               'glpi_networkportethernets'   => 'netpoints_id',
+               'glpi_netpoints'              => 'id'
+            ]
+         ];
+
+         $extra_and = [];
+         if ($post["devtype"] == 'NetworkEquipment') {
+            $extra_and['glpi_networkports.itemtype'] = 'NetworkEquipment';
+         } else {
+            $extra_and['NOT'] = ['glpi_networkports.itemtype' => 'NetworkEquipment'];
+            if (isset($post["locations_id"]) && ($post["locations_id"] >= 0)) {
+               $location_restrict = true;
+               $criteria['WHERE']['glpi_netpoints.locations_id'] = $post['locations_id'];
+            }
+         }
+
+         $criteria['LEFT JOIN']['glpi_networkports'] = [
+            'ON' => [
+               'glpi_networkportethernets'   => 'id',
+               'glpi_networkports'           => 'id', [
+                  'AND' => [
+                     'glpi_networkports.instantiation_type'    => 'NetworkPortEthernet',
+                  ] + $extra_and
+               ]
+            ]
+         ];
+         $criteria['WHERE']['glpi_networkportethernets.netpoints_id'] = null;
+      } else if (isset($post["locations_id"]) && ($post["locations_id"] >= 0)) {
+         $location_restrict = true;
+         $criteria['WHERE']['glpi_netpoints.locations_id'] = $post['locations_id'];
+      }
+
+      $iterator = $DB->request($criteria);
+
+      // Display first if no search
+      if (empty($post['searchText'])) {
+         if ($post['page'] == 1) {
+            array_push(
+               $results, [
+                  'id'   => 0,
+                  'text' => Dropdown::EMPTY_VALUE
+               ]
+            );
+         }
+      }
+
+      $count = 0;
+      if (count($iterator)) {
+         while ($data = $iterator->next()) {
+            $output     = $data['netpname'];
+            $loc        = $data['loc'];
+            $ID         = $data['id'];
+            $title      = $output;
+            if (isset($data["comment"])) {
+               //TRANS: %1$s is the location, %2$s is the comment
+               $title = sprintf(__('%1$s - %2$s'), $title, $loc);
+               $title = sprintf(__('%1$s - %2$s'), $title, $data["comment"]);
+            }
+            if (!$location_restrict) {
+               $output = sprintf(__('%1$s (%2$s)'), $output, $loc);
+            }
+
+            array_push(
+               $results, [
+                  'id'    => $ID,
+                  'text'  => $output,
+                  'title' => $title
+               ]
+            );
+            $count++;
+         }
+      }
+
+      $ret['count']   = $count;
+      $ret['results'] = $results;
+
+      return ($json === true) ? json_encode($ret) : $ret;
+   }
+
+   /**
+    * Get dropdown number
+    *
+    * @param array   $post Posted values
+    * @param boolean $json Encode to JSON, default to true
+    *
+    * @return string|array
+    */
+   public static function getDropdownNumber($post, $json = true) {
+      global $DB, $CFG_GLPI;
+
+      $used = [];
+
+      if (isset($post['used'])) {
+         $used = $post['used'];
+      }
+
+      if (!isset($post['value'])) {
+         $post['value'] = 0;
+      }
+
+      if (!isset($post['page'])) {
+         $post['page']       = 1;
+         $post['page_limit'] = $CFG_GLPI['dropdown_max'];
+      }
+
+      if (isset($post['toadd'])) {
+         $toadd = $post['toadd'];
+      } else {
+         $toadd = [];
+      }
+
+      $data = [];
+      // Count real items returned
+      $count = 0;
+
+      if ($post['page'] == 1) {
+         if (count($toadd)) {
+            foreach ($toadd as $key => $val) {
+               array_push($data, ['id'   => $key,
+                                 'text' => strval($val)]);
+            }
+         }
+      }
+
+      $values = [];
+
+      if (!isset($post['min'])) {
+         $post['min'] = 1;
+      }
+
+      if (!isset($post['step'])) {
+         $post['step'] = 1;
+      }
+
+      if (!isset($post['max'])) {
+         //limit max entries to avoid loop issues
+         $post['max'] = $CFG_GLPI['dropdown_max'] * $post['step'];
+      }
+
+      for ($i=$post['min']; $i<=$post['max']; $i+=$post['step']) {
+         if (!empty($post['searchText']) && strstr($i, $post['searchText']) || empty($post['searchText'])) {
+            if (!in_array($i, $used)) {
+               $values[$i] = $i;
+            }
+         }
+      }
+
+      if (count($values)) {
+         $start  = ($post['page']-1)*$post['page_limit'];
+         $tosend = array_splice($values, $start, $post['page_limit']);
+         foreach ($tosend as $i) {
+            $txt = $i;
+            if (isset($post['unit'])) {
+               $txt = Dropdown::getValueWithUnit($i, $post['unit']);
+            }
+            array_push($data, ['id'   => $i,
+                              'text' => strval($txt)]);
+            $count++;
+         }
+
+      } else {
+         if (!isset($toadd[-1])) {
+            $value = -1;
+            if (isset($post['min']) && $value < $post['min']) {
+               $value = $post['min'];
+            } else if (isset($post['max']) && $value > $post['max']) {
+               $value = $post['max'];
+            }
+
+            if (isset($post['unit'])) {
+               $txt = Dropdown::getValueWithUnit($value, $post['unit']);
+            }
+            array_push($data, ['id'   => $value,
+                              'text' => strval($txt)]);
+            $count++;
+         }
+      }
+
+      $ret['results'] = $data;
+      $ret['count']   = $count;
+
+      return ($json === true) ? json_encode($ret) : $ret;
+   }
+
+   /**
+    * Get dropdown users
+    *
+    * @param array   $post Posted values
+    * @param boolean $json Encode to JSON, default to true
+    *
+    * @return string|array
+    */
+   public static function getDropdownUsers($post, $json = true) {
+      global $CFG_GLPI;
+
+      if (!isset($post['right'])) {
+         $post['right'] = "all";
+      }
+
+      // Default view : Nobody
+      if (!isset($post['all'])) {
+         $post['all'] = 0;
+      }
+
+      $used = [];
+
+      if (isset($post['used'])) {
+         $used = $post['used'];
+      }
+
+      if (!isset($post['value'])) {
+         $post['value'] = 0;
+      }
+
+      if (!isset($post['page'])) {
+         $post['page']       = 1;
+         $post['page_limit'] = $CFG_GLPI['dropdown_max'];
+      }
+
+      $entity_restrict = -1;
+      if (isset($post['entity_restrict'])) {
+         $entity_restrict = Toolbox::jsonDecode($post['entity_restrict']);
+      }
+
+      $start  = intval(($post['page']-1)*$post['page_limit']);
+      $searchText = (isset($post['searchText']) ? $post['searchText'] : null);
+      $inactive_deleted = isset($post['inactive_deleted']) ? $post['inactive_deleted'] : 0;
+      $result = User::getSqlSearchResult(
+         false,
+         $post['right'],
+         $entity_restrict,
+         $post['value'],
+         $used,
+         $searchText,
+         $start,
+         (int)$post['page_limit'],
+         $inactive_deleted
+      );
+
+      $users = [];
+
+      // Count real items returned
+      $count = 0;
+      if (count($result)) {
+         while ($data = $result->next()) {
+            $users[$data["id"]] = formatUserName($data["id"], $data["name"], $data["realname"],
+                                                $data["firstname"]);
+            $logins[$data["id"]] = $data["name"];
+         }
+      }
+
+      $results = [];
+
+      // Display first if empty search
+      if ($post['page'] == 1 && empty($post['searchText'])) {
+         if ($post['all'] == 0) {
+            array_push(
+               $results, [
+                  'id'   => 0,
+                  'text' => Dropdown::EMPTY_VALUE
+               ]
+            );
+         } else if ($post['all'] == 1) {
+            array_push(
+               $results, [
+                  'id'   => 0,
+                  'text' => __('All')
+               ]
+            );
+         }
+      }
+
+      if (count($users)) {
+         foreach ($users as $ID => $output) {
+            $title = sprintf(__('%1$s - %2$s'), $output, $logins[$ID]);
+
+            array_push(
+               $results, [
+                  'id'    => $ID,
+                  'text'  => $output,
+                  'title' => $title
+               ]
+            );
+            $count++;
+         }
+      }
+
+      $ret['results'] = $results;
+      $ret['count']   = $count;
+
+      return ($json === true) ? json_encode($ret) : $ret;
+   }
 }

@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 include ('../inc/includes.php');
 
 Session::checkCentralAccess();
@@ -55,7 +51,8 @@ foreach ($CFG_GLPI["rulecollections_types"] as $rulecollectionclass) {
          $title = $rulecollection->getTitle();
       }
       echo "<tr class='tab_bg_1'><td class='center b'>";
-      echo "<a href='".Toolbox::getItemTypeSearchURL($rulecollection->getRuleClassName())."'>";
+      $ruleClassName = $rulecollection->getRuleClassName();
+      echo "<a href='".$ruleClassName::getSearchURL()."'>";
       echo $title."</a></td></tr>";
    }
 }

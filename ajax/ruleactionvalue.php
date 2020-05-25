@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 // Direct access to file
 if (strpos($_SERVER['PHP_SELF'], "ruleactionvalue.php")) {
    include ('../inc/includes.php');
@@ -44,8 +40,7 @@ if (strpos($_SERVER['PHP_SELF'], "ruleactionvalue.php")) {
 }
 
 Session::checkLoginUser();
-$display = false;
 
 $ra = new RuleAction();
 
-$ra->displayActionSelectPattern(Toolbox::stripslashes_deep($_POST));
+$ra->displayActionSelectPattern($_POST);

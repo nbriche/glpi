@@ -2,7 +2,7 @@
 /**
  * ---------------------------------------------------------------------
  * GLPI - Gestionnaire Libre de Parc Informatique
- * Copyright (C) 2015-2017 Teclib' and contributors.
+ * Copyright (C) 2015-2018 Teclib' and contributors.
  *
  * http://glpi-project.org
  *
@@ -30,10 +30,6 @@
  * ---------------------------------------------------------------------
  */
 
-/** @file
-* @brief
-*/
-
 $AJAX_INCLUDE = 1;
 include ('../inc/includes.php');
 
@@ -45,7 +41,7 @@ Session::checkRight('ticket', UPDATE);
 if ($_POST["actortype"] > 0) {
    $ticket = new Ticket();
    $rand   = mt_rand();
-   $ticket->showActorAddForm($_POST["actortype"], $rand, $_SESSION['glpiactive_entity'], array(),
+   $ticket->showActorAddForm($_POST["actortype"], $rand, $_SESSION['glpiactive_entity'], [],
                              true, false, false);
    echo "&nbsp;<input type='submit' name='add_actor' class='submit' value=\""._sx('button', 'Add')."\">";
 }

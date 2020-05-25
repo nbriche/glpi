@@ -1,54 +1,72 @@
 language: php
-php:
-  - 5.6
-  - 7.0
-  - 7.1
-  - nightly
+sudo: required
+dist: trusty
 
 env:
   - DB=mysql
 
 before_script:
+  - phpenv config-rm xdebug.ini || true
+  - ./tests/LDAP/ldap_run.sh
   - composer self-update
   - sed -e '/"php":/d' -i composer.json
   - rm -f composer.lock
-  - composer install --optimize-autoloader
+  - cp tests/travis.parameters.yaml tests/parameters.yaml
+  - nvm install --lts=dubnium # update node to dubnium LTS version (node v10.x + npm v6.9.0)
+  - bin/console dependencies install --ci
+  - mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root mysql
   - mysql -u root -e 'create database glpitest;'
-  - php tools/cliinstall.php --db=glpitest --user=root --tests
-  - php tools/cliupdate.php --config-dir=../tests |grep -q "No migration needed." || (echo "tools/cliupdate.php FAILED" && exit 1)
-  - php -S localhost:8088 tests/router.php &>/dev/null &
+  - bin/console glpi:database:install --config-dir=./tests --no-interaction --db-name=glpitest --db-user=root
+  - ./tests/LDAP/ldap_fixtures.sh > /dev/null
 
 script:
   - mysql -u root -e 'select version();'
-  - vendor/bin/phpunit --verbose
-  - if [[ ${TRAVIS_PHP_VERSION:0:3} == "7.1" ]]; then vendor/bin/phpcs -p --standard=vendor/glpi-project/coding-standard/GlpiStandard/ --ignore=/vendor/,/plugins/,/files/,/lib/,/config/,/tests/config ./; fi
+  - composer testldap
 
 #note: default maria version is 5.5 for all main php versions list exept nightly
 matrix:
   include:
-    - php: 5.6
-      addons:
-        mariadb: 10.0
-    - php: 5.6
-      addons:
-        mariadb: 10.1
     - php: 7.0
       addons:
-        mariadb: 10.0
-    - php: 7.0
-      addons:
-        mariadb: 10.1
-    - php: 7.1
-      addons:
-        mariadb: 10.0
+        mariadb: 10.2
+        apt:
+          packages:
+            - ldap-utils
+            - slapd
     - php: 7.1
       addons:
         mariadb: 10.1
+        apt:
+          packages:
+            - ldap-utils
+            - slapd
+    - php: 7.2
+      addons:
+        apt:
+          packages:
+            - ldap-utils
+            - slapd
+    - php: 7.3
+      addons:
+        apt:
+          packages:
+            - ldap-utils
+            - slapd
+    - php: 7.4snapshot
+      addons:
+        apt:
+          packages:
+            - ldap-utils
+            - slapd
     - php: nightly
       addons:
-        mariadb: 10.1
+        apt:
+          packages:
+            - ldap-utils
+            - slapd
   allow_failures:
     - php: nightly
+    - php: 7.4snapshot
 
 cache:
   directories:
@@ -57,7 +75,7 @@ cache:
 notifications:
   irc:
     channels:
-      - "irc.freenode.org#glpi"
+      - "chat.freenode.org#glpi"
     on_success: change
     on_failure: always
     use_notice: true
